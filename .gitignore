@@ -1,0 +1,22 @@
+# Entornos y cachés locales
+.venv/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.pyc
+
+# Datos y ejecuciones reproducibles
+simulacion/data/prepared/
+simulacion/data/downloads/
+simulacion/outputs/
+simulacion/data/*.rar
+
+# Archivos temporales de documentación
+propuesta-primera-entrega/tmp/pdfs/
+simulacion/output/pdf/build/
+
+# Archivos auxiliares generados por LaTeX
+*.aux
+*.log
+*.out
+*.toc

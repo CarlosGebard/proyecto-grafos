@@ -1,0 +1,11 @@
+# Piloto rural de Paine/Buin; no toda la Región Metropolitana.
+# Si se dispone de ALOS local, sustituir por dem = "ruta/al/DEM.jp2".
+region = "metropolitana"
+bbox = [-70.95, -33.85, -70.75, -33.65]
+dem_source = "copernicus"
+k = 5
+candidate_spacing_m = 5000.0
+max_distance_m = 30000.0
+antenna_height_m = 30.0
+receiver_height_m = 1.5
+output = "outputs/metropolitana"

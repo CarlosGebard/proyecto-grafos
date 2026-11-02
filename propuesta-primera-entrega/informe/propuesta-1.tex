@@ -1,0 +1,155 @@
+\documentclass[12pt,letterpaper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish,es-tabla]{babel}
+\usepackage[left=3cm,right=2.4cm,top=2.7cm,bottom=2.7cm]{geometry}
+\usepackage{amsmath,amssymb,booktabs,array,enumitem,xcolor,tikz,fancyhdr,lastpage}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[hidelinks]{hyperref}
+\usetikzlibrary{positioning}
+\definecolor{accent}{RGB}{54,74,89}
+\setlength{\parskip}{0.45em}
+\setlength{\parindent}{0pt}
+\setlength{\headheight}{23pt}
+\setlength{\emergencystretch}{1em}
+\pagestyle{fancy} \fancyhf{}
+\fancyhead[L]{\includegraphics[width=4.6cm]{../imagen.png}}
+\fancyhead[R]{\small Propuesta de proyecto semestral}
+\fancyfoot[C]{\small \thepage\ de \pageref{LastPage}}
+\newcommand{\projectname}{Optimización de Cobertura Territorial mediante Grafos}
+\newcommand{\userrole}{Unidad de Planificación de Conectividad Territorial}
+\begin{document}
+\begin{titlepage}
+\centering\vspace*{1.2cm}
+\includegraphics[width=1.55cm]{../logo.png}\par
+\vspace{0.25cm}{\large Facultad de Ingeniería y Ciencias\par}
+{\large Grafos y Algoritmos\par}
+\vspace{1.55cm}\color{accent}\rule{\textwidth}{1.2pt}\par
+\vspace{1.1cm}\color{black}{\Huge\bfseries \projectname\par}
+\vspace{0.6cm}{\Large Propuesta de Proyecto Semestral\par}
+\vspace{1.1cm}\color{accent}\rule{\textwidth}{1.2pt}\par
+\vfill
+\begin{tabular}{rl}
+\textbf{Integrantes:} & Fernando Llancao \\
+& Carlos Jara \\[0.35cm]
+\textbf{Profesor:} & Suchan
+\end{tabular}
+\vfill Santiago, Chile\\ Septiembre de 2026
+\end{titlepage}
+\pagenumbering{roman}\tableofcontents\newpage\pagenumbering{arabic}
+
+\section{Resumen}
+Esta propuesta prioriza sitios de infraestructura inalámbrica para maximizar la población territorialmente cubierta. El usuario es una \userrole{}, que debe transformar datos de localidades, relieve y alternativas de emplazamiento en una priorización explicable. El problema se formula como \emph{Maximum Coverage} ponderado sobre un grafo bipartito: una arista indica cobertura potencial y cada localidad tiene como peso su población.
+
+La construcción geográfica del grafo se separa de la optimización combinatoria. Se optará por una solución exacta: se evaluarán todas las combinaciones viables de candidatos hasta el límite $k$ y se elegirá la de mayor cobertura poblacional. Antes de construir el grafo, los Planes Reguladores Comunales (PRC) filtrarán territorialmente los sitios candidatos. El prototipo entregará sitios priorizados, población única cubierta, porcentaje y tiempo de ejecución. Su alcance es apoyar prefactibilidad territorial; no certifica cobertura radioeléctrica ni autoriza instalaciones.
+
+\section{Usuario}
+\subsection{Perfil y contexto de decisión}
+El usuario directo es el profesional de una \textbf{unidad de planificación de conectividad territorial}: por ejemplo, un equipo técnico de gobierno regional, municipalidad o programa público que prepara una cartera de proyectos. No instala ni opera necesariamente cada antena. Debe decidir qué sitios conviene estudiar o financiar cuando el presupuesto permite intervenir sólo un número limitado de ubicaciones.
+
+En su trabajo integra cartografía de localidades, población, topografía, presupuesto y antecedentes de emplazamientos. Además comunica su recomendación a autoridades, comunidades, operadores y equipos de terreno. Necesita entonces una respuesta trazable: debe explicar qué localidades cubre cada alternativa, cuánta población nueva aporta y por qué no se contabiliza más de una vez a una localidad alcanzada por varios sitios.
+
+La necesidad es pertinente en Chile, donde la expansión de conectividad hacia localidades rurales y aisladas requiere priorizar recursos limitados. Existen antecedentes geográficos, poblacionales, topográficos y territoriales que permiten una primera evaluación antes de invertir en campañas de terreno y diseños de red detallados. Su procedencia y condiciones de uso se documentan al final de la propuesta.
+
+\section{Problema}
+\subsection{Situación actual y brecha}
+El usuario puede tener mapas, población y modelos de elevación, pero dichas capas no producen por sí mismas una decisión global. Comparar candidatos individualmente puede elegir sitios que cubren repetidamente las mismas localidades e ignorar el relieve entre sitio y demanda. Una selección manual también es difícil de repetir al cambiar el presupuesto $k$, el área o los datos.
+
+La brecha es la falta de un procedimiento reproducible que, dado un límite de recursos, seleccione un conjunto de sitios, mida la población adicional aportada por cada decisión y contraste una solución rápida con el óptimo en casos pequeños. El proyecto resuelve esta brecha en la fase de priorización, no en el diseño electromagnético final.
+
+\subsection{Definición operacional y decisión a apoyar}
+Dada un área de estudio, ubicaciones candidatas y un máximo $k$ de instalaciones, se debe escoger hasta $k$ candidatos para maximizar la población de localidades potencialmente cubiertas. Una localidad alcanzable por varios candidatos se contabiliza una sola vez. La cobertura se define inicialmente por distancia máxima y visibilidad de línea de vista sobre un modelo digital de elevación (DEM).
+
+\begin{quote}\itshape
+¿Qué conjunto de hasta $k$ ubicaciones candidatas maximiza la población única potencialmente cubierta en el área de estudio, según los datos de localidades, elevación y visibilidad definidos?
+\end{quote}
+
+\subsubsection{Dimensiones y decisiones}
+\begin{table}[h]
+\centering\small
+\begin{tabular}{p{3.2cm}p{10cm}}
+\toprule
+\textbf{Dimensión} & \textbf{Definición} \\
+\midrule
+Territorial y topográfica & Área de estudio en Chile, expresada en UTM local; el DEM permite evaluar obstrucciones en la línea de vista. \\
+Demanda & Localidades con geometría y población conocida; cada localidad conserva su peso poblacional. \\
+Regulatoria & El PRC vigente filtra los candidatos según zonificación y normativa territorial aplicable. \\
+Recursos y decisión & Se eligen hasta $k$ sitios candidatos para maximizar población única cubierta. \\
+\bottomrule
+\end{tabular}
+\caption{Dimensiones relevantes del problema.}
+\end{table}
+
+\section{Propuesta de solución}
+
+\subsection{Objetivo central}
+\textbf{Diseñar y evaluar un prototipo basado en grafos que seleccione hasta $k$ ubicaciones candidatas para maximizar la población única potencialmente cubierta en un territorio, considerando el filtro del PRC, distancia y visibilidad topográfica.}
+
+El objetivo responde a la brecha detectada: sustituye una priorización manual o por cobertura individual por un proceso reproducible que considera simultáneamente territorio, regulación, población y contribución conjunta de los sitios. Las siguientes etapas desarrollan los objetivos específicos de preparación de datos, filtrado territorial, construcción del grafo, resolución y evaluación.
+
+\subsection{Construcción y resolución del modelo}
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=0.45cm, box/.style={draw=accent,rounded corners,align=center,text width=2.55cm,minimum height=1.05cm,fill=accent!8}, every node/.style={font=\small}, arr/.style={-latex,thick,draw=accent}]
+\node[box] (a) {Territorio, localidades y población};
+\node[box,right=of a] (b) {Candidatos permitidos por el PRC};
+\node[box,right=of b] (c) {Grafo de cobertura};
+\node[box,right=of c] (d) {Solución exacta};
+\draw[arr] (a)--(b); \draw[arr] (b)--(c); \draw[arr] (c)--(d);
+\end{tikzpicture}
+\caption{Resumen continuo del método propuesto.}
+\label{fig:flujo}
+\end{figure}
+
+\subsubsection{Del territorio al grafo}
+El procedimiento se entiende en cuatro pasos. Primero se delimita el territorio y se ubican las localidades con su población. Segundo, el PRC descarta las ubicaciones donde no corresponde estudiar una instalación. Tercero, para cada candidato restante se verifica qué localidades podría cubrir considerando distancia y relieve. Esa relación se representa mediante un grafo. Finalmente, se elige de forma exacta el mejor conjunto de hasta $k$ antenas.
+
+Sea $A$ el conjunto inicial de candidatos y sea $A^\star\subseteq A$ el subconjunto que permanece después del filtro del PRC. Las localidades forman el conjunto $D$. El grafo de cobertura es $G=(A^\star\cup D,E)$: existe una arista $(a_i,d_j)\in E$ sólo si el candidato $a_i$ puede cubrir la localidad $d_j$. Cada localidad tiene un peso $w_j$, correspondiente a su población.
+
+\subsubsection{El problema de cobertura máxima}
+Para cada candidato $a$, sea $C(a)\subseteq D$ el conjunto de localidades conectadas a ese candidato en el grafo. Llamaremos $S$ a una alternativa de instalación: es decir, el conjunto de ubicaciones de antenas que se decide seleccionar. La restricción $S\subseteq A^\star$ indica que sólo puede contener candidatos permitidos por el PRC, y $|S|\leq k$ indica que puede tener como máximo $k$ antenas. Su valor es la suma de la población de todas las localidades que cubre, sin repetir las que aparecen en más de una cobertura:
+\begin{equation}
+\max_{S\subseteq A^\star,|S|\leq k} f(S)
+=\max_{S\subseteq A^\star,|S|\leq k} \sum_{d_j\in\bigcup_{a\in S}C(a)} w_j.
+\label{eq:mc}
+\end{equation}
+La unión de la Ecuación \ref{eq:mc} impide contar población duplicada. Esta formulación corresponde a Maximum Coverage ponderado, un problema NP-difícil \cite{gareyjohnson,nemhauser}.
+
+\subsubsection{Algoritmo exacto por enumeración}
+La solución exacta consiste en probar todas las alternativas permitidas y quedarse con la mejor. Por ejemplo, si después del PRC hay cuatro candidatos $\{a_1,a_2,a_3,a_4\}$ y se permiten dos antenas ($k=2$), se evalúan las seis parejas posibles: $\{a_1,a_2\}$, $\{a_1,a_3\}$, $\{a_1,a_4\}$, $\{a_2,a_3\}$, $\{a_2,a_4\}$ y $\{a_3,a_4\}$. Para cada pareja se calcula la población única cubierta. La pareja con el valor más alto es la respuesta.
+
+En términos generales, el algoritmo genera cada alternativa $S$ de hasta $k$ candidatos, calcula $f(S)$ y conserva la de mayor valor. Al terminar devuelve $S^\star$, el conjunto de antenas seleccionado. Como ninguna combinación admisible queda sin revisar, $S^\star$ es óptima para la instancia, no una aproximación. Si dos alternativas cubren exactamente la misma población, se aplica un orden fijo de identificadores para que el resultado sea reproducible.
+
+La enumeración exacta se selecciona porque el proyecto necesita justificar la mejor alternativa de prefactibilidad. La cantidad máxima de alternativas que se revisan es $\sum_{r=0}^{k}\binom{|A^\star|}{r}$; por ello se fija un límite de combinaciones antes de iniciar la búsqueda. Si la instancia lo supera, se reduce el área o se revisa el conjunto de candidatos. Greedy y programación entera se consideran extensiones futuras, pero no forman parte de la decisión de esta versión.
+
+\subsubsection{Resultados y trazabilidad}
+Cada corrida entregará población única cubierta, porcentaje sobre población conocida, tiempo de enumeración, número de combinaciones evaluadas, candidatos seleccionados y zonas PRC que habilitaron o excluyeron cada candidato. Se usarán instancias sintéticas para comprobar pesos únicos, empates y visibilidad, y un piloto con fuentes geográficas reales bajo los mismos candidatos, PRC, $k$, DEM y regla de cobertura.
+
+\subsection{Supuestos y límites}
+\begin{itemize}
+\item Existe un conjunto finito de candidatos; el PRC filtra compatibilidad territorial, pero no garantiza permisos, energía, acceso vial ni disponibilidad de suelo.
+\item La población es un peso no negativo y se cuenta una sola vez aunque exista cobertura redundante.
+\item Una arista requiere distancia bajo un umbral y línea de vista sin obstrucción del terreno muestreado; elevación faltante nunca se interpreta como cobertura garantizada.
+\item No se modelan pérdidas de propagación, vegetación, edificios, curvatura terrestre, zona de Fresnel, capacidad ni calidad de servicio.
+\end{itemize}
+Por ello, el resultado ordena alternativas de prefactibilidad y muestra dónde profundizar el estudio, pero no certifica cobertura comercial ni reemplaza permisos, revisión de la Dirección de Obras Municipales o mediciones de campo.
+
+\subsection{Resultados esperados y riesgos}
+El prototipo producirá un grafo de cobertura, una selección exacta y una salida geográfica que muestre tanto los candidatos habilitados por el PRC como los descartados. Los riesgos principales son datos desactualizados, puntos interiores como aproximación de localidades, resolución del DEM, vigencia del PRC y diferencia entre visibilidad geométrica y radio real. Se mitigarán registrando fuente, CRS, parámetros, exclusiones y límites. Futuras versiones podrán incorporar costos, restricciones territoriales, vulnerabilidad, sitios existentes, propagación y programación entera.
+
+\subsection{Datos y fuentes utilizadas}
+Al final de cada ejecución se registrará la procedencia de los insumos usados para construir el grafo: localidades, población y cartografía del Censo de Población y Vivienda 2024 del INE \cite{inecenso2024}; elevación desde ALOS PALSAR o Copernicus DEM GLO-30 \cite{copernicus}; PRC vigente obtenido desde la municipalidad competente o los instrumentos publicados por MINVU \cite{minvuprc}; y la regla con que se generaron los candidatos. Esta información no participa en la explicación central del algoritmo, pero permite reproducir y auditar una recomendación.
+
+\section{Conclusión}
+En síntesis, la propuesta entrega a la \userrole{} un modelo claro para priorizar infraestructura con recursos limitados. Usuario, problema, datos y método quedan conectados: el PRC filtra dónde es pertinente estudiar una instalación, el grafo bipartito representa cobertura y la enumeración exacta entrega la mejor selección para la instancia evaluada.
+
+\begin{thebibliography}{9}
+\bibitem{inecenso2024} Instituto Nacional de Estadísticas (INE). \emph{Censo de Población y Vivienda 2024: resultados, base de datos y cartografía censal}. \url{https://www.ine.gob.cl/estadisticas-por-tema/demografia-y-poblacion/censo-de-poblacion-y-vivienda}. Consultado en septiembre de 2026.
+\bibitem{subtelrural} Subsecretaría de Telecomunicaciones de Chile (SUBTEL). \emph{Telefonía Pública Rural}. \url{https://www.subtel.gob.cl/telefonia-publica-rural/}. Consultado en septiembre de 2026.
+\bibitem{subtelaysen} SUBTEL. \emph{Proyecto Fibra Óptica Última Milla conectará localidades rurales de Aysén}. Nota institucional, 2026. Disponible en el sitio institucional de SUBTEL. Consultado en septiembre de 2026.
+\bibitem{minvuprc} Ministerio de Vivienda y Urbanismo (MINVU). \emph{¿Qué es un Plan Regulador Comunal?}. Instrumento de planificación territorial conforme al artículo 41 de la LGUC. \url{https://www.minvu.gob.cl/preguntas-frecuentes/urbanismo-y-construccion/que-es-un-plan-regulador-comunal/}. Consultado en septiembre de 2026.
+\bibitem{copernicus} Copernicus Data Space Ecosystem. \emph{Copernicus DEM: Global and European Digital Elevation Model}. Documentación del producto, 2026. Consultado en septiembre de 2026.
+\bibitem{nemhauser} G. L. Nemhauser, L. A. Wolsey y M. L. Fisher. An analysis of approximations for maximizing submodular set functions---I. \emph{Mathematical Programming}, 14:265--294, 1978. \url{https://doi.org/10.1007/BF01588971}.
+\bibitem{gareyjohnson} M. R. Garey y D. S. Johnson. \emph{Computers and Intractability: A Guide to the Theory of NP-Completeness}. W. H. Freeman, 1979.
+\end{thebibliography}
+\end{document}
