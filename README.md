@@ -15,6 +15,8 @@ La propuesta inicial y la simulación V1 están terminadas. La simulación crea 
 
 Requiere Python 3.12+, `uv` y `7z` sólo si los archivos RAR aún no están extraídos.
 
+> Los archivos geoespaciales pesados (`simulacion/data/*.rar`) no se subieron a GitHub. Para ejecutar el piloto, deben estar disponibles localmente en `simulacion/data/`; el [runbook](simulacion/docs/runbooks/pipeline.md) describe las fuentes y alternativas.
+
 ```bash
 git clone https://github.com/CarlosGebard/proyecto-grafos.git
 cd proyecto-grafos/simulacion
