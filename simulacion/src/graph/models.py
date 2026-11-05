@@ -24,6 +24,8 @@ class AntennaCandidate:
     longitude: float
     elevation: float
     point: Point
+    constraint_status: str = "not_evaluated"
+    constraint_rule: str | None = None
 
 
 @dataclass

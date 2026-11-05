@@ -2,7 +2,7 @@
 
 import geopandas as gpd
 from pyproj import CRS
-from shapely.geometry import box
+from shapely.geometry import Point, box
 from shapely.geometry.base import BaseGeometry
 
 PRESETS = {
@@ -12,10 +12,32 @@ PRESETS = {
 
 
 def study_area(
-    region: str, bbox: tuple[float, ...] | None = None, polygon: str | None = None
+    region: str,
+    bbox: tuple[float, ...] | None = None,
+    polygon: str | None = None,
+    center: tuple[float, float] | None = None,
+    study_size_m: float | None = None,
 ) -> tuple[BaseGeometry, CRS]:
-    if bbox is not None and polygon:
-        raise ValueError("Elegir bbox o polígono, no ambos")
+    if sum(value is not None for value in (bbox, polygon, center)) > 1:
+        raise ValueError("Elegir bbox, polígono o centro/tamaño, no combinarlos")
+    if (center is None) != (study_size_m is None):
+        raise ValueError("center y study_size_m deben usarse juntos")
+    if center:
+        longitude, latitude = center
+        center_point = Point(longitude, latitude)
+        crs = gpd.GeoSeries([center_point], crs=4326).estimate_utm_crs()
+        if crs is None:
+            raise ValueError("No se pudo determinar UTM para el centro")
+        metric_center = gpd.GeoSeries([center_point], crs=4326).to_crs(crs).iloc[0]
+        half = study_size_m / 2
+        metric_area = box(
+            metric_center.x - half,
+            metric_center.y - half,
+            metric_center.x + half,
+            metric_center.y + half,
+        )
+        area = gpd.GeoSeries([metric_area], crs=crs).to_crs(4326).iloc[0]
+        return area, CRS(crs)
     if polygon:
         frame = gpd.read_file(polygon)
         if frame.empty or frame.crs is None:

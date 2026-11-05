@@ -1,0 +1,23 @@
+# Visor didáctico de conectividad
+
+Página estática para explicar cobertura y conectividad LOS entre antenas. No tiene dependencias ni ejecuta el pipeline.
+
+Desde `simulacion/`:
+
+```bash
+python -m http.server 8000
+```
+
+Abrir <http://localhost:8000/web-conectividad/>.
+
+Para compartir una sesión temporal, en otra terminal y con el servidor local activo:
+
+```bash
+cloudflared tunnel --url http://127.0.0.1:8000
+```
+
+La URL `trycloudflare.com` que entregue Cloudflare sólo dura mientras el túnel siga activo; no se versiona como enlace permanente.
+
+La página permite alternar entre un ejemplo pequeño, el mapa del piloto Biobío y `Yumbel 50 km · PRC`. Esta última pestaña carga la corrida `outputs/yumbel-50km-prc-screening/` y ofrece el control `Restricciones PRC` para mostrar u ocultar en rojo las exclusiones territoriales explícitas. Las demás zonas siguen como “sin clasificación” y no se presentan como prohibidas. La conectividad exige un único componente de antenas seleccionadas. No representa gateway, capacidad, permisos ni cobertura radioeléctrica certificada.
+
+El activo `assets/radio-tower.svg` es el ícono Radio Tower de GitHub Octicons, obtenido desde Wikimedia Commons bajo licencia MIT. Fuente: <https://commons.wikimedia.org/wiki/File:Octicons-radio-tower.svg>.

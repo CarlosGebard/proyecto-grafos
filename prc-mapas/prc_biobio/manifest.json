@@ -1,0 +1,308 @@
+[
+  {
+    "id": 0,
+    "name": "PRC_Alto_Biobio_Area_de_riesgo",
+    "file": "00_PRC_Alto_Biobio_Area_de_riesgo.geojson",
+    "features": 2
+  },
+  {
+    "id": 1,
+    "name": "PRC_Alto_Biobio",
+    "file": "01_PRC_Alto_Biobio.geojson",
+    "features": 24
+  },
+  {
+    "id": 2,
+    "name": "PRC_Antuco_Area_de_riesgo",
+    "file": "02_PRC_Antuco_Area_de_riesgo.geojson",
+    "features": 1
+  },
+  {
+    "id": 3,
+    "name": "PRC_Antuco",
+    "file": "03_PRC_Antuco.geojson",
+    "features": 13
+  },
+  {
+    "id": 4,
+    "name": "PRC_Arauco_Area_de_riesgo",
+    "file": "04_PRC_Arauco_Area_de_riesgo.geojson",
+    "features": 15
+  },
+  {
+    "id": 5,
+    "name": "PRC_Arauco",
+    "file": "05_PRC_Arauco.geojson",
+    "features": 55
+  },
+  {
+    "id": 6,
+    "name": "PRC_Cabrero",
+    "file": "06_PRC_Cabrero.geojson",
+    "features": 308
+  },
+  {
+    "id": 7,
+    "name": "PRC_Canete",
+    "file": "07_PRC_Canete.geojson",
+    "features": 135
+  },
+  {
+    "id": 8,
+    "name": "Seccional_Lago_Lanalhue_Canete",
+    "file": "08_Seccional_Lago_Lanalhue_Canete.geojson",
+    "features": 52
+  },
+  {
+    "id": 9,
+    "name": "PRC_Chiguayante",
+    "file": "09_PRC_Chiguayante.geojson",
+    "features": 220
+  },
+  {
+    "id": 10,
+    "name": "Seccional_Concepcion_Barrio_Palomares",
+    "file": "10_Seccional_Concepcion_Barrio_Palomares.geojson",
+    "features": 1
+  },
+  {
+    "id": 11,
+    "name": "Seccional_Concepcion_Ribera_Norte",
+    "file": "11_Seccional_Concepcion_Ribera_Norte.geojson",
+    "features": 120
+  },
+  {
+    "id": 12,
+    "name": "PRC_Concepcion",
+    "file": "12_PRC_Concepcion.geojson",
+    "features": 3147
+  },
+  {
+    "id": 13,
+    "name": "PRC_Contulmo_riesgos",
+    "file": "13_PRC_Contulmo_riesgos.geojson",
+    "features": 153
+  },
+  {
+    "id": 14,
+    "name": "PRC_Contulmo",
+    "file": "14_PRC_Contulmo.geojson",
+    "features": 125
+  },
+  {
+    "id": 15,
+    "name": "PRC_Coronel_Area_de_riesgo",
+    "file": "15_PRC_Coronel_Area_de_riesgo.geojson",
+    "features": 193
+  },
+  {
+    "id": 16,
+    "name": "PRC_Coronel",
+    "file": "16_PRC_Coronel.geojson",
+    "features": 58
+  },
+  {
+    "id": 17,
+    "name": "PRC_Curanilahue_Area_de_Riesgo",
+    "file": "17_PRC_Curanilahue_Area_de_Riesgo.geojson",
+    "features": 13
+  },
+  {
+    "id": 18,
+    "name": "PRC_Curanilahue",
+    "file": "18_PRC_Curanilahue.geojson",
+    "features": 10
+  },
+  {
+    "id": 19,
+    "name": "PRC_Florida",
+    "file": "19_PRC_Florida.geojson",
+    "features": 35
+  },
+  {
+    "id": 20,
+    "name": "PRC_Hualpen_ZNE_linea",
+    "file": "20_PRC_Hualpen_ZNE_linea.geojson",
+    "features": 2
+  },
+  {
+    "id": 21,
+    "name": "PRC_Hualpen_Area_de_riesgo",
+    "file": "21_PRC_Hualpen_Area_de_riesgo.geojson",
+    "features": 32
+  },
+  {
+    "id": 22,
+    "name": "PRC_Hualpen_ZNE_poligono",
+    "file": "22_PRC_Hualpen_ZNE_poligono.geojson",
+    "features": 5
+  },
+  {
+    "id": 23,
+    "name": "PRC_Hualpen",
+    "file": "23_PRC_Hualpen.geojson",
+    "features": 446
+  },
+  {
+    "id": 24,
+    "name": "PRC_Huaqui_Zona_no_edificable_Linea_de_gaseoducto",
+    "file": "24_PRC_Huaqui_Zona_no_edificable_Linea_de_gaseoducto.geojson",
+    "features": 1
+  },
+  {
+    "id": 25,
+    "name": "PRC_Hualqui_Zona_no_edificable",
+    "file": "25_PRC_Hualqui_Zona_no_edificable.geojson",
+    "features": 18
+  },
+  {
+    "id": 26,
+    "name": "PRC_Hualqui_Area_de_riesgo",
+    "file": "26_PRC_Hualqui_Area_de_riesgo.geojson",
+    "features": 316
+  },
+  {
+    "id": 27,
+    "name": "PRC_Hualqui",
+    "file": "27_PRC_Hualqui.geojson",
+    "features": 666
+  },
+  {
+    "id": 28,
+    "name": "PRC_Laja_Area_de_riesgo",
+    "file": "28_PRC_Laja_Area_de_riesgo.geojson",
+    "features": 1
+  },
+  {
+    "id": 29,
+    "name": "PRC_Laja",
+    "file": "29_PRC_Laja.geojson",
+    "features": 204
+  },
+  {
+    "id": 30,
+    "name": "Seccional_del_Laja_Balneario",
+    "file": "30_Seccional_del_Laja_Balneario.geojson",
+    "features": 1
+  },
+  {
+    "id": 31,
+    "name": "PRC_Lebu",
+    "file": "31_PRC_Lebu.geojson",
+    "features": 191
+  },
+  {
+    "id": 32,
+    "name": "PRC_Los_Alamos",
+    "file": "32_PRC_Los_Alamos.geojson",
+    "features": 76
+  },
+  {
+    "id": 33,
+    "name": "PRC_Los_Angeles",
+    "file": "33_PRC_Los_Angeles.geojson",
+    "features": 436
+  },
+  {
+    "id": 34,
+    "name": "PRC_Lota",
+    "file": "34_PRC_Lota.geojson",
+    "features": 26
+  },
+  {
+    "id": 35,
+    "name": "PRC_Mulchen",
+    "file": "35_PRC_Mulchen.geojson",
+    "features": 15
+  },
+  {
+    "id": 36,
+    "name": "PRC_Nacimiento_Area_de_riesgo",
+    "file": "36_PRC_Nacimiento_Area_de_riesgo.geojson",
+    "features": 10
+  },
+  {
+    "id": 37,
+    "name": "PRC_Nacimiento",
+    "file": "37_PRC_Nacimiento.geojson",
+    "features": 116
+  },
+  {
+    "id": 38,
+    "name": "Plano_Seccional_La_Toma_Negrete",
+    "file": "38_Plano_Seccional_La_Toma_Negrete.geojson",
+    "features": 1
+  },
+  {
+    "id": 39,
+    "name": "PRC_Negrete",
+    "file": "39_PRC_Negrete.geojson",
+    "features": 25
+  },
+  {
+    "id": 40,
+    "name": "PRC_Penco",
+    "file": "40_PRC_Penco.geojson",
+    "features": 221
+  },
+  {
+    "id": 41,
+    "name": "Seccional_San_Pedro_de_La_Paz_Venado ",
+    "file": "41_Seccional_San_Pedro_de_La_Paz_Venado_.geojson",
+    "features": 41
+  },
+  {
+    "id": 42,
+    "name": "PRC_San_Pedro_de_la_Paz",
+    "file": "42_PRC_San_Pedro_de_la_Paz.geojson",
+    "features": 730
+  },
+  {
+    "id": 43,
+    "name": "PRC_Santa_Barbara",
+    "file": "43_PRC_Santa_Barbara.geojson",
+    "features": 61
+  },
+  {
+    "id": 44,
+    "name": "PRC_Santa_Juana",
+    "file": "44_PRC_Santa_Juana.geojson",
+    "features": 26
+  },
+  {
+    "id": 45,
+    "name": "PRC_Talcahuano",
+    "file": "45_PRC_Talcahuano.geojson",
+    "features": 304
+  },
+  {
+    "id": 46,
+    "name": "PRC_Tirua_Area_de_riesgo",
+    "file": "46_PRC_Tirua_Area_de_riesgo.geojson",
+    "features": 12
+  },
+  {
+    "id": 47,
+    "name": "PRC_Tirua",
+    "file": "47_PRC_Tirua.geojson",
+    "features": 60
+  },
+  {
+    "id": 48,
+    "name": "PRC_Tome",
+    "file": "48_PRC_Tome.geojson",
+    "features": 201
+  },
+  {
+    "id": 49,
+    "name": "PRC_Yumbel",
+    "file": "49_PRC_Yumbel.geojson",
+    "features": 319
+  },
+  {
+    "id": 50,
+    "name": "Limite_Urbano",
+    "file": "50_Limite_Urbano.geojson",
+    "features": 64
+  }
+]

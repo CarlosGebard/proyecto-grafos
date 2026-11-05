@@ -12,18 +12,21 @@ from importlib.metadata import version
 from pathlib import Path
 from time import perf_counter
 
-from src.algorithms.exact import exact
+from src.algorithms.exact import exact, exact_connected
 from src.config import PipelineConfig
 from src.data.dem import copernicus_tiles, prepare_dem
+from src.data.osm import OSM_ATTRIBUTION, roads_from_geopackage, roads_geojson
 from src.data.population import load_population
 from src.data.prepare import SUBDERE_PAGE, fingerprint, prepare_alos, prepare_population
 from src.evaluation.metrics import metrics
 from src.geo.area import project_geometry, study_area
 from src.geo.candidates import generate_candidates
-from src.geo.coverage import compute_coverage
+from src.geo.constraints import apply_prc_constraints, load_prc_constraints
+from src.geo.coverage import compute_connectivity, compute_coverage
 from src.geo.elevation import ElevationModel
 from src.graph.builder import build_graph
 from src.visualization.map import export_map
+from src.visualization.terrain import terrain_payload
 
 LOG = logging.getLogger(__name__)
 
@@ -38,7 +41,13 @@ def write_json(path: Path, value) -> None:
 def run(config: PipelineConfig) -> dict:
     started = perf_counter()
     config.validate()
-    area, crs = study_area(config.region, config.bbox, config.polygon)
+    area, crs = study_area(
+        config.region,
+        config.bbox,
+        config.polygon,
+        config.center,
+        config.study_size_m,
+    )
     output = Path(config.output)
     # No mezclar resultados de parámetros diferentes ni sobrescribir entradas.
     if output.exists() and any(output.iterdir()):
@@ -97,12 +106,32 @@ def run(config: PipelineConfig) -> dict:
 
     step = perf_counter()
     metric_area = project_geometry(area, 4326, crs)
-    candidates, candidate_audit = generate_candidates(
+    all_candidates, candidate_audit = generate_candidates(
         metric_area, dem, config.candidate_spacing_m, config.max_candidates
     )
+    constraints = None
+    prc_audit = None
+    candidates = all_candidates
+    excluded_candidates = []
+    if config.prc_directory:
+        constraints, excluded_geometry = load_prc_constraints(
+            config.prc_directory, area, crs
+        )
+        candidates, excluded_candidates, prc_audit = apply_prc_constraints(
+            all_candidates, constraints, excluded_geometry, config.prc_mode
+        )
+        all_candidates = [*candidates, *excluded_candidates]
+        constraints.to_crs(4326).to_file(
+            output / "constraints.geojson", driver="GeoJSON"
+        )
+        LOG.info(
+            "3. PRC: %s candidatos válidos; %s excluidos",
+            len(candidates),
+            len(excluded_candidates),
+        )
     if not candidates:
         raise ValueError(
-            "No hay candidatos válidos: reducir spacing o revisar el DEM/área"
+            "No hay candidatos válidos tras restricciones PRC; usar screening o revisar reglas"
         )
     timings["candidates"] = perf_counter() - step
     LOG.info("3. %s candidatos generados", len(candidates))
@@ -120,11 +149,33 @@ def run(config: PipelineConfig) -> dict:
     graph = build_graph(candidates, demands, coverage)
     timings["coverage_graph"] = perf_counter() - step
     LOG.info("4. Grafo calculado: %s aristas", coverage_audit["num_edges"])
+    step = perf_counter()
+    connectivity, connectivity_audit = compute_connectivity(
+        candidates,
+        dem,
+        config.max_distance_m,
+        config.antenna_height_m,
+        config.sample_step_m,
+        config.max_pairs,
+    )
+    timings["connectivity_graph"] = perf_counter() - step
+    LOG.info("5. Enlaces entre antenas: %s", connectivity_audit["num_edges"])
     exact_solution = exact(graph, config.k, config.max_combinations)
-    LOG.info("5. Exacto: %.0f habitantes cubiertos", exact_solution.population_covered)
+    connected_solution = exact_connected(
+        graph, connectivity, config.k, config.max_combinations
+    )
+    LOG.info("6. Exacto: %.0f habitantes cubiertos", exact_solution.population_covered)
+    LOG.info(
+        "7. Exacto conectado: %.0f habitantes cubiertos",
+        connected_solution.population_covered,
+    )
     report = {
-        "results": [metrics(graph, exact_solution, config.k)],
+        "results": [
+            metrics(graph, exact_solution, config.k),
+            metrics(graph, connected_solution, config.k),
+        ],
         "exact": {"status": "completed"},
+        "exact_connected": {"status": "completed"},
     }
     write_json(
         output / "graph.json",
@@ -134,10 +185,45 @@ def run(config: PipelineConfig) -> dict:
         },
     )
     write_json(output / "metrics.json", report)
-    LOG.info("6. Métricas exportadas")
+    write_json(
+        output / "connectivity.json",
+        {candidate: sorted(neighbors) for candidate, neighbors in connectivity.items()},
+    )
+    LOG.info("8. Métricas y conectividad exportadas")
+    osm_audit = None
+    if config.osm_roads or config.download_osm_roads:
+        step = perf_counter()
+        roads = (
+            roads_from_geopackage(config.osm_roads, area.bounds)
+            if config.osm_roads
+            else roads_geojson(area.bounds)
+        )
+        write_json(output / "roads.geojson", roads)
+        timings["osm_roads"] = perf_counter() - step
+        osm_audit = {
+            "source": (
+                "OpenStreetMap Geofabrik GeoPackage"
+                if config.osm_roads
+                else "OpenStreetMap via Overpass API"
+            ),
+            "attribution": OSM_ATTRIBUTION,
+            "num_features": len(roads["features"]),
+        }
+        LOG.info("9. Caminos OSM exportados: %s", osm_audit["num_features"])
     step = perf_counter()
-    export_map(demands, candidates, exact_solution, crs, metric_area, output)
+    export_map(
+        demands,
+        all_candidates,
+        exact_solution,
+        crs,
+        metric_area,
+        output,
+        excluded_candidates,
+    )
     timings["visualization"] = perf_counter() - step
+    step = perf_counter()
+    write_json(output / "terrain.json", terrain_payload(dem_path))
+    timings["terrain_export"] = perf_counter() - step
     manifest = {
         "created_utc": datetime.now(timezone.utc).isoformat(),
         "config": asdict(config),
@@ -155,7 +241,10 @@ def run(config: PipelineConfig) -> dict:
             "inputs": [fingerprint(path) for path in sources],
         },
         "candidates": candidate_audit,
+        "prc_constraints": prc_audit,
         "coverage": coverage_audit,
+        "connectivity": connectivity_audit,
+        "osm_roads": osm_audit,
         "model": {
             "name": "distance_and_sampled_los",
             "sample_step_m": config.sample_step_m or dem.resolution_m / 2,
@@ -164,6 +253,7 @@ def run(config: PipelineConfig) -> dict:
             "limitations": [
                 "One interior point represents each full locality",
                 "No curvature, Fresnel, diffraction or radio link budget",
+                "Connected antennas do not imply Internet access or network capacity",
                 "Unknown population excluded, not estimated",
             ],
         },
@@ -182,7 +272,7 @@ def run(config: PipelineConfig) -> dict:
     }
     manifest["pipeline_runtime_seconds"] = perf_counter() - started
     write_json(output / "manifest.json", manifest)
-    LOG.info("7. Mapa y resultados: %s", output)
+    LOG.info("10. Mapa y resultados: %s", output)
     return report
 
 
@@ -219,6 +309,8 @@ def parse_config(argv=None) -> PipelineConfig:
     for flag in [
         "dem",
         "population",
+        "osm-roads",
+        "prc-directory",
         "population-field",
         "id-field",
         "layer",
@@ -226,7 +318,11 @@ def parse_config(argv=None) -> PipelineConfig:
         "output",
     ]:
         parser.add_argument(f"--{flag}")
+    parser.add_argument("--center", nargs=2, type=float, metavar=("LON", "LAT"))
+    parser.add_argument("--study-size-m", type=float)
+    parser.add_argument("--prc-mode", choices=["screening", "strict"])
     parser.add_argument("--download-population", action="store_true", default=None)
+    parser.add_argument("--download-osm-roads", action="store_true", default=None)
     for flag in ["max-combinations", "max-candidates", "max-pairs", "max-dem-pixels"]:
         parser.add_argument(f"--{flag}", type=int)
     args = vars(parser.parse_args(argv))
@@ -242,6 +338,8 @@ def parse_config(argv=None) -> PipelineConfig:
     values.update({key: value for key, value in args.items() if value is not None})
     if "bbox" in values:
         values["bbox"] = tuple(values["bbox"])
+    if "center" in values:
+        values["center"] = tuple(values["center"])
     return PipelineConfig(**values)
 
 

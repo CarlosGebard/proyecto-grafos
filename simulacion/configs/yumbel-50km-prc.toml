@@ -1,0 +1,19 @@
+# Ventana métrica de 50 × 50 km centrada en Yumbel; no es límite comunal.
+region = "biobio"
+center = [-72.556409, -37.127679]
+study_size_m = 50000.0
+k = 5
+# 25 candidatos aproximados: permite la enumeración exacta en esta extensión.
+candidate_spacing_m = 10000.0
+max_distance_m = 30000.0
+antenna_height_m = 30.0
+receiver_height_m = 1.5
+dem_source = "alos"
+dem_resolution_m = 25.0
+prc_directory = "../prc-mapas/prc_biobio"
+# Excluye agua, áreas verdes, drenajes y zonas de riesgo inequívocas.
+# El resto queda como "sin clasificación", no como permiso de construcción.
+prc_mode = "screening"
+osm_roads = "data/prepared/osm/chile.gpkg"
+max_combinations = 100000
+output = "outputs/yumbel-50km-prc-screening"

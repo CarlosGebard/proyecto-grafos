@@ -42,6 +42,14 @@ uv run python -m src.pipeline --polygon mi-area.geojson --population localidades
 
 El archivo de área debe declarar CRS y contener polígonos válidos. Se estima UTM local; grilla, distancias y perfiles usan metros. `--bbox` y `--polygon` son excluyentes. Los presets regionales son ventanas experimentales de unos 20 km por lado. Para procesar límites administrativos propios, pasarlos por `--polygon` y respetar los límites de recursos.
 
+Cuadrado métrico de 50 km con filtro territorial PRC:
+
+```bash
+uv run python -m src.pipeline --config configs/yumbel-50km-prc.toml
+```
+
+`center = [longitud, latitud]` y `study_size_m` crean el cuadrado en UTM, por lo que un valor de `50000` mide exactamente 50 km por lado. `prc_directory` apunta a GeoJSON municipales. En modo `screening` se excluyen sólo agua, áreas verdes, drenajes e inundación/riesgo reconocibles; las zonas restantes se marcan `unknown`. El modo `strict` excluye también las zonas sin regla explícita y requiere una matriz normativa aprobada de zonas permitidas.
+
 ## Configuración
 
 La CLI prevalece sobre los valores TOML. Rutas relativas a la raíz desde la que se ejecuta el comando. Consultar `uv run python -m src.pipeline --help`.
@@ -58,15 +66,23 @@ La CLI prevalece sobre los valores TOML. Rutas relativas a la raíz desde la que
 | `max_candidates` | `--max-candidates` | 10000 |
 | `max_pairs` | `--max-pairs` | 2000000 |
 | `max_dem_pixels` | `--max-dem-pixels` | 10000000 |
+| `center` + `study_size_m` | `--center LON LAT` + `--study-size-m` | — |
+| `prc_directory` | `--prc-directory` | — |
+| `prc_mode` | `--prc-mode` | `screening` |
 
-El paso LOS no puede exceder medio píxel DEM. Alterar la resolución modifica el modelo y puede cambiar aristas. El límite de grilla se aplica antes de filtrar por polígono/NoData. La solución exacta es obligatoria: si excede el límite de combinaciones, la ejecución termina con error y solicita reducir el área o el conjunto de candidatos. Las descargas Copernicus están limitadas a cuatro tiles por estudio.
+El paso LOS no puede exceder medio píxel DEM. Alterar la resolución modifica el modelo y puede cambiar aristas. El límite de grilla se aplica antes de filtrar por polígono/NoData. El pipeline calcula cobertura y conectividad entre candidatos con la misma distancia máxima; un enlace entre antenas usa `antenna_height_m` en ambos extremos. La solución exacta es obligatoria: si excede el límite de combinaciones, la ejecución termina con error y solicita reducir el área o el conjunto de candidatos. Las descargas Copernicus están limitadas a cuatro tiles por estudio.
 
 ## Resultados
 
 | Archivo | Contenido |
 | --- | --- |
 | `graph.json` | Cobertura por candidato y población por localidad; IDs como texto |
-| `metrics.json` | Resultados por algoritmo, k, tamaños, población total/cubierta, porcentaje, tiempo de algoritmo, seleccionadas y cubiertas; estado del exacto y brecha cuando existe |
+| `connectivity.json` | Enlaces LOS no dirigidos entre candidatos; IDs como texto |
+| `terrain.json` | DEM reducido, límites WGS84 y elevaciones para el visor web 3D |
+| `roads.geojson` | Caminos OpenStreetMap, si se usa `--osm-roads <chile.gpkg>` o `--download-osm-roads` |
+| `constraints.geojson` | Polígonos PRC clasificados, sólo si se usa `prc_directory` |
+| `excluded_candidates.geojson` | Candidatos retirados por el filtro PRC, si existen |
+| `metrics.json` | Resultados libre y conectado, k, tamaños, población total/cubierta, porcentaje, tiempo, seleccionadas y cubiertas |
 | `manifest.json` | Parámetros efectivos, bbox, CRS, resolución, versiones, hashes SHA-256 de insumos, exclusiones y tiempos por fase |
 | `dem.tif` | Recorte reproyectado, float32, NoData NaN |
 | `demand.geojson` | Geometrías originales completas, peso y cobertura exacta |
@@ -77,7 +93,7 @@ El paso LOS no puede exceder medio píxel DEM. Alterar la resolución modifica e
 
 Porcentaje = población única cubierta / población conocida de las localidades incluidas × 100. La población desconocida se excluye y queda auditada; la demanda con terreno desconocido permanece en el total como no cubierta. La brecha es fracción, no puntos porcentuales. El tiempo de algoritmo no incluye GIS; los tiempos completos están en el manifiesto.
 
-El mapa representa cobertura en puntos interiores, no cobertura uniforme comprobada en cada polígono. Para revisar la solución exacta, usar sus IDs de `metrics.json` con `candidates.geojson` y `demand.geojson`.
+El mapa representa la solución libre y cobertura en puntos interiores, no cobertura uniforme comprobada en cada polígono. Para revisar ambas soluciones, usar sus IDs de `metrics.json` con `candidates.geojson`, `demand.geojson` y `connectivity.json`.
 
 ## Validación y recuperación
 
@@ -88,6 +104,8 @@ uv run ruff format --check .
 ```
 
 Los tests usan datos controlados en directorios temporales; nunca sustituyen las fuentes reales del piloto. Cubren pesos únicos, comparación exacta con un oráculo independiente, límites, grilla, CRS, lomas, alturas, NoData, recorte, carga poblacional y exportación end-to-end.
+
+La salida PRC es una herramienta de *screening* territorial. No equivale a permiso municipal ni a una autorización sectorial de telecomunicaciones; conservar `manifest.json`, `constraints.geojson` y la configuración usada para revisar cada decisión.
 
 Para repetir una ejecución, elegir un `--output` nuevo: no se sobrescriben resultados existentes. Una ejecución fallida puede dejar un DEM o archivos parciales en la salida; sólo se considera completa si termina con código 0 y existe `manifest.json`. Revisar el error y repetir en otra salida. Los errores de descarga requieren restablecer conectividad o suministrar archivos locales. Si una fuente cacheada está corrupta, moverla a una copia de respaldo antes de descargar de nuevo.
 

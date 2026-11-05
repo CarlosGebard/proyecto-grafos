@@ -4,7 +4,7 @@
 
 ## Dónde estamos
 
-La propuesta inicial y la simulación V1 están terminadas. La simulación crea un grafo de cobertura usando población y relieve, y elige exactamente hasta `k` ubicaciones para maximizar la población cubierta. Consulta [ESTADO.md](ESTADO.md) para resultados, pendientes y límites.
+La simulación crea un grafo de cobertura usando población y relieve, compara cobertura libre con cobertura conectada y elige exactamente hasta `k` ubicaciones. Incluye un escenario de 50 × 50 km centrado en Yumbel que superpone restricciones territoriales PRC como *screening*, sin presentarlas como permiso de construcción.
 
 ## Carpetas
 
@@ -34,3 +34,21 @@ uv run ruff format --check .
 ```
 
 Para otros comandos, fuentes de datos y resultados, ver el [README de simulación](simulacion/README.md) y el [runbook](simulacion/docs/runbooks/pipeline.md).
+
+## Visor web
+
+El visor didáctico principal es **Yumbel 50 km · PRC**. Desde `simulacion/`:
+
+```bash
+python -m http.server 8000
+```
+
+Abrir <http://localhost:8000/web-conectividad/>. La capa PRC se puede activar desde su botón; muestra exclusiones territoriales explícitas y no permisos de instalación.
+
+Para compartir una sesión temporal con un equipo, con el servidor local en ejecución:
+
+```bash
+cloudflared tunnel --url http://127.0.0.1:8000
+```
+
+Cloudflare entregará una URL temporal `trycloudflare.com`, activa sólo mientras se mantengan abiertos el servidor y el túnel. Para una URL estable se requiere un túnel nombrado y un dominio configurado en Cloudflare.

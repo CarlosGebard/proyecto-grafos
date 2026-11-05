@@ -6,11 +6,12 @@ import numpy as np
 import pytest
 import rasterio
 from rasterio.transform import from_origin
-from shapely.geometry import Point, box
+from shapely.geometry import LineString, Point, box
 
 from src.algorithms.exact import ExactLimitExceeded
 from src.config import PipelineConfig
 from src.data.dem import copernicus_tiles, prepare_dem
+from src.data.osm import roads_from_geodataframe, roads_from_overpass
 from src.data.population import load_population
 from src.geo.area import project_geometry, study_area
 from src.pipeline import parse_config, run
@@ -90,12 +91,15 @@ def test_pipeline_exports_and_exact_skip(study_inputs, tmp_path):
     report = run(config)
     assert report["results"][0]["population_covered"] == 30
     assert report["results"][0]["algorithm"] == "exact"
+    assert report["results"][1]["algorithm"] == "exact_connected"
     output = tmp_path / "run"
     assert {
         "dem.tif",
         "map.png",
         "metrics.json",
         "graph.json",
+        "connectivity.json",
+        "terrain.json",
         "manifest.json",
         "demand.geojson",
         "candidates.geojson",
@@ -104,6 +108,10 @@ def test_pipeline_exports_and_exact_skip(study_inputs, tmp_path):
     } <= {p.name for p in output.iterdir()}
     graph = json.loads((output / "graph.json").read_text())
     assert graph["population"] == {"x": 10, "y": 20}
+    terrain = json.loads((output / "terrain.json").read_text())
+    assert terrain["width"] <= 96 and terrain["height"] <= 96
+    assert terrain["bounds_metric_m"][2] > terrain["bounds_metric_m"][0]
+    assert terrain["elevation_max_m"] >= terrain["elevation_min_m"]
     manifest = json.loads((output / "manifest.json").read_text())
     assert len(manifest["population"]["files"][0]["sha256"]) == 64
     assert gpd.read_file(output / "demand.geojson").crs.to_epsg() == 4326
@@ -127,6 +135,46 @@ def test_cli_config_precedence_and_area(tmp_path):
         PipelineConfig(candidate_spacing_m=float("nan")).validate()
     with pytest.raises(ValueError):
         PipelineConfig(k=-1).validate()
+
+
+def test_roads_from_overpass_keeps_only_valid_ways():
+    roads = roads_from_overpass(
+        {
+            "elements": [
+                {
+                    "type": "way",
+                    "id": 17,
+                    "tags": {"highway": "tertiary", "name": "Camino Rural"},
+                    "geometry": [
+                        {"lat": -37.2, "lon": -72.6},
+                        {"lat": -37.21, "lon": -72.59},
+                    ],
+                },
+                {"type": "way", "id": 18, "tags": {}, "geometry": []},
+            ]
+        }
+    )
+    assert roads["attribution"] == "© OpenStreetMap contributors"
+    assert roads["features"][0]["geometry"]["type"] == "LineString"
+    assert roads["features"][0]["properties"]["name"] == "Camino Rural"
+
+
+def test_roads_from_geodataframe_keeps_supported_road_classes():
+    frame = gpd.GeoDataFrame(
+        {
+            "osm_id": [1, 2],
+            "fclass": ["primary", "footway"],
+            "name": ["Ruta", "Sendero"],
+        },
+        geometry=[
+            LineString([(-72.6, -37.2), (-72.59, -37.21)]),
+            LineString([(-72.6, -37.2), (-72.58, -37.22)]),
+        ],
+        crs=4326,
+    )
+    roads = roads_from_geodataframe(frame)
+    assert len(roads["features"]) == 1
+    assert roads["features"][0]["properties"]["highway"] == "primary"
 
 
 def test_copernicus_tile_names_and_guard(tmp_path, monkeypatch):

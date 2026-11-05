@@ -13,7 +13,9 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
 
-def export_map(demands, candidates, solution, crs, area, output: Path) -> None:
+def export_map(
+    demands, candidates, solution, crs, area, output: Path, excluded_candidates=None
+) -> None:
     demand = gpd.GeoDataFrame(
         [
             {
@@ -36,6 +38,8 @@ def export_map(demands, candidates, solution, crs, area, output: Path) -> None:
                 "latitude": a.latitude,
                 "longitude": a.longitude,
                 "selected": a.id in solution.selected,
+                "constraint_status": a.constraint_status,
+                "constraint_rule": a.constraint_rule,
                 "geometry": a.point,
             }
             for a in candidates
@@ -56,6 +60,10 @@ def export_map(demands, candidates, solution, crs, area, output: Path) -> None:
     )
     demand.to_crs(4326).to_file(output / "demand.geojson", driver="GeoJSON")
     antennas.to_crs(4326).to_file(output / "candidates.geojson", driver="GeoJSON")
+    if excluded_candidates:
+        antennas.loc[antennas.constraint_status == "excluded"].to_crs(4326).to_file(
+            output / "excluded_candidates.geojson", driver="GeoJSON"
+        )
     points.to_crs(4326).to_file(output / "demand_points.geojson", driver="GeoJSON")
     gpd.GeoSeries([area], crs=crs).to_crs(4326).to_file(
         output / "study_area.geojson", driver="GeoJSON"

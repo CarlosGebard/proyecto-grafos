@@ -3,7 +3,7 @@ from itertools import combinations
 
 import pytest
 
-from src.algorithms.exact import ExactLimitExceeded, exact
+from src.algorithms.exact import ExactLimitExceeded, exact, exact_connected
 from src.evaluation.metrics import metrics
 from src.graph.models import CoverageGraph
 
@@ -67,3 +67,23 @@ def test_empty_zero_invalid_and_ties():
 def test_zero_denominator_metrics():
     graph = CoverageGraph({}, {})
     assert metrics(graph, exact(graph, 0), 0)["coverage_percentage"] == 0
+
+
+def test_exact_connected_rejects_isolated_high_coverage_candidate():
+    graph = CoverageGraph(
+        {"a": {"x"}, "b": {"y"}, "c": {"z"}},
+        {"x": 60, "y": 60, "z": 100},
+    )
+    links = {"a": {"b"}, "b": {"a"}, "c": set()}
+    result = exact_connected(graph, links, 2)
+    assert result.selected == ("a", "b")
+    assert result.population_covered == 120
+
+
+def test_exact_connected_allows_singleton_and_validates_links():
+    graph = CoverageGraph({"a": {"x"}, "b": {"y"}}, {"x": 4, "y": 8})
+    assert exact_connected(graph, {"a": set(), "b": set()}, 2).selected == ("b",)
+    with pytest.raises(ValueError, match="simétrica"):
+        exact_connected(graph, {"a": {"b"}, "b": set()}, 2)
+    with pytest.raises(ExactLimitExceeded):
+        exact_connected(graph, {"a": set(), "b": set()}, 2, max_combinations=2)

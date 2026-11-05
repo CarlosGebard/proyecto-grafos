@@ -1,6 +1,7 @@
 """Filtro por distancia métrica antes de evaluar el modelo de visibilidad."""
 
 import math
+from itertools import combinations
 
 import numpy as np
 
@@ -50,4 +51,46 @@ def compute_coverage(
             for d, missing in zip(demands, missing_elevation, strict=True)
             if missing
         ],
+    }
+
+
+def compute_connectivity(
+    candidates,
+    dem,
+    max_distance_m: float,
+    antenna_height_m: float,
+    sample_step_m: float | None = None,
+    max_pairs: int = 2_000_000,
+    visibility=has_line_of_sight,
+) -> tuple[dict[str, set[str]], dict]:
+    """Construir enlaces LOS no dirigidos entre candidatos de antena."""
+    if not math.isfinite(max_distance_m) or max_distance_m <= 0:
+        raise ValueError("max_distance_m debe ser positivo y finito")
+    pairs = len(candidates) * (len(candidates) - 1) // 2
+    if pairs > max_pairs:
+        raise ValueError(
+            f"{pairs} pares exceden max_pairs={max_pairs}; reducir candidatos"
+        )
+    links = {candidate.id: set() for candidate in candidates}
+    checked = 0
+    for left, right in combinations(candidates, 2):
+        start = (left.point.x, left.point.y)
+        end = (right.point.x, right.point.y)
+        if float(np.linalg.norm(np.subtract(end, start))) > max_distance_m:
+            continue
+        checked += 1
+        if visibility(
+            dem,
+            start,
+            end,
+            antenna_height_m,
+            antenna_height_m,
+            sample_step_m,
+        ):
+            links[left.id].add(right.id)
+            links[right.id].add(left.id)
+    return links, {
+        "num_pairs": pairs,
+        "los_checks": checked,
+        "num_edges": sum(map(len, links.values())) // 2,
     }

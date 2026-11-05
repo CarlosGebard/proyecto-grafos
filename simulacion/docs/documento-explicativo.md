@@ -30,7 +30,7 @@ El proyecto trabaja con capas geográficas. Cada una responde una pregunta disti
 | Censo 2024 del INE | Debe ser la fuente de población y cartografía para la versión final de la propuesta. | Planificado; todavía no reemplaza la base usada por el código actual. |
 | Modelo digital de elevación (DEM) | Describe el relieve y permite revisar si una loma bloquea la visión entre una antena y una localidad. | Implementado con ALOS PALSAR para el piloto de Biobío y Copernicus GLO-30 como alternativa. |
 | Área de estudio | Limita la simulación a una ventana o polígono concreto. | Implementado mediante `bbox` o un polígono provisto por el usuario. |
-| Plan Regulador Comunal (PRC) | Restringe las zonas en que corresponde estudiar una instalación. | Previsto para la versión final; aún no se aplica como filtro automático en la simulación V1. |
+| Plan Regulador Comunal (PRC) | Restringe zonas inequívocas como agua, áreas verdes, drenajes e inundación/riesgo. | Implementado como *screening* territorial en Yumbel 50 km; no declara permiso de construcción. |
 
 La simulación actual no afirma que los lugares seleccionados sean construibles. El DEM sólo ayuda a revisar el relieve; no incorpora propiedad del suelo, energía, caminos, permisos, edificios, vegetación, capacidad ni calidad de servicio.
 
@@ -46,7 +46,7 @@ Se dibuja una arista entre un candidato y una localidad sólo cuando ambos cumpl
 1. La distancia debe ser menor o igual a la distancia máxima configurada.
 2. La línea de vista entre ambos no debe estar bloqueada por el relieve muestreado en el DEM.
 
-Los candidatos se generan como una grilla regular dentro del área de estudio. Se descartan los puntos fuera del polígono o sobre celdas sin elevación válida. En la versión final, antes de construir el grafo se espera aplicar además el filtro del PRC para descartar candidatos territorialmente incompatibles.
+Los candidatos se generan como una grilla regular dentro del área de estudio. Se descartan los puntos fuera del polígono o sobre celdas sin elevación válida. En la corrida Yumbel 50 km se excluyen además las restricciones PRC inequívocas. Como su ordenanza no nombra de forma explícita la infraestructura de telecomunicaciones, las demás zonas quedan “sin clasificación”; sólo una matriz normativa validada permitiría declararlas admisibles.
 
 ### 1.4 La solución propuesta
 
@@ -67,17 +67,20 @@ La palabra “unión” es importante: si dos antenas cubren la misma localidad,
 
 La solución principal elegida para el proyecto es la **enumeración exacta**. El algoritmo genera todas las combinaciones admisibles de hasta `k` candidatos, calcula la población única cubierta por cada combinación y conserva la mejor. Por ejemplo, con cuatro candidatos y un máximo de dos antenas, compara cada pareja posible y devuelve la pareja que cubre más población.
 
+La simulación también calcula una variante conectada. En ella se construye un segundo grafo: sus nodos son los candidatos y una arista indica que dos antenas tienen distancia admisible y línea de vista entre sí. Una selección conectada es válida sólo si todas sus antenas forman un único grupo en ese segundo grafo. No se incorpora todavía un gateway ni acceso a Internet.
+
 Como revisa todas las alternativas permitidas, el resultado es óptimo para esa instancia. El costo es que el número de combinaciones crece rápidamente cuando hay muchos candidatos. Por esa razón la simulación fija un límite de combinaciones y trabaja con áreas piloto acotadas.
 
-La enumeración exacta es el único método de resolución utilizado en esta versión. Si una instancia supera el límite de combinaciones configurado, la ejecución se detiene y se debe reducir el área de estudio o el conjunto de candidatos.
+La enumeración exacta es el único método de resolución utilizado en esta versión. La versión libre evalúa combinaciones de tamaño `k`; la conectada evalúa tamaños de uno a `k`, porque no siempre es posible ampliar una red conectada sin romper esa condición. Si una instancia supera el límite de combinaciones configurado, la ejecución se detiene y se debe reducir el área de estudio o el conjunto de candidatos.
 
 ### 1.5 Qué entrega una ejecución
 
 Al finalizar, la simulación guarda:
 
 - El grafo de cobertura construido.
-- Las antenas elegidas por el algoritmo exacto.
-- Población cubierta, porcentaje de cobertura y tiempo de ejecución de la solución exacta.
+- El grafo de enlaces LOS entre antenas.
+- Las antenas elegidas por los algoritmos exacto libre y conectado.
+- Población cubierta, porcentaje y tiempo de ejecución de ambas soluciones.
 - Un mapa, capas geográficas y un manifiesto con parámetros, fuentes y huellas de los archivos usados.
 
 #### Generación del mapa
