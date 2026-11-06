@@ -11,8 +11,8 @@ Pilotos ya ejecutados: Biobío 4.210/5.234 hab (80,44 %), Metropolitana 25.119/2
 ## 2. Estado actual (noviembre 2026)
 
 - **Motor exacto conectado implementado** (cutover completo, `exact.py` eliminado): `simulacion/src/algorithms/connected.py` con ESU + unión incremental + cota de prefijos + desempate lexicográfico, gateway, clases de potencia (`radius_m` por candidato, `min(ρu, ρv)` en enlaces), umbral `t` y baseline goloso. Pilotos reproducidos idénticos: Biobío 4.210 hab (80,44 %), Metropolitana 25.119 hab (88,64 %); ver ADR 0006.
-- **Rama activa: `feat/algoritmo`**. Push pendiente: la clave SSH del equipo autentica como `not-narleeek`, sin acceso a `CarlosGebard/proyecto-grafos` — revisar si ya se resolvió antes de empujar.
-- Pendiente en la rama: fase 0 (script de medición: `Δ̄(G_conn)`, conteo de conexos ≤ k, solapes en los pilotos) e informe final (fase 3: mapeo a PartialConRBDS, techo teórico, tabla greedy-vs-exacto).
+- **Rama activa: `feat/algoritmo`**. Push funcionando como colaborador de `CarlosGebard/proyecto-grafos` (antes la clave autenticaba como `not-narleeek`, sin acceso: resuelto el 6 de noviembre de 2026).
+- Pendiente en la rama: informe final (fase 3, lo último). La medición de fase 0 ya está en `simulacion/docs/report/fase0-medicion.md`.
 
 ## 3. Mandato de la rama (estado)
 
@@ -20,7 +20,8 @@ Pilotos ya ejecutados: Biobío 4.210/5.234 hab (80,44 %), Metropolitana 25.119/2
 2. **[HECHO]** Extender el modelo según la retroalimentación del profesor: LOS entre antenas formalizada (`compute_connectivity`, ahora con `min(ρu, ρv)`); gateways (`S ∩ G ≠ ∅`); potencia → radio efectivo por clase (`[[antenna_class]]`, valores en `docs/referencias-potencia-antenas.md`); umbral `t` (`min_population` + `min_antenas_para_objetivo`).
 3. **[HECHO]** Baseline goloso (`greedy_conectado`) para el contraste rápido-vs-óptimo.
 4. **[HECHO]** Docs/ADRs tras el cutover: ADR 0006 nuevo; ADR 0002 actualizado; `ESTADO.md` y `NOTA-ESTADO.md` sincronizados.
-5. **[PENDIENTE]** Fase 0: medición (`Δ̄`, conteo de conexos, solapes) en los pilotos; fase 3: informe con justificación (paper ITCS + régimen Δ acotado) y tabla greedy-vs-exacto.
+5. **[HECHO]** Fase 0: medición en los pilotos — Δ̄/Δ máx, conexos reales vs combinaciones, tasa de poda, solapes — registrada en `simulacion/docs/report/fase0-medicion.md` (script: `medicion_fase0.py`).
+6. **[PENDIENTE]** Fase 3 (lo último): informe con justificación (paper ITCS + régimen Δ acotado) y tabla greedy-vs-exacto, partiendo de la medición de fase 0.
 
 ## 4. Fuentes de verdad (orden de lectura)
 
@@ -91,3 +92,6 @@ simulacion/
   web/, web-conectividad/  visores estáticos (consumen outputs; no tocar el motor por ellos)
 prc-mapas/               GeoJSON PRC Biobío + descargador
 ```
+
+Los scripts de reporte (`simulacion/docs/report/`): `generate_figures.py`,
+`generate_segment_map.py` y `medicion_fase0.py` (medición del régimen Δ).

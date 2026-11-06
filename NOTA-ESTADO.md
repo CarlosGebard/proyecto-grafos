@@ -15,6 +15,6 @@ Motor exacto conectado implementado en `feat/algoritmo` (cutover de la fuerza br
 
 ## Pendiente
 
-- Medición de fase 0 (`Δ̄`, conteo de conexos) e informe final.
+- Informe final (fase 3); medición de fase 0 lista en `simulacion/docs/report/fase0-medicion.md`.
 - Censo 2024.
 - Modelo radioeléctrico, permisos, costos y factibilidad real.

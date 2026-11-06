@@ -22,7 +22,7 @@ Las corridas de regresión del cutover están en `simulacion/outputs/biobio-regr
 
 - Los presets regionales son ventanas piloto, no regiones administrativas completas.
 - El modelo representa cada localidad mediante un punto interior; no certifica cobertura radioeléctrica ni la factibilidad de instalación.
-- Medición de fase 0 sobre los pilotos (`Δ̄(G_conn)`, conteo de conexos, solapes) e informe final con la tabla greedy-vs-exacto.
+- Informe final (fase 3, lo último) con la tabla greedy-vs-exacto; el insumo de fase 0 está medido en `simulacion/docs/report/fase0-medicion.md`.
 - El modelo aún no incorpora Censo 2024. Ver [documento explicativo](simulacion/docs/documento-explicativo.md).
 
 ## Para continuar
