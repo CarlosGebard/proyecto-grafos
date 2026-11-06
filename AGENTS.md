@@ -91,7 +91,7 @@ simulacion/
     visualization/       mapa PNG y payload de terreno para web
   tests/                 test_algorithms.py (oracle), test_geo.py, test_data_pipeline.py
   configs/               biobio.toml, metropolitana.toml, yumbel-50km-prc.toml
-  web/, web-conectividad/  visores estáticos (consumen outputs; no tocar el motor por ellos)
+  web-conectividad/        visor estático (consume outputs; no tocar el motor por él)
 prc-mapas/               GeoJSON PRC Biobío + descargador
 ```
 
