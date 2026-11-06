@@ -10,20 +10,17 @@ Pilotos ya ejecutados: Biobío 4.210/5.234 hab (80,44 %), Metropolitana 25.119/2
 
 ## 2. Estado actual (noviembre 2026)
 
-- **Simulación V1 terminada** con enumeración exacta por fuerza bruta (`simulacion/src/algorithms/exact.py`). El profesor dejó claro en su retroalimentación que esto era un placeholder de prueba.
-- **Rama activa: `feat/algoritmo`**. Último commit: `fce1f64` (documentación). Push pendiente: la clave SSH del equipo autentica como `not-narleeek`, sin acceso a `CarlosGebard/proyecto-grafos` — revisar si ya se resolvió antes de empujar.
-- El motor nuevo **aún no está implementado**; existe la especificación completa aprobada conceptualmente con el equipo: `docs/algoritmo-conectado.md`.
+- **Motor exacto conectado implementado** (cutover completo, `exact.py` eliminado): `simulacion/src/algorithms/connected.py` con ESU + unión incremental + cota de prefijos + desempate lexicográfico, gateway, clases de potencia (`radius_m` por candidato, `min(ρu, ρv)` en enlaces), umbral `t` y baseline goloso. Pilotos reproducidos idénticos: Biobío 4.210 hab (80,44 %), Metropolitana 25.119 hab (88,64 %); ver ADR 0006.
+- **Rama activa: `feat/algoritmo`**. Push pendiente: la clave SSH del equipo autentica como `not-narleeek`, sin acceso a `CarlosGebard/proyecto-grafos` — revisar si ya se resolvió antes de empujar.
+- Pendiente en la rama: fase 0 (script de medición: `Δ̄(G_conn)`, conteo de conexos ≤ k, solapes en los pilotos) e informe final (fase 3: mapeo a PartialConRBDS, techo teórico, tabla greedy-vs-exacto).
 
-## 3. Mandato de la rama (qué hay que hacer)
+## 3. Mandato de la rama (estado)
 
-1. **Reemplazar la fuerza bruta** por el motor exacto de la especificación: enumeración canónica de subconjuntos conexos (ESU, Wernicke 2006) + unión incremental del objetivo + cotas + desempate lexicográfico. Nada de heurísticas como solución principal.
-2. **Extender el modelo** según la retroalimentación del profesor:
-   - LOS entre antenas formalizada en el modelo (`G_conn`) — ya se calcula, falta formalizarla en documentos.
-   - Gateways / puntos de acceso a Internet (`S ∩ G ≠ ∅`).
-   - Potencia de antena → radio efectivo por clase (`docs/referencias-potencia-antenas.md` tiene los valores verificados).
-   - Umbral de cobertura `t` (variantes de decisión: mínimo m para t; ¿k alcanza t?).
-3. **Baseline goloso** para el contraste rápido-vs-óptimo (la propuesta lo promete explícitamente).
-4. **Actualizar docs/ADRs** tras el cutover (ADR 0006 nuevo; ADR 0002; `ESTADO.md`; `NOTA-ESTADO.md` tiene un ítem desactualizado: la conectividad LOS entre antenas YA existe en `src/geo/coverage.py:compute_connectivity` y `exact_connected`).
+1. **[HECHO]** Reemplazar la fuerza bruta por el motor exacto de la especificación: enumeración canónica de subconjuntos conexos (ESU, Wernicke 2006) + unión incremental del objetivo + cotas + desempate lexicográfico. Sin heurísticas como solución principal.
+2. **[HECHO]** Extender el modelo según la retroalimentación del profesor: LOS entre antenas formalizada (`compute_connectivity`, ahora con `min(ρu, ρv)`); gateways (`S ∩ G ≠ ∅`); potencia → radio efectivo por clase (`[[antenna_class]]`, valores en `docs/referencias-potencia-antenas.md`); umbral `t` (`min_population` + `min_antenas_para_objetivo`).
+3. **[HECHO]** Baseline goloso (`greedy_conectado`) para el contraste rápido-vs-óptimo.
+4. **[HECHO]** Docs/ADRs tras el cutover: ADR 0006 nuevo; ADR 0002 actualizado; `ESTADO.md` y `NOTA-ESTADO.md` sincronizados.
+5. **[PENDIENTE]** Fase 0: medición (`Δ̄`, conteo de conexos, solapes) en los pilotos; fase 3: informe con justificación (paper ITCS + régimen Δ acotado) y tabla greedy-vs-exacto.
 
 ## 4. Fuentes de verdad (orden de lectura)
 
@@ -46,8 +43,8 @@ Pilotos ya ejecutados: Biobío 4.210/5.234 hab (80,44 %), Metropolitana 25.119/2
 - **El objetivo es la unión**: `f(S) = Σ población del ∪ C(a)`, nunca suma por antena (comentario del profesor "no sólo sumar cardinalidad"; es el obstáculo de aditividad de [1] §1.2). El motor mantiene contadores `cover[d]` con traza de deshacer.
 - **Optimalidad exacta es un activo del proyecto** (§ "Solución: óptima en instancia"). El goloso es *baseline de comparación*, jamás reemplazo. Los esquemas aproximados del paper (EPAS/PAS) se documentan como techo teórico, no se implementan.
 - **Desempate lexicográfico con poda estricta**: la cota poda sólo con `< best_f`, nunca `≤` — podar por empate rompe la reproducibilidad (invariante I4 de la especificación).
-- **Unicidad ESU**: cada conjunto conexo se genera exactamente una vez bajo su vértice mínimo. No "simplificar" la regla de extensiones (los vecinos descartados en niveles ancestros SÍ pueden re-entrar; es lo que garantiza unicidad).
-- **Presupuesto**: `max_combinations` se sustituye por `max_evaluations` con la misma semántica de `ExactLimitExceeded`. No lo elimines: es la protección de peor caso.
+- **Unicidad ESU**: cada conjunto conexo se genera exactamente una vez bajo su vértice mínimo. La regla de extensiones es el vecindario exclusivo `Nexcl(a, S) = N(a) ∖ N(S)` con id mayor que la raíz ([3] Wernicke 2006, Def. 3.1): un vértice adyacente a `S` que fue descartado **nunca re-entra**. No la "simplifiques" a `vecinos ∖ ext` — genera duplicados en triángulos (verificado por fuerza bruta en todos los grafos de 4 y 5 vértices).
+- **Presupuesto**: `max_evaluations` (antes `max_combinations`) con la misma semántica de `ExactLimitExceeded`. No lo elimines: es la protección de peor caso.
 - **Capa geográfica intocada desde el motor**: la enumeración exhaustiva de pares con LOS es lo ÚNICO que el profesor permite mantener exhaustivo (`max_pairs`, paso ≤ medio píxel DEM, NoData ⇒ sin cobertura). No muevas esa lógica al algoritmo ni la "optimices" cambiando su semántica.
 - **PRC = screening, no permiso** (ADR 0005). Los outputs no sobreprometen: no certifica cobertura radioeléctrica ni factibilidad (Ley 20.599 / LGUC 116 bis F: torres > 12 m requieren recepción municipal).
 
@@ -68,7 +65,6 @@ uv run ruff format --check .
 
 ### Trampas conocidas
 
-- `NOTA-ESTADO.md` dice "Conectividad/LOS entre antenas: pendiente" — **desactualizado**; el grafo LOS ya se construye. No lo dupliques.
 - La propuesta PDF entregada dice "enumeración exacta": el informe final (fase 3) debe presentar el nuevo algoritmo y su justificación (paper ITCS + régimen Δ acotado), no contradecir la versión entregada sin explicar el cambio.
 - El número de combos de Yumbel a 5 km de espaciado sería `C(121,5) ≈ 1,99·10⁸` > presupuesto: por eso existe la fase 0 de medición (contar subconjuntos conexos reales y Δ̄ antes de prometer rendimientos).
 - Este archivo, `docs/algoritmo-conectado.md` y `NOTA-ESTADO.md` deben mantenerse al día con el estado real; si cambias el alcance, actualízalos en el mismo commit.

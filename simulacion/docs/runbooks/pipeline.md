@@ -62,7 +62,10 @@ La CLI prevalece sobre los valores TOML. Rutas relativas a la raíz desde la que
 | `receiver_height_m` | `--receiver-height` | 1.5 |
 | `sample_step_m` | `--sample-step` | medio píxel DEM |
 | `dem_resolution_m` | `--dem-resolution` | resolución local si coincide el CRS; 30 m al reproyectar otro CRS |
-| `max_combinations` | `--max-combinations` | 100000 |
+| `max_evaluations` | `--max-evaluations` | 100000 |
+| `gateways` | `--gateways ID...` | — |
+| `min_population` | `--min-population` | — |
+| `antenna_class` (tablas `[[antenna_class]]`) | sólo TOML | — |
 | `max_candidates` | `--max-candidates` | 10000 |
 | `max_pairs` | `--max-pairs` | 2000000 |
 | `max_dem_pixels` | `--max-dem-pixels` | 10000000 |
@@ -70,7 +73,9 @@ La CLI prevalece sobre los valores TOML. Rutas relativas a la raíz desde la que
 | `prc_directory` | `--prc-directory` | — |
 | `prc_mode` | `--prc-mode` | `screening` |
 
-El paso LOS no puede exceder medio píxel DEM. Alterar la resolución modifica el modelo y puede cambiar aristas. El límite de grilla se aplica antes de filtrar por polígono/NoData. El pipeline calcula cobertura y conectividad entre candidatos con la misma distancia máxima; un enlace entre antenas usa `antenna_height_m` en ambos extremos. La solución exacta es obligatoria: si excede el límite de combinaciones, la ejecución termina con error y solicita reducir el área o el conjunto de candidatos. Las descargas Copernicus están limitadas a cuatro tiles por estudio.
+El paso LOS no puede exceder medio píxel DEM. Alterar la resolución modifica el modelo y puede cambiar aristas. El límite de grilla se aplica antes de filtrar por polígono/NoData. El pipeline calcula cobertura y conectividad entre candidatos; un enlace entre antenas usa `antenna_height_m` en ambos extremos y el mínimo de los radios efectivos (`min(ρu, ρv)`, ADR 0006). La solución exacta es obligatoria: si el motor ESU supera `max_evaluations`, la ejecución termina con error y solicita reducir el área o el conjunto de candidatos. Las descargas Copernicus están limitadas a cuatro tiles por estudio.
+
+Las clases de potencia (`[[antenna_class]]` con `name`, `radius_m`, `count`) asignan radios efectivos por candidato en orden determinista (ids ordenados, clases en orden de declaración); los excedentes usan `max_distance_m`. `gateways` exige que la red seleccionada contenga un punto de acceso; `min_population` agrega la variante de decisión (mínimo `m ≤ k` antenas para cubrir `t` habitantes, o certificado de inalcanzabilidad). El reporte incluye el baseline goloso (`greedy_connected`) para el contraste rápido-vs-óptimo.
 
 ## Resultados
 
@@ -82,7 +87,7 @@ El paso LOS no puede exceder medio píxel DEM. Alterar la resolución modifica e
 | `roads.geojson` | Caminos OpenStreetMap, si se usa `--osm-roads <chile.gpkg>` o `--download-osm-roads` |
 | `constraints.geojson` | Polígonos PRC clasificados, sólo si se usa `prc_directory` |
 | `excluded_candidates.geojson` | Candidatos retirados por el filtro PRC, si existen |
-| `metrics.json` | Resultados libre y conectado, k, tamaños, población total/cubierta, porcentaje, tiempo, seleccionadas y cubiertas |
+| `metrics.json` | Resultados libre, conectado y goloso, k, tamaños, población total/cubierta, porcentaje, tiempo, evaluaciones, seleccionadas y cubiertas; decisión de umbral si se configura `min_population` |
 | `manifest.json` | Parámetros efectivos, bbox, CRS, resolución, versiones, hashes SHA-256 de insumos, exclusiones y tiempos por fase |
 | `dem.tif` | Recorte reproyectado, float32, NoData NaN |
 | `demand.geojson` | Geometrías originales completas, peso y cobertura exacta |

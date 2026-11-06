@@ -2,18 +2,19 @@
 
 ## Fase actual
 
-Simulación V1 terminada. Pilotos acotados, no red real.
+Motor exacto conectado implementado en `feat/algoritmo` (cutover de la fuerza bruta). Pilotos revalidados.
 
 ## Resuelto
 
 - Grafo: candidatos ↔ localidades.
 - Arista: distancia válida + LOS sobre relieve.
-- Objetivo: hasta `k` antenas, máxima población única cubierta.
-- Solución exacta: fuerza bruta; óptima en instancia piloto.
-- Pilotos: Biobío 80,44 %; Metropolitana 88,64 % (`k=5`).
+- Conectividad/LOS entre antenas: grafo `G_conn` ya construido por `src/geo/coverage.py:compute_connectivity` (enlace usa `min(ρu, ρv)` con radios por clase de potencia).
+- Objetivo: hasta `k` antenas, máxima población única cubierta (unión incremental, no suma por antena).
+- Solución exacta: enumeración ESU de subconjuntos conexos (`src/algorithms/connected.py`), con cota, desempate lexicográfico, gateway opcional y umbral `t`; baseline goloso para contraste.
+- Pilotos: Biobío 80,44 %; Metropolitana 88,64 % (`k=5`), idénticos tras el cutover.
 
 ## Pendiente
 
-- Conectividad/LOS entre antenas.
-- PRC y Censo 2024.
+- Medición de fase 0 (`Δ̄`, conteo de conexos) e informe final.
+- Censo 2024.
 - Modelo radioeléctrico, permisos, costos y factibilidad real.

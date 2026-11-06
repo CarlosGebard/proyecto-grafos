@@ -1,6 +1,6 @@
 # Algoritmo de cobertura máxima conectada — especificación completa
 
-Estado: propuesta para implementar en `feat/algoritmo`. Reemplaza la enumeración por fuerza bruta de `src/algorithms/exact.py`. Incorpora la retroalimentación del profesor (comentarios del PDF G8 y notas de WhatsApp), el modelo PartialConRBDS de [1] y los parámetros de potencia de [2].
+Estado: implementado en `feat/algoritmo` (`src/algorithms/connected.py`). Reemplaza la enumeración por fuerza bruta que estaba en `src/algorithms/exact.py` (eliminado). Incorpora la retroalimentación del profesor (comentarios del PDF G8 y notas de WhatsApp), el modelo PartialConRBDS de [1] y los parámetros de potencia de [2].
 
 ## 1. Problema
 
@@ -114,9 +114,10 @@ def resolver(graph, conn, k, gateways=None, budget=100_000) -> Solution:
             resto = ext[i+1:]          # a y los anteriores quedan excluidos en esta rama
             S.append(a); S_set.add(a)
             traza = []; aplicar(a, traza)
+            # Nexcl(a, S sin a): vecinos de a NO adyacentes a ningún vértice
+            # previo de S (se compara contra N(S) antes de absorber N(a)).
             nuevos = sorted(u for u in nbr[a]
-                            if idx[u] > idx[v_raiz] and u not in S_set
-                            and u not in set(resto))
+                            if idx[u] > idx[v_raiz] and u not in N(S_sin_a))
             expandir(v_raiz, resto + nuevos)
             deshacer(a, traza)
             S.pop(); S_set.remove(a)
@@ -130,7 +131,7 @@ def resolver(graph, conn, k, gateways=None, budget=100_000) -> Solution:
     return Solution(nombre_variante, best_S, frozenset(...), best_f, elapsed)
 ```
 
-Regla de extensiones (fiel a ESU, garantiza unicidad): al agregar `a`, entran sus vecinos con `id > raíz` que no estén en `S`; los vecinos que ya fueron descartados en niveles *ancestrales* pueden re-entrar por otra ruta (eso es lo que hace que cada conjunto conexo aparezca una sola vez, con [3, Lema]).
+Regla de extensiones (fiel a ESU, [3] Def. 3.1 y Teorema 3.4): al agregar `a`, entran sus vecinos con `id > raíz` que estén en el **vecindario exclusivo** `Nexcl(a, S) = N(a) ∖ N(S)` — adyacentes a `a` pero a **ningún** vértice previo de `S` (la comparación se hace contra `N(S)` *antes* de absorber `N(a)`). Un vértice que quedó adyacente a `S` y fue descartado **nunca re-entra**: eso, junto con la raíz = mínimo del conjunto, es lo que hace que cada conjunto conexo aparezca una sola vez ([3], prueba de E4). Nota de implementación: la versión anterior de este documento excluía sólo `resto`, lo que genera duplicados en triángulos (verificado por fuerza bruta en todos los grafos de 4 y 5 vértices).
 
 **Variante libre**: `nbr[a] = todos los candidatos` (clique) → ESU degenera en "todos los subconjuntos con mínimo fijo"; mismo objetivo, misma cota, mismo desempate. Sin conectividad ni gateway.
 
