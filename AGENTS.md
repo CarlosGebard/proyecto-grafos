@@ -11,8 +11,9 @@ Pilotos ya ejecutados: Biobío 4.210/5.234 hab (80,44 %), Metropolitana 25.119/2
 ## 2. Estado actual (noviembre 2026)
 
 - **Motor exacto conectado implementado** (cutover completo, `exact.py` eliminado): `simulacion/src/algorithms/connected.py` con ESU + unión incremental + cota de prefijos + desempate lexicográfico, gateway, clases de potencia (`radius_m` por candidato, `min(ρu, ρv)` en enlaces), umbral `t` y baseline goloso. Pilotos reproducidos idénticos: Biobío 4.210 hab (80,44 %), Metropolitana 25.119 hab (88,64 %); ver ADR 0006.
+- **Candidatos por criterio (ADR 0007)**: la retícula regular fue reemplazada por anclas en localidades + intersecciones Murray–Tong + sitios altos del DEM, con filtros de pendiente, proximidad y establecimientos sensibles (OGUC 116 bis E / Ley 20.599; sin capa declarada queda como limitación de datos, nunca como permiso). Pilotos re-corridos con `k=5`; los tres superan a la retícula: Biobío 85,35 % (4.467/5.234, +4,91), Metropolitana 92,65 % (26.254/28.337, +4,01), Yumbel con clases 39,01 % conectado (12.063/30.923, +10,07).
 - **Rama activa: `feat/algoritmo`**. Push funcionando como colaborador de `CarlosGebard/proyecto-grafos` (antes la clave autenticaba como `not-narleeek`, sin acceso: resuelto el 6 de noviembre de 2026).
-- Pendiente en la rama: informe final (fase 3, lo último). La medición de fase 0 ya está en `simulacion/docs/report/fase0-medicion.md`.
+- Pendiente en la rama: informe final (fase 3, lo último). Fase 0 re-medida sobre el criterio (`simulacion/docs/report/fase0-medicion.md`, sección criterio).
 
 ## 3. Mandato de la rama (estado)
 
@@ -47,6 +48,7 @@ Pilotos ya ejecutados: Biobío 4.210/5.234 hab (80,44 %), Metropolitana 25.119/2
 - **Unicidad ESU**: cada conjunto conexo se genera exactamente una vez bajo su vértice mínimo. La regla de extensiones es el vecindario exclusivo `Nexcl(a, S) = N(a) ∖ N(S)` con id mayor que la raíz ([3] Wernicke 2006, Def. 3.1): un vértice adyacente a `S` que fue descartado **nunca re-entra**. No la "simplifiques" a `vecinos ∖ ext` — genera duplicados en triángulos (verificado por fuerza bruta en todos los grafos de 4 y 5 vértices).
 - **Presupuesto**: `max_evaluations` (antes `max_combinations`) con la misma semántica de `ExactLimitExceeded`. No lo elimines: es la protección de peor caso.
 - **Capa geográfica intocada desde el motor**: la enumeración exhaustiva de pares con LOS es lo ÚNICO que el profesor permite mantener exhaustivo (`max_pairs`, paso ≤ medio píxel DEM, NoData ⇒ sin cobertura). No muevas esa lógica al algoritmo ni la "optimices" cambiando su semántica.
+- **Candidatos por criterio, no grilla** (ADR 0007): generación determinista — anclas en localidades, intersecciones Murray–Tong de circunferencias de radio ρ, sitios altos con supresión no-máxima; filtros de NoData, pendiente (`max_slope_deg`), proximidad (`candidate_separation_m`: sin ella el puntaje empata y el tope llena la instancia de duplicados — lección de Yumbel) y establecimientos sensibles; tope `max_candidates` por población alcanzable. En ventanas amplias escalar la separación como √(área/n). No volver a la retícula regular ni "simplificar" las intersecciones.
 - **PRC = screening, no permiso** (ADR 0005). Los outputs no sobreprometen: no certifica cobertura radioeléctrica ni factibilidad (Ley 20.599 / LGUC 116 bis F: torres > 12 m requieren recepción municipal).
 
 ### Cómo verificar
@@ -82,7 +84,7 @@ simulacion/
     pipeline.py          orquestador CLI (python -m src.pipeline --config ...)
     config.py            PipelineConfig (validaciones; k, max_*, radios futuros)
     data/                DEM, población SUBDERE, OSM, preparación
-    geo/                 área, grilla candidatos, PRC, cobertura+conectividad LOS, elevación
+    geo/                 área, criterio de candidatos, PRC + establecimientos sensibles, cobertura+conectividad LOS, elevación
     graph/               CoverageGraph/Solution (models.py), builder
     algorithms/          exact.py (placeholder a reemplazar) → connected.py (spec)
     evaluation/          metrics.py

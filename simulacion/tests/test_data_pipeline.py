@@ -85,8 +85,8 @@ def test_pipeline_exports_and_exact_skip(study_inputs, tmp_path):
         dem=str(dem),
         output=str(tmp_path / "run"),
         k=2,
-        candidate_spacing_m=250,
         max_distance_m=2000,
+        candidate_separation_m=100.0,
     )
     report = run(config)
     assert report["results"][0]["population_covered"] == 30
@@ -133,15 +133,15 @@ def test_pipeline_threshold_and_antenna_classes(study_inputs, tmp_path):
         dem=str(dem),
         output=str(tmp_path / "run"),
         k=2,
-        candidate_spacing_m=250,
         max_distance_m=2000,
+        candidate_separation_m=100.0,
         min_population=30,
         antenna_classes=(AntennaClass("wifi", 300.0, 2),),
     )
     report = run(config)
     assert report["threshold"]["min_population"] == 30
-    # La grilla coloca un candidato a ~354 m de ambas localidades: una sola
-    # antena alcanza las 30 personas objetivo.
+    # Un sitio alto conserva el radio por defecto (2000 m): una sola antena
+    # alcanza ambas localidades y cubre las 30 personas objetivo.
     assert report["threshold"]["min_antennas"] == 1
     assert report["threshold"]["solution"]["population_covered"] == 30
     manifest = json.loads((tmp_path / "run" / "manifest.json").read_text())
@@ -167,16 +167,18 @@ def test_pipeline_threshold_and_antenna_classes(study_inputs, tmp_path):
 
 def test_cli_config_precedence_and_area(tmp_path):
     path = tmp_path / "config.toml"
-    path.write_text("k = 3\ncandidate_spacing_m = 4000.0\n")
+    path.write_text("k = 3\nmax_slope_deg = 45.0\n")
     config = parse_config(["--config", str(path), "--k", "5"])
-    assert config.k == 5 and config.candidate_spacing_m == 4000
+    assert config.k == 5 and config.max_slope_deg == 45.0
     path.write_text("bbox = [-73, -38, -72, -37]\n")
     polygon_config = parse_config(["--config", str(path), "--polygon", "area.geojson"])
     assert polygon_config.bbox is None and polygon_config.polygon == "area.geojson"
     with pytest.raises(ValueError):
         study_area("biobio", (-72, -38, -73, -37))
     with pytest.raises(ValueError):
-        PipelineConfig(candidate_spacing_m=float("nan")).validate()
+        PipelineConfig(max_slope_deg=float("nan")).validate()
+    with pytest.raises(ValueError):
+        PipelineConfig(max_slope_deg=95.0).validate()
     with pytest.raises(ValueError):
         PipelineConfig(k=-1).validate()
 

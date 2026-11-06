@@ -29,10 +29,12 @@ class PipelineConfig:
     center: tuple[float, float] | None = None
     study_size_m: float | None = None
     k: int = 5
-    candidate_spacing_m: float = 5000.0
     max_distance_m: float = 30000.0
     antenna_height_m: float = 30.0
     receiver_height_m: float = 1.5
+    max_slope_deg: float = 30.0
+    highsite_window_m: float = 1000.0
+    candidate_separation_m: float = 1000.0
     sample_step_m: float | None = None
     dem_resolution_m: float | None = None
     dem_source: str = "alos"
@@ -48,6 +50,7 @@ class PipelineConfig:
     osm_roads: str | None = None
     prc_directory: str | None = None
     prc_mode: str = "screening"
+    sensitive_directory: str | None = None
     max_evaluations: int = 100_000
     gateways: tuple[str, ...] | None = None
     min_population: float | None = None
@@ -70,12 +73,14 @@ class PipelineConfig:
                     f"{name} debe ser un entero {'no negativo' if name == 'k' else 'positivo'}"
                 )
         for name in (
-            "candidate_spacing_m",
             "max_distance_m",
             "antenna_height_m",
             "receiver_height_m",
             "sample_step_m",
             "dem_resolution_m",
+            "max_slope_deg",
+            "highsite_window_m",
+            "candidate_separation_m",
         ):
             value = getattr(self, name)
             if value is None and name in {"sample_step_m", "dem_resolution_m"}:
@@ -87,6 +92,8 @@ class PipelineConfig:
             )
             if not math.isfinite(value) or not minimum_ok:
                 raise ValueError(f"{name} inválido")
+        if self.max_slope_deg >= 90:
+            raise ValueError("max_slope_deg debe ser menor a 90 grados")
         if self.region not in {"biobio", "metropolitana"}:
             raise ValueError(
                 "region debe ser biobio o metropolitana; usar bbox/polygon para otras áreas"

@@ -4,7 +4,7 @@ Estado: implementado en `feat/algoritmo` (`src/algorithms/connected.py`). Reempl
 
 ## 1. Problema
 
-Sea `R` el conjunto de candidatos (post-filtro PRC), `D` las localidades con peso poblacional `w(d) ≥ 0`, `C(a) ⊆ D` las localidades que el candidato `a` cubre, `E_conn` los enlaces LOS entre antenas y `G_conn = (R, E_conn)`.
+Sea `R` el conjunto de candidatos (generado por criterio y post-filtro territorial PRC + establecimientos sensibles, ADR 0007), `D` las localidades con peso poblacional `w(d) ≥ 0`, `C(a) ⊆ D` las localidades que el candidato `a` cubre, `E_conn` los enlaces LOS entre antenas y `G_conn = (R, E_conn)`.
 
 Cada candidato tiene un radio efectivo `ρ(a)` derivado de su clase de potencia [2]. Las aristas se definen:
 
@@ -37,7 +37,7 @@ Empates: se elige el `S` lexicográficamente menor en tupla ordenada de identifi
 | --- | --- |
 | PartialConRBDS, variante (i) | Es exactamente nuestro problema; con pesos en `B` (población). [1] demuestra sus esquemas sin pesos; aquí se exige optimalidad exacta, no aproximación |
 | W[1]-duro en `k`; sin (1, 1−1/e+ε) polinomial | Descarta esperar un algoritmo general rápido; hay que explotar estructura |
-| Régimen `Δ(G_conn)` acotado (§1.3): enumerar sólo subconjuntos conexos, `n·Δ^O(k)`, **exacto** | **Núcleo elegido.** `Δ` es pequeño por construcción (corte de distancia + LOS sobre grilla) |
+| Régimen `Δ(G_conn)` acotado (§1.3): enumerar sólo subconjuntos conexos, `n·Δ^O(k)`, **exacto** | **Núcleo elegido.** `Δ` queda acotado por el corte de distancia + LOS sobre el conjunto candidato; el tamaño de la instancia lo fija `max_candidates` (ADR 0007) |
 | El obstáculo de aditividad (§1.2): `w(S) ≠ |N(S)|` | El motor nunca puntúa por suma por-antena: mantiene la unión incrementalmente (§4.2). Es la respuesta en código a la observación "no sólo sumar cardinalidad" |
 | Máximo árbol de peso en `G_conn` (Lema 16), conflicto/esparsificación (Thm 1) | **No se implementa**: resuelven la versión aditiva-aproximada. Quedan documentados como techo teórico (§10) |
 

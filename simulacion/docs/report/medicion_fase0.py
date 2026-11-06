@@ -59,8 +59,10 @@ def medir(salida: Path) -> dict:
     # agrega a lo más e·(Δmax−1) candidatos por nodo. Con Δ máx, no Δ̄: en
     # grafos muy dispersos Δ̄ < 1 vuelve la base negativa e inútil.
     mayorante = sum(n * (e * (delta_max - 1)) ** (r - 1) for r in range(1, k + 1))
-    sin_poda = resolver(graph, connectivity, k, poda=False)
-    con_poda = resolver(graph, connectivity, k)
+    # Medición: el conteo sin poda debe completarse, no heredar el presupuesto
+    # del pipeline (instancias densas por criterio superan el default de 100k).
+    sin_poda = resolver(graph, connectivity, k, poda=False, budget=50_000_000)
+    con_poda = resolver(graph, connectivity, k, budget=50_000_000)
 
     solapes = [
         len(cov[u] & cov[v]) for u, v in combinations(sorted(cov), 2) if cov[u] & cov[v]

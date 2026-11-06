@@ -1,6 +1,6 @@
 "use strict";
 
-const DATA = "../outputs/biobio-regresion-esu/";
+const DATA = "../outputs/biobio/";
 const svgNs = "http://www.w3.org/2000/svg";
 const map = document.querySelector("#map");
 const status = document.querySelector("#map-status");
@@ -133,7 +133,7 @@ async function loadPilot() {
     state.scenario = createScenario(responses); renderMap(); updatePanel(); status.textContent = "Resultados Biobío cargados";
   } catch (error) {
     status.textContent = "No fue posible cargar el piloto";
-    document.querySelector("#step-copy").textContent = "Sirve la carpeta simulacion por HTTP y verifica outputs/biobio-regresion-esu/.";
+    document.querySelector("#step-copy").textContent = "Sirve la carpeta simulacion por HTTP y verifica outputs/biobio/.";
     document.querySelector("#selection-name").textContent = "Resultados no disponibles";
     console.error(error);
   }

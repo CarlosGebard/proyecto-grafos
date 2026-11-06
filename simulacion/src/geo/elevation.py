@@ -16,6 +16,36 @@ class ElevationModel:
             self.values = source.read(1, masked=True).astype(float).filled(np.nan)
             self.transform = source.transform
             self.resolution_m = min(abs(v) for v in source.res)
+            self._slope = None
+
+    def slope_sample(self, xy) -> np.ndarray:
+        """Pendiente en grados en cada punto, derivada del gradiente del DEM.
+
+        NaN en bordes o cerca de NoData: la pendiente es desconocida y el
+        filtro de constructabilidad la excluye.
+        """
+        points = np.asarray(xy, dtype=float).reshape(-1, 2)
+        result = np.full(len(points), np.nan)
+        if not len(points):
+            return result
+        if self._slope is None:
+            gy, gx = np.gradient(self.values, self.resolution_m, self.resolution_m)
+            self._slope = np.degrees(np.arctan(np.hypot(gx, gy)))
+        inverse = ~self.transform
+        columns = np.floor(
+            inverse.a * points[:, 0] + inverse.b * points[:, 1] + inverse.c
+        ).astype(int)
+        rows = np.floor(
+            inverse.d * points[:, 0] + inverse.e * points[:, 1] + inverse.f
+        ).astype(int)
+        valid = (
+            (rows >= 0)
+            & (rows < self.values.shape[0])
+            & (columns >= 0)
+            & (columns < self.values.shape[1])
+        )
+        result[valid] = self._slope[rows[valid], columns[valid]]
+        return result
 
     def sample(self, xy) -> np.ndarray:
         points = np.asarray(xy, dtype=float).reshape(-1, 2)

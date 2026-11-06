@@ -22,7 +22,7 @@ Sólo existen la propuesta PDF y seis archivos en `data/` (incluyendo SHP.rar de
 5. Añadir tests, ADR y runbook; ejecutar prueba sintética controlada y prueba end-to-end con archivos reales.
 
 ## Validación
-`uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .`, `uv run python -m src.pipeline --region biobio --k 5 --candidate-spacing 5000 --max-distance 30000`; inspeccionar métricas y mapa. Comprobar CLI, entradas inválidas, pesos únicos, exacto contra enumeración independiente y bloqueo por relieve/NoData.
+`uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .`, `uv run python -m src.pipeline --region biobio --k 5 --max-distance 30000`; inspeccionar métricas y mapa. Comprobar CLI, entradas inválidas, pesos únicos, exacto contra enumeración independiente y bloqueo por relieve/NoData.
 
 ## Riesgos
 Representar polígonos completos por un punto aproxima cobertura. Resolución de muestreo y calidad del DEM limitan LOS; no se modela curvatura terrestre, Fresnel ni pérdidas de señal. El SHP no debe confundirse con un censo actualizado. Preservar originales y registrar procedencia. Limitar candidatos, pares, píxeles y enumeraciones para evitar ejecuciones enormes.

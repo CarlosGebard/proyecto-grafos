@@ -55,7 +55,7 @@ const steps = [
   },
   {
     title: "Posiciones candidatas",
-    copy: "La grilla propone sitios para antenas. Todavía no sabemos cuáles conviene elegir.",
+    copy: "El criterio territorial propone sitios: anclas en localidades, intersecciones de cobertura y sitios altos del relieve. Todavía no sabemos cuáles conviene elegir.",
   },
   {
     title: "Aristas de cobertura",
@@ -374,17 +374,17 @@ async function loadOutput(directory, name) {
 }
 
 async function loadBiobio() {
-  if (!state.biobio) state.biobio = await loadOutput("biobio-regresion-esu", "Piloto Biobío");
+  if (!state.biobio) state.biobio = await loadOutput("biobio", "Piloto Biobío (criterio)");
   return Boolean(state.biobio);
 }
 
 async function loadMetropolitana() {
-  if (!state.metropolitana) state.metropolitana = await loadOutput("metropolitana-regresion-esu", "Piloto Metropolitana");
+  if (!state.metropolitana) state.metropolitana = await loadOutput("metropolitana", "Piloto Metropolitana (criterio)");
   return Boolean(state.metropolitana);
 }
 
 async function loadYumbel() {
-  if (!state.yumbel) state.yumbel = await loadOutput("yumbel-clases-2", "Yumbel 50 km · PRC + clases de potencia");
+  if (!state.yumbel) state.yumbel = await loadOutput("yumbel-criterio", "Yumbel 50 km · PRC + clases (criterio)");
   return Boolean(state.yumbel);
 }
 
@@ -446,7 +446,7 @@ async function showTerrain() {
     sceneStatus.textContent = "Piloto Biobío no disponible";
     return;
   }
-  state.terrain = await loadTerrain("biobio-regresion-esu");
+  state.terrain = await loadTerrain("biobio");
   if (!state.terrain) {
     showDemo();
     sceneStatus.textContent = "Falta terreno 3D";
@@ -468,7 +468,7 @@ async function showYumbel() {
     sceneStatus.textContent = "Simulación Yumbel no disponible";
     return;
   }
-  state.terrain = await loadTerrain("yumbel-clases-2");
+  state.terrain = await loadTerrain("yumbel-criterio");
   if (!state.terrain) {
     sceneStatus.textContent = "Falta relieve Yumbel";
     return;

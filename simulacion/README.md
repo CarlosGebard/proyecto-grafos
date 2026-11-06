@@ -8,7 +8,7 @@ Requiere Python 3.12+, `uv` y `7z` para extraer los RAR existentes en `data/`. C
 
 ```bash
 uv sync --locked
-uv run python -m src.pipeline --region biobio --k 5 --candidate-spacing 5000 --max-distance 30000 --output outputs/mi-prueba
+uv run python -m src.pipeline --region biobio --k 5 --max-distance 30000 --output outputs/mi-prueba
 ```
 
 El primer piloto usa una ventana pequeña de Biobío y los archivos locales de SUBDERE y ALOS PALSAR. El comando extrae los datos cuando hace falta y exporta grafo, soluciones, métricas, capas GeoJSON, DEM GeoTIFF y `map.png`. Usar un directorio de salida nuevo para cada ejecución.

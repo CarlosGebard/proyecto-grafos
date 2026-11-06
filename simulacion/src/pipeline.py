@@ -25,7 +25,12 @@ from src.data.prepare import SUBDERE_PAGE, fingerprint, prepare_alos, prepare_po
 from src.evaluation.metrics import metrics
 from src.geo.area import project_geometry, study_area
 from src.geo.candidates import generate_candidates
-from src.geo.constraints import apply_prc_constraints, load_prc_constraints
+from src.geo.constraints import (
+    apply_prc_constraints,
+    apply_sensitive_constraints,
+    load_prc_constraints,
+    load_sensitive_sites,
+)
 from src.geo.coverage import compute_connectivity, compute_coverage
 from src.geo.elevation import ElevationModel
 from src.graph.builder import build_graph
@@ -141,32 +146,58 @@ def run(config: PipelineConfig) -> dict:
 
     step = perf_counter()
     metric_area = project_geometry(area, 4326, crs)
+    generation_radii = sorted(
+        {clase.radius_m for clase in config.antenna_classes} | {config.max_distance_m}
+    )
     all_candidates, candidate_audit = generate_candidates(
-        metric_area, dem, config.candidate_spacing_m, config.max_candidates
+        metric_area,
+        dem,
+        demands,
+        generation_radii,
+        max_candidates=config.max_candidates,
+        highsite_window_m=config.highsite_window_m,
+        max_slope_deg=config.max_slope_deg,
+        separation_m=config.candidate_separation_m,
     )
     constraints = None
     prc_audit = None
+    sensitive_audit = None
     candidates = all_candidates
     excluded_candidates = []
     if config.prc_directory:
         constraints, excluded_geometry = load_prc_constraints(
             config.prc_directory, area, crs
         )
-        candidates, excluded_candidates, prc_audit = apply_prc_constraints(
+        candidates, prc_excluded, prc_audit = apply_prc_constraints(
             all_candidates, constraints, excluded_geometry, config.prc_mode
         )
-        all_candidates = [*candidates, *excluded_candidates]
+        excluded_candidates.extend(prc_excluded)
         constraints.to_crs(4326).to_file(
             output / "constraints.geojson", driver="GeoJSON"
         )
         LOG.info(
             "3. PRC: %s candidatos válidos; %s excluidos",
             len(candidates),
-            len(excluded_candidates),
+            len(prc_excluded),
         )
+    if config.sensitive_directory:
+        sensitive_geometry = load_sensitive_sites(config.sensitive_directory, area, crs)
+        candidates, sensitive_excluded, sensitive_audit = apply_sensitive_constraints(
+            candidates,
+            sensitive_geometry,
+            max(4 * config.antenna_height_m, 50.0),
+        )
+        excluded_candidates.extend(sensitive_excluded)
+        LOG.info(
+            "3b. Establecimientos sensibles: %s excluidos (buffer %.0f m)",
+            len(sensitive_excluded),
+            max(4 * config.antenna_height_m, 50.0),
+        )
+    all_candidates = [*candidates, *excluded_candidates]
     if not candidates:
         raise ValueError(
-            "No hay candidatos válidos tras restricciones PRC; usar screening o revisar reglas"
+            "No hay candidatos válidos tras restricciones territoriales"
+            " (PRC / establecimientos sensibles); revisar capas o modos"
         )
     timings["candidates"] = perf_counter() - step
     LOG.info("3. %s candidatos generados", len(candidates))
@@ -317,6 +348,7 @@ def run(config: PipelineConfig) -> dict:
         "candidates": candidate_audit,
         "antenna_classes": radii_audit,
         "prc_constraints": prc_audit,
+        "sensitive_sites": sensitive_audit,
         "coverage": coverage_audit,
         "connectivity": connectivity_audit,
         "osm_roads": osm_audit,
@@ -376,12 +408,14 @@ def parse_config(argv=None) -> PipelineConfig:
         "--gateways", nargs="+", help="Ids de candidatos con salida a Internet"
     )
     for flag, dest in [
-        ("candidate-spacing", "candidate_spacing_m"),
         ("max-distance", "max_distance_m"),
         ("antenna-height", "antenna_height_m"),
         ("receiver-height", "receiver_height_m"),
         ("sample-step", "sample_step_m"),
         ("dem-resolution", "dem_resolution_m"),
+        ("max-slope-deg", "max_slope_deg"),
+        ("highsite-window", "highsite_window_m"),
+        ("candidate-separation", "candidate_separation_m"),
     ]:
         parser.add_argument(f"--{flag}", dest=dest, type=float)
     parser.add_argument("--dem-source", choices=["alos", "copernicus"])
@@ -390,6 +424,7 @@ def parse_config(argv=None) -> PipelineConfig:
         "population",
         "osm-roads",
         "prc-directory",
+        "sensitive-directory",
         "population-field",
         "id-field",
         "layer",
