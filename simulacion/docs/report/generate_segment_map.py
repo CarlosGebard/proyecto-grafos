@@ -23,7 +23,9 @@ def main() -> None:
     candidates = gpd.read_file(BASE / "candidates.geojson").to_crs(crs).set_index("id")
     demands = gpd.read_file(BASE / "demand_points.geojson").to_crs(crs).set_index("id")
     area = gpd.read_file(BASE / "study_area.geojson").to_crs(crs)
-    selected = set(json.loads((BASE / "metrics.json").read_text())["results"][0]["selected"])
+    selected = set(
+        json.loads((BASE / "metrics.json").read_text())["results"][0]["selected"]
+    )
 
     blocked, visible = [], []
     for candidate_id, candidate in candidates.iterrows():
@@ -39,8 +41,12 @@ def main() -> None:
 
     fig, ax = plt.subplots(figsize=(8.0, 7.1), layout="constrained")
     area.boundary.plot(ax=ax, color="#1c2f3b", linewidth=1.1, zorder=1)
-    ax.add_collection(LineCollection(blocked, colors="#c8874e", linewidths=0.18, alpha=0.08, zorder=2))
-    ax.add_collection(LineCollection(visible, colors="#008b80", linewidths=0.34, alpha=0.30, zorder=3))
+    ax.add_collection(
+        LineCollection(blocked, colors="#c8874e", linewidths=0.18, alpha=0.08, zorder=2)
+    )
+    ax.add_collection(
+        LineCollection(visible, colors="#008b80", linewidths=0.34, alpha=0.30, zorder=3)
+    )
     ax.scatter(
         demands.geometry.x,
         demands.geometry.y,
@@ -82,10 +88,24 @@ def main() -> None:
     ax.ticklabel_format(style="plain", useOffset=False)
     ax.legend(
         handles=[
-            Line2D([], [], color="#008b80", lw=1.8, label="Segmento con línea de vista"),
-            Line2D([], [], color="#c8874e", lw=1.8, label="Segmento bloqueado por relieve"),
-            Line2D([], [], marker="+", linestyle="none", color="#1c2f3b", label="Candidato"),
-            Line2D([], [], marker="*", linestyle="none", color="#1c2f3b", markersize=10, label="Seleccionada"),
+            Line2D(
+                [], [], color="#008b80", lw=1.8, label="Segmento con línea de vista"
+            ),
+            Line2D(
+                [], [], color="#c8874e", lw=1.8, label="Segmento bloqueado por relieve"
+            ),
+            Line2D(
+                [], [], marker="+", linestyle="none", color="#1c2f3b", label="Candidato"
+            ),
+            Line2D(
+                [],
+                [],
+                marker="*",
+                linestyle="none",
+                color="#1c2f3b",
+                markersize=10,
+                label="Seleccionada",
+            ),
         ],
         loc="upper right",
         fontsize=8,

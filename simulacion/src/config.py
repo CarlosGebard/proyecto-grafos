@@ -5,6 +5,23 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
+class AntennaClass:
+    """Clase de potencia → radio efectivo (docs/referencias-potencia-antenas.md)."""
+
+    name: str
+    radius_m: float
+    count: int
+
+    def validate(self) -> None:
+        if not self.name or not isinstance(self.name, str):
+            raise ValueError("antenna_class.name debe ser un texto no vacío")
+        if not math.isfinite(self.radius_m) or self.radius_m <= 0:
+            raise ValueError(f"antenna_class '{self.name}': radius_m debe ser positivo")
+        if type(self.count) is not int or self.count < 1:
+            raise ValueError(f"antenna_class '{self.name}': count debe ser entero ≥ 1")
+
+
+@dataclass(frozen=True)
 class PipelineConfig:
     region: str = "biobio"
     bbox: tuple[float, ...] | None = None
@@ -31,7 +48,10 @@ class PipelineConfig:
     osm_roads: str | None = None
     prc_directory: str | None = None
     prc_mode: str = "screening"
-    max_combinations: int = 100_000
+    max_evaluations: int = 100_000
+    gateways: tuple[str, ...] | None = None
+    min_population: float | None = None
+    antenna_classes: tuple[AntennaClass, ...] = ()
     max_candidates: int = 10_000
     max_pairs: int = 2_000_000
     max_dem_pixels: int = 10_000_000
@@ -39,7 +59,7 @@ class PipelineConfig:
     def validate(self) -> None:
         for name in (
             "k",
-            "max_combinations",
+            "max_evaluations",
             "max_candidates",
             "max_pairs",
             "max_dem_pixels",
@@ -89,3 +109,21 @@ class PipelineConfig:
                 raise ValueError("center/study_size_m no se combinan con bbox/polygon")
         if self.prc_mode not in {"screening", "strict"}:
             raise ValueError("prc_mode debe ser screening o strict")
+        if self.gateways is not None:
+            if not self.gateways:
+                raise ValueError(
+                    "gateways vacío: omitir el campo si no se exige salida a Internet"
+                )
+            if len(set(self.gateways)) != len(self.gateways):
+                raise ValueError("gateways contiene identificadores repetidos")
+            if any(not gateway for gateway in self.gateways):
+                raise ValueError("gateways contiene identificadores vacíos")
+        if self.min_population is not None and (
+            not math.isfinite(self.min_population) or self.min_population < 0
+        ):
+            raise ValueError("min_population debe ser un número finito no negativo")
+        names = [antenna_class.name for antenna_class in self.antenna_classes]
+        if len(names) != len(set(names)):
+            raise ValueError("antenna_class con nombres repetidos")
+        for antenna_class in self.antenna_classes:
+            antenna_class.validate()

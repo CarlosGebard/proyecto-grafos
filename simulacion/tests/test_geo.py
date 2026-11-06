@@ -87,6 +87,27 @@ def test_connectivity_is_undirected_and_respects_distance(flat_dem):
         compute_connectivity(candidates, flat_dem, 35, 30, max_pairs=2)
 
 
+def test_per_candidate_radius_in_coverage_and_connectivity(flat_dem):
+    corto = AntennaCandidate("corto", 0, 0, 0, Point(10, 50), radius_m=30)
+    largo = AntennaCandidate("largo", 0, 0, 0, Point(70, 50), radius_m=45)
+    demands = [DemandNode("d1", Point(40, 50), 0, 0, 5, Point(40, 50))]
+    graph, audit = compute_coverage([corto, largo], demands, flat_dem, 45, 30, 1.5)
+    assert graph == {"corto": {"d1"}, "largo": {"d1"}}
+    assert audit["los_checks"] == 2
+    # Radio de clase menor que la distancia: sin cobertura aunque el default alcance.
+    corto_corto = AntennaCandidate("corto", 0, 0, 0, Point(10, 50), radius_m=29)
+    assert compute_coverage([corto_corto], demands, flat_dem, 45, 30, 1.5)[0] == {
+        "corto": set()
+    }
+    # Enlace exige que ambas antenas alcancen la distancia: min(ρu, ρv).
+    a = AntennaCandidate("a", 0, 0, 0, Point(10, 50), radius_m=20)
+    b = AntennaCandidate("b", 0, 0, 0, Point(40, 50), radius_m=45)
+    c = AntennaCandidate("c", 0, 0, 0, Point(70, 50), radius_m=45)
+    links, audit = compute_connectivity([a, b, c], flat_dem, 45, 30)
+    assert links == {"a": set(), "b": {"c"}, "c": {"b"}}
+    assert audit["num_edges"] == 1
+
+
 def test_dem_rejects_geographic_units(dem_factory):
     with pytest.raises(ValueError, match="métrico"):
         ElevationModel(dem_factory(np.zeros((10, 10)), crs="EPSG:4326"))

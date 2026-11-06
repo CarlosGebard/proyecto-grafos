@@ -8,8 +8,8 @@ import rasterio
 from rasterio.transform import from_origin
 from shapely.geometry import LineString, Point, box
 
-from src.algorithms.exact import ExactLimitExceeded
-from src.config import PipelineConfig
+from src.algorithms.connected import ExactLimitExceeded
+from src.config import AntennaClass, PipelineConfig
 from src.data.dem import copernicus_tiles, prepare_dem
 from src.data.osm import roads_from_geodataframe, roads_from_overpass
 from src.data.population import load_population
@@ -92,6 +92,9 @@ def test_pipeline_exports_and_exact_skip(study_inputs, tmp_path):
     assert report["results"][0]["population_covered"] == 30
     assert report["results"][0]["algorithm"] == "exact"
     assert report["results"][1]["algorithm"] == "exact_connected"
+    assert report["results"][2]["algorithm"] == "greedy_connected"
+    assert report["results"][2]["population_covered"] <= 30
+    assert all(result["evaluations"] >= 0 for result in report["results"])
     output = tmp_path / "run"
     assert {
         "dem.tif",
@@ -118,7 +121,48 @@ def test_pipeline_exports_and_exact_skip(study_inputs, tmp_path):
     with pytest.raises(ValueError, match="no está vacío"):
         run(config)
     with pytest.raises(ExactLimitExceeded):
-        run(replace(config, output=str(tmp_path / "skipped"), max_combinations=1))
+        run(replace(config, output=str(tmp_path / "skipped"), max_evaluations=1))
+
+
+def test_pipeline_threshold_and_antenna_classes(study_inputs, tmp_path):
+    area, crs, population, dem = study_inputs
+    bbox = project_geometry(area, crs, 4326).bounds
+    config = PipelineConfig(
+        bbox=bbox,
+        population=str(population),
+        dem=str(dem),
+        output=str(tmp_path / "run"),
+        k=2,
+        candidate_spacing_m=250,
+        max_distance_m=2000,
+        min_population=30,
+        antenna_classes=(AntennaClass("wifi", 300.0, 2),),
+    )
+    report = run(config)
+    assert report["threshold"]["min_population"] == 30
+    # La grilla coloca un candidato a ~354 m de ambas localidades: una sola
+    # antena alcanza las 30 personas objetivo.
+    assert report["threshold"]["min_antennas"] == 1
+    assert report["threshold"]["solution"]["population_covered"] == 30
+    manifest = json.loads((tmp_path / "run" / "manifest.json").read_text())
+    assert manifest["antenna_classes"]["classes"] == {"wifi": 2}
+    assert manifest["antenna_classes"]["default_radius_candidates"] >= 0
+    config_inalcanzable = replace(
+        config,
+        output=str(tmp_path / "inalcanzable"),
+        min_population=1000,
+    )
+    report = run(config_inalcanzable)
+    assert report["threshold"]["min_antennas"] is None
+    assert report["threshold"]["solution"] is None
+    with pytest.raises(ValueError, match="sólo quedan"):
+        run(
+            replace(
+                config,
+                output=str(tmp_path / "exceso"),
+                antenna_classes=(AntennaClass("wifi", 300.0, 99),),
+            )
+        )
 
 
 def test_cli_config_precedence_and_area(tmp_path):

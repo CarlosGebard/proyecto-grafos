@@ -6,14 +6,18 @@ import logging
 import platform
 import sys
 import tomllib
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import datetime, timezone
 from importlib.metadata import version
 from pathlib import Path
 from time import perf_counter
 
-from src.algorithms.exact import exact, exact_connected
-from src.config import PipelineConfig
+from src.algorithms.connected import (
+    greedy_conectado,
+    min_antenas_para_objetivo,
+    resolver,
+)
+from src.config import AntennaClass, PipelineConfig
 from src.data.dem import copernicus_tiles, prepare_dem
 from src.data.osm import OSM_ATTRIBUTION, roads_from_geopackage, roads_geojson
 from src.data.population import load_population
@@ -29,6 +33,37 @@ from src.visualization.map import export_map
 from src.visualization.terrain import terrain_payload
 
 LOG = logging.getLogger(__name__)
+
+
+def asignar_radios(candidates, classes, default_radius_m: float):
+    """Adjunta el radio efectivo por clase de potencia a cada candidato.
+
+    Determinista: candidatos ordenados por id, clases en el orden declarado del
+    TOML; los excedentes usan el radio por defecto (max_distance_m).
+    """
+    if not classes:
+        return candidates, None
+    resto = sorted(candidates, key=lambda candidate: candidate.id)
+    radios = {}
+    for clase in classes:
+        if clase.count > len(resto):
+            raise ValueError(
+                f"Clase '{clase.name}' pide {clase.count} candidatos;"
+                f" sólo quedan {len(resto)}"
+            )
+        for candidate in resto[: clase.count]:
+            radios[candidate.id] = clase.radius_m
+        resto = resto[clase.count :]
+    for candidate in resto:
+        radios[candidate.id] = default_radius_m
+    audit = {
+        "classes": {clase.name: clase.count for clase in classes},
+        "default_radius_candidates": len(resto),
+        "default_radius_m": default_radius_m,
+    }
+    return [
+        replace(candidate, radius_m=radios[candidate.id]) for candidate in candidates
+    ], audit
 
 
 def write_json(path: Path, value) -> None:
@@ -135,6 +170,15 @@ def run(config: PipelineConfig) -> dict:
         )
     timings["candidates"] = perf_counter() - step
     LOG.info("3. %s candidatos generados", len(candidates))
+    candidates, radii_audit = asignar_radios(
+        candidates, config.antenna_classes, config.max_distance_m
+    )
+    if radii_audit:
+        LOG.info(
+            "3b. Clases de potencia: %s; %s candidatos con radio por defecto",
+            radii_audit["classes"],
+            radii_audit["default_radius_candidates"],
+        )
     step = perf_counter()
     coverage, coverage_audit = compute_coverage(
         candidates,
@@ -160,23 +204,53 @@ def run(config: PipelineConfig) -> dict:
     )
     timings["connectivity_graph"] = perf_counter() - step
     LOG.info("5. Enlaces entre antenas: %s", connectivity_audit["num_edges"])
-    exact_solution = exact(graph, config.k, config.max_combinations)
-    connected_solution = exact_connected(
-        graph, connectivity, config.k, config.max_combinations
+    gateways = set(config.gateways) if config.gateways else None
+    exact_solution = resolver(graph, None, config.k, budget=config.max_evaluations)
+    connected_solution = resolver(
+        graph, connectivity, config.k, gateways=gateways, budget=config.max_evaluations
     )
+    greedy_solution = greedy_conectado(graph, connectivity, config.k, gateways=gateways)
     LOG.info("6. Exacto: %.0f habitantes cubiertos", exact_solution.population_covered)
     LOG.info(
         "7. Exacto conectado: %.0f habitantes cubiertos",
         connected_solution.population_covered,
     )
+    LOG.info(
+        "7b. Goloso conectado: %.0f habitantes (razón %.3f vs exacto)",
+        greedy_solution.population_covered,
+        greedy_solution.population_covered / connected_solution.population_covered
+        if connected_solution.population_covered
+        else 0.0,
+    )
     report = {
         "results": [
             metrics(graph, exact_solution, config.k),
             metrics(graph, connected_solution, config.k),
+            metrics(graph, greedy_solution, config.k),
         ],
         "exact": {"status": "completed"},
         "exact_connected": {"status": "completed"},
+        "greedy_connected": {"status": "completed"},
     }
+    if config.min_population is not None:
+        decision = min_antenas_para_objetivo(
+            graph,
+            connectivity,
+            config.k,
+            config.min_population,
+            gateways=gateways,
+            budget=config.max_evaluations,
+        )
+        report["threshold"] = {
+            "min_population": config.min_population,
+            "min_antennas": decision[0] if decision else None,
+            "solution": metrics(graph, decision[1], decision[0]) if decision else None,
+        }
+        LOG.info(
+            "7c. Umbral %.0f habitantes: %s",
+            config.min_population,
+            f"{decision[0]} antenas" if decision else "inalcanzable con k antenas",
+        )
     write_json(
         output / "graph.json",
         {
@@ -241,6 +315,7 @@ def run(config: PipelineConfig) -> dict:
             "inputs": [fingerprint(path) for path in sources],
         },
         "candidates": candidate_audit,
+        "antenna_classes": radii_audit,
         "prc_constraints": prc_audit,
         "coverage": coverage_audit,
         "connectivity": connectivity_audit,
@@ -296,6 +371,10 @@ def parse_config(argv=None) -> PipelineConfig:
         "--polygon", help="Archivo vectorial con CRS y polígono de estudio"
     )
     parser.add_argument("--k", type=int)
+    parser.add_argument("--min-population", type=float, help="Umbral t de población")
+    parser.add_argument(
+        "--gateways", nargs="+", help="Ids de candidatos con salida a Internet"
+    )
     for flag, dest in [
         ("candidate-spacing", "candidate_spacing_m"),
         ("max-distance", "max_distance_m"),
@@ -323,7 +402,7 @@ def parse_config(argv=None) -> PipelineConfig:
     parser.add_argument("--prc-mode", choices=["screening", "strict"])
     parser.add_argument("--download-population", action="store_true", default=None)
     parser.add_argument("--download-osm-roads", action="store_true", default=None)
-    for flag in ["max-combinations", "max-candidates", "max-pairs", "max-dem-pixels"]:
+    for flag in ["max-evaluations", "max-candidates", "max-pairs", "max-dem-pixels"]:
         parser.add_argument(f"--{flag}", type=int)
     args = vars(parser.parse_args(argv))
     config_path = args.pop("config")
@@ -331,6 +410,10 @@ def parse_config(argv=None) -> PipelineConfig:
     if config_path:
         with config_path.open("rb") as stream:
             values = tomllib.load(stream)
+        if "antenna_class" in values:
+            values["antenna_classes"] = tuple(
+                AntennaClass(**tabla) for tabla in values.pop("antenna_class")
+            )
     if args.get("polygon") is not None:
         values.pop("bbox", None)
     if args.get("bbox") is not None:

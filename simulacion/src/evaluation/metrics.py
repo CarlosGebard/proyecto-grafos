@@ -14,6 +14,7 @@ def metrics(graph: CoverageGraph, solution: Solution, k: int) -> dict:
         if total
         else 0.0,
         "runtime_seconds": solution.runtime_seconds,
+        "evaluations": solution.evaluations,
         "selected": list(solution.selected),
         "covered": sorted(solution.covered),
     }
