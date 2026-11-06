@@ -1,6 +1,6 @@
 "use strict";
 
-const DATA = "../outputs/biobio-exacto/";
+const DATA = "../outputs/biobio-regresion-esu/";
 const svgNs = "http://www.w3.org/2000/svg";
 const map = document.querySelector("#map");
 const status = document.querySelector("#map-status");
@@ -35,10 +35,10 @@ function geometryPath(geometry, bounds) {
   }).join(" ") + " Z").join(" ");
 }
 
-function gainFor(candidate, covered) {
-  const demandIds = state.scenario.graph.coverage[candidate.properties.id] || [];
+function gainFor(graph, candidate, covered) {
+  const demandIds = graph.coverage[candidate.properties.id] || [];
   const newlyCovered = demandIds.filter((id) => !covered.has(id));
-  const population = newlyCovered.reduce((sum, id) => sum + state.scenario.graph.population[id], 0);
+  const population = newlyCovered.reduce((sum, id) => sum + graph.population[id], 0);
   return { newlyCovered, population };
 }
 
@@ -49,7 +49,7 @@ function createScenario([demand, demandPoints, candidates, area, graph, metrics,
   const selections = [];
   const covered = new Set();
   selected.forEach((candidate) => {
-    const gain = gainFor(candidate, covered);
+    const gain = gainFor(graph, candidate, covered);
     gain.newlyCovered.forEach((id) => covered.add(id));
     selections.push({ candidate, ...gain, totalPopulation: [...covered].reduce((sum, id) => sum + graph.population[id], 0), totalCovered: new Set(covered) });
   });
@@ -133,7 +133,7 @@ async function loadPilot() {
     state.scenario = createScenario(responses); renderMap(); updatePanel(); status.textContent = "Resultados Biobío cargados";
   } catch (error) {
     status.textContent = "No fue posible cargar el piloto";
-    document.querySelector("#step-copy").textContent = "Sirve la carpeta simulacion por HTTP y verifica outputs/biobio-exacto/.";
+    document.querySelector("#step-copy").textContent = "Sirve la carpeta simulacion por HTTP y verifica outputs/biobio-regresion-esu/.";
     document.querySelector("#selection-name").textContent = "Resultados no disponibles";
     console.error(error);
   }

@@ -12,6 +12,7 @@ const playButton = document.querySelector("#play-button");
 const sceneStatus = document.querySelector("#scene-status");
 const demoTab = document.querySelector("#demo-tab");
 const biobioTab = document.querySelector("#biobio-tab");
+const metroTab = document.querySelector("#metro-tab");
 const yumbelTab = document.querySelector("#yumbel-tab");
 const antennaAsset = new Image();
 const terrainVerticalExaggeration = 10;
@@ -69,6 +70,7 @@ const steps = [
 const state = {
   scenario: demo,
   biobio: null,
+  metropolitana: null,
   yumbel: null,
   terrain: null,
   view: "diagram",
@@ -304,7 +306,7 @@ function play() {
 }
 
 function setActiveTab(tab) {
-  const tabs = { demo: demoTab, biobio: biobioTab, yumbel: yumbelTab };
+  const tabs = { demo: demoTab, biobio: biobioTab, metro: metroTab, yumbel: yumbelTab };
   Object.entries(tabs).forEach(([name, button]) => {
     const active = name === tab;
     button.classList.toggle("active", active);
@@ -372,12 +374,17 @@ async function loadOutput(directory, name) {
 }
 
 async function loadBiobio() {
-  if (!state.biobio) state.biobio = await loadOutput("biobio-exacto", "Piloto Biobío");
+  if (!state.biobio) state.biobio = await loadOutput("biobio-regresion-esu", "Piloto Biobío");
   return Boolean(state.biobio);
 }
 
+async function loadMetropolitana() {
+  if (!state.metropolitana) state.metropolitana = await loadOutput("metropolitana-regresion-esu", "Piloto Metropolitana");
+  return Boolean(state.metropolitana);
+}
+
 async function loadYumbel() {
-  if (!state.yumbel) state.yumbel = await loadOutput("yumbel-50km-prc-screening", "Yumbel 50 km · screening PRC");
+  if (!state.yumbel) state.yumbel = await loadOutput("yumbel-clases-2", "Yumbel 50 km · PRC + clases de potencia");
   return Boolean(state.yumbel);
 }
 
@@ -406,6 +413,21 @@ async function showBiobio() {
   render();
 }
 
+async function showMetropolitana() {
+  stop();
+  sceneStatus.textContent = "Cargando piloto Metropolitana";
+  if (!(await loadMetropolitana())) {
+    sceneStatus.textContent = "Piloto Metropolitana no disponible";
+    return;
+  }
+  state.scenario = state.metropolitana;
+  state.view = "map";
+  state.step = 0;
+  sceneStatus.textContent = state.scenario.name;
+  setActiveTab("metro");
+  render();
+}
+
 function showDemo() {
   stop();
   state.scenario = demo;
@@ -424,7 +446,7 @@ async function showTerrain() {
     sceneStatus.textContent = "Piloto Biobío no disponible";
     return;
   }
-  state.terrain = await loadTerrain("biobio-exacto");
+  state.terrain = await loadTerrain("biobio-regresion-esu");
   if (!state.terrain) {
     showDemo();
     sceneStatus.textContent = "Falta terreno 3D";
@@ -446,7 +468,7 @@ async function showYumbel() {
     sceneStatus.textContent = "Simulación Yumbel no disponible";
     return;
   }
-  state.terrain = await loadTerrain("yumbel-50km-prc-screening");
+  state.terrain = await loadTerrain("yumbel-clases-2");
   if (!state.terrain) {
     sceneStatus.textContent = "Falta relieve Yumbel";
     return;
@@ -455,7 +477,7 @@ async function showYumbel() {
   state.view = "terrain";
   state.step = 0;
   state.camera = { yaw: -0.62, pitch: 0.62 };
-  sceneStatus.textContent = "Yumbel 50 km · screening PRC · arrastra para rotar";
+  sceneStatus.textContent = "Yumbel 50 km · PRC + clases de potencia · arrastra para rotar";
   setActiveTab("yumbel");
   render();
 }
@@ -762,6 +784,7 @@ nextButton.addEventListener("click", () => { stop(); setStep(state.step + 1); })
 playButton.addEventListener("click", play);
 demoTab.addEventListener("click", showDemo);
 biobioTab.addEventListener("click", showBiobio);
+metroTab.addEventListener("click", showMetropolitana);
 yumbelTab.addEventListener("click", showYumbel);
 terrainReset.addEventListener("click", () => { state.camera = { yaw: -0.62, pitch: 0.62 }; drawTerrain(); });
 prcLayerToggle.addEventListener("click", () => { state.showPrcConstraints = !state.showPrcConstraints; render(); });
