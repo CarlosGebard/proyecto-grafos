@@ -39,8 +39,7 @@ uv run ruff format --check .
 
 ## Documentación
 
-- [Anexo visual de la simulación exacta (PDF)](output/pdf/figuras-simulacion-exacta.pdf) y sus [fuentes LaTeX](output/pdf/figuras-simulacion-exacta.tex).
-- [Documento explicativo: problema, datos y solución](docs/documento-explicativo.md) y su [PDF](output/pdf/documento-explicativo.pdf).
+- [Documento explicativo: problema, datos y solución](docs/documento-explicativo.md).
 - [Relación con el PDF y formulación científica](docs/propuesta.md).
 - [Operación, fuentes, configuración y resultados](docs/runbooks/pipeline.md).
 - [Decisión de arquitectura V1](docs/adr/0001-pipeline-geoespacial.md).

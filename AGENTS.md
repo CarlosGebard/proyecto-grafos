@@ -86,7 +86,7 @@ simulacion/
     data/                DEM, población SUBDERE, OSM, preparación
     geo/                 área, criterio de candidatos, PRC + establecimientos sensibles, cobertura+conectividad LOS, elevación
     graph/               CoverageGraph/Solution (models.py), builder
-    algorithms/          exact.py (placeholder a reemplazar) → connected.py (spec)
+    algorithms/          connected.py (motor exacto conectado: ESU + unión incremental)
     evaluation/          metrics.py
     visualization/       mapa PNG y payload de terreno para web
   tests/                 test_algorithms.py (oracle), test_geo.py, test_data_pipeline.py
@@ -95,5 +95,5 @@ simulacion/
 prc-mapas/               GeoJSON PRC Biobío + descargador
 ```
 
-Los scripts de reporte (`simulacion/docs/report/`): `generate_figures.py`,
-`generate_segment_map.py` y `medicion_fase0.py` (medición del régimen Δ).
+Script de reporte (`simulacion/docs/report/`): `medicion_fase0.py`
+(medición del régimen Δ).
