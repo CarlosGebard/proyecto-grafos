@@ -75,7 +75,7 @@ uv run ruff format --check .
 ## 6. Mapa rápido del repositorio
 
 ```text
-README.md, ESTADO.md, NOTA-ESTADO.md   portada y estado
+README.md, NOTA-ESTADO.md             portada y estado
 docs/                                  propuesta comentada (G8), paper ITCS,
                                        especificación del algoritmo, referencias de potencia
 propuesta-primera-entrega/, informe/   entregables académicos (PDF/tex)
