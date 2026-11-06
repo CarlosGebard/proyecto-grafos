@@ -13,7 +13,7 @@ Pilotos ya ejecutados: Biobío 4.210/5.234 hab (80,44 %), Metropolitana 25.119/2
 - **Motor exacto conectado implementado** (cutover completo, `exact.py` eliminado): `simulacion/src/algorithms/connected.py` con ESU + unión incremental + cota de prefijos + desempate lexicográfico, gateway, clases de potencia (`radius_m` por candidato, `min(ρu, ρv)` en enlaces), umbral `t` y baseline goloso. Pilotos reproducidos idénticos: Biobío 4.210 hab (80,44 %), Metropolitana 25.119 hab (88,64 %); ver ADR 0006.
 - **Candidatos por criterio (ADR 0007)**: la retícula regular fue reemplazada por anclas en localidades + intersecciones Murray–Tong + sitios altos del DEM, con filtros de pendiente, proximidad y establecimientos sensibles (OGUC 116 bis E / Ley 20.599; sin capa declarada queda como limitación de datos, nunca como permiso). Pilotos re-corridos con `k=5`; los tres superan a la retícula: Biobío 85,35 % (4.467/5.234, +4,91), Metropolitana 92,65 % (26.254/28.337, +4,01), Yumbel con clases 39,01 % conectado (12.063/30.923, +10,07).
 - **Rama activa: `feat/algoritmo`**. Push funcionando como colaborador de `CarlosGebard/proyecto-grafos` (antes la clave autenticaba como `not-narleeek`, sin acceso: resuelto el 6 de noviembre de 2026).
-- Pendiente en la rama: informe final (fase 3, lo último). Fase 0 re-medida sobre el criterio (`simulacion/docs/report/fase0-medicion.md`, sección criterio).
+- **Informe final (fase 3) hecho**: `informe/informe-final.tex` (+ PDF compilado en `informe/entregables/`) — mapeo a PartialConRBDS, techo teórico documentado (Thm 1/2/4 de [1]), datos concretos de fase 0 y tabla greedy-vs-exacto. Fase 0 re-medida sobre el criterio (`simulacion/docs/report/fase0-medicion.md`, sección criterio).
 
 ## 3. Mandato de la rama (estado)
 
@@ -22,7 +22,7 @@ Pilotos ya ejecutados: Biobío 4.210/5.234 hab (80,44 %), Metropolitana 25.119/2
 3. **[HECHO]** Baseline goloso (`greedy_conectado`) para el contraste rápido-vs-óptimo.
 4. **[HECHO]** Docs/ADRs tras el cutover: ADR 0006 nuevo; ADR 0002 actualizado; `ESTADO.md` y `NOTA-ESTADO.md` sincronizados.
 5. **[HECHO]** Fase 0: medición en los pilotos — Δ̄/Δ máx, conexos reales vs combinaciones, tasa de poda, solapes — registrada en `simulacion/docs/report/fase0-medicion.md` (script: `medicion_fase0.py`).
-6. **[PENDIENTE]** Fase 3 (lo último): informe con justificación (paper ITCS + régimen Δ acotado) y tabla greedy-vs-exacto, partiendo de la medición de fase 0.
+6. **[HECHO]** Fase 3: informe con justificación (paper ITCS + régimen Δ acotado), techo teórico documentado y tabla greedy-vs-exacto, partiendo de la medición de fase 0 — `informe/informe-final.tex` (+ PDF en `informe/entregables/`).
 
 ## 4. Fuentes de verdad (orden de lectura)
 
@@ -68,7 +68,7 @@ uv run ruff format --check .
 
 ### Trampas conocidas
 
-- La propuesta PDF entregada dice "enumeración exacta": el informe final (fase 3) debe presentar el nuevo algoritmo y su justificación (paper ITCS + régimen Δ acotado), no contradecir la versión entregada sin explicar el cambio.
+- La propuesta PDF entregada dice "enumeración exacta": el informe final (fase 3, hecho — §2 de `informe/informe-final.tex`) presenta el nuevo algoritmo y su justificación (paper ITCS + régimen Δ acotado) explicando el cambio, sin contradecir la versión entregada a secas.
 - El número de combos de Yumbel a 5 km de espaciado sería `C(121,5) ≈ 1,99·10⁸` > presupuesto: por eso existe la fase 0 de medición (contar subconjuntos conexos reales y Δ̄ antes de prometer rendimientos).
 - Este archivo, `docs/algoritmo-conectado.md` y `NOTA-ESTADO.md` deben mantenerse al día con el estado real; si cambias el alcance, actualízalos en el mismo commit.
 

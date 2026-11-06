@@ -2,7 +2,7 @@
 
 ## Fase actual
 
-Motor exacto conectado implementado en `feat/algoritmo` (cutover de la fuerza bruta). Pilotos revalidados.
+Motor exacto conectado implementado en `feat/algoritmo` (cutover de la fuerza bruta). Pilotos revalidados. Informe final (fase 3) redactado y compilado.
 
 ## Resuelto
 
@@ -13,9 +13,9 @@ Motor exacto conectado implementado en `feat/algoritmo` (cutover de la fuerza br
 - Solución exacta: enumeración ESU de subconjuntos conexos (`src/algorithms/connected.py`), con cota, desempate lexicográfico, gateway opcional y umbral `t`; baseline goloso para contraste.
 - Candidatos por criterio (ADR 0007): anclas en localidades + intersecciones Murray–Tong + sitios altos del DEM; filtros de pendiente, proximidad y establecimientos sensibles (OGUC 116 bis E / Ley 20.599). La retícula regular quedó eliminada.
 - Pilotos con criterio (ADR 0007, `k=5`); los tres superan a la retícula: Biobío 85,35 % (4.467/5.234, +4,91 p.p.), Metropolitana 92,65 % (26.254/28.337, +4,01 p.p.), Yumbel con clases 39,01 % conectado (12.063/30.923, +10,07 p.p.; separación de 4 km ≈ √(área/n)).
+- Informe final (fase 3): `informe/informe-final.tex` (+ PDF en `informe/entregables/`) — mapeo a PartialConRBDS, techo teórico documentado (Teoremas 1, 2 y 4 del paper ITCS), datos concretos de fase 0 y tabla greedy-vs-exacto (razón 1,000; 17–78× menos evaluaciones).
 
 ## Pendiente
 
-- Informe final (fase 3). Fase 0 re-medida sobre el criterio (`fase0-medicion.md`, sección criterio).
 - Censo 2024.
 - Modelo radioeléctrico, permisos, costos y factibilidad real.

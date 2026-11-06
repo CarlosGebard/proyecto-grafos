@@ -1,0 +1,279 @@
+\documentclass[12pt,letterpaper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish,es-tabla]{babel}
+\usepackage[left=3cm,right=2.4cm,top=2.7cm,bottom=2.7cm]{geometry}
+\usepackage{amsmath,amssymb,booktabs,array,enumitem,xcolor,tikz,fancyhdr,lastpage}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[hidelinks]{hyperref}
+\usetikzlibrary{positioning}
+\definecolor{accent}{RGB}{54,74,89}
+\setlength{\parskip}{0.45em}
+\setlength{\parindent}{0pt}
+\setlength{\headheight}{23pt}
+\setlength{\emergencystretch}{1em}
+\pagestyle{fancy} \fancyhf{}
+\fancyhead[L]{\includegraphics[width=4.6cm]{../propuesta-primera-entrega/imagen.png}}
+\fancyhead[R]{\small Informe final}
+\fancyfoot[C]{\small \thepage\ de \pageref{LastPage}}
+\newcommand{\projectname}{Optimización de Cobertura Territorial mediante Grafos}
+\newcommand{\userrole}{Unidad de Planificación de Conectividad Territorial}
+\begin{document}
+\begin{titlepage}
+\centering\vspace*{1.2cm}
+\includegraphics[width=1.55cm]{../propuesta-primera-entrega/logo.png}\par
+\vspace{0.25cm}{\large Facultad de Ingeniería y Ciencias\par}
+{\large Grafos y Algoritmos\par}
+\vspace{1.55cm}\color{accent}\rule{\textwidth}{1.2pt}\par
+\vspace{1.1cm}\color{black}{\Huge\bfseries \projectname\par}
+\vspace{0.6cm}{\Large Informe Final\par}
+\vspace{1.1cm}\color{accent}\rule{\textwidth}{1.2pt}\par
+\vfill
+\begin{tabular}{rl}
+\textbf{Integrantes:} & Fernando Llancao \\
+& Carlos Jara \\[0.35cm]
+\textbf{Profesor:} & Karol Suchan
+\end{tabular}
+\vfill Santiago, Chile\\ Noviembre de 2026
+\end{titlepage}
+\pagenumbering{roman}\tableofcontents\newpage\pagenumbering{arabic}
+
+\section{Resumen}
+Este informe cierra el proyecto: un prototipo de prefactibilidad que selecciona hasta $k$ sitios de antena maximizando la población única potencialmente cubierta en un territorio, con cobertura definida por distancia y línea de vista (LOS) sobre un modelo digital de elevación (DEM), filtrado territorial por Plan Regulador Comunal (PRC) y conectividad obligatoria entre las antenas seleccionadas con salida a Internet (gateways).
+
+Respecto de la propuesta de primera entrega, el cambio central es el algoritmo: la enumeración combinatoria de todas las alternativas se reemplazó por la \emph{enumeración canónica de subconjuntos conexos} (ESU, \cite{wernicke2006}) con objetivo incremental como unión, cota mayorante de prefijos y desempate lexicográfico. La garantía prometida --- óptimo exacto de la instancia --- se mantiene; lo que cambia es cuánto trabajo se hace para obtenerla. La decisión se justifica con el problema \emph{Partial Connected Red-Blue Dominating Set} (PartialConRBDS) de \cite{itcs2026}: en general el problema es duro e inaproximable en tiempo polinomial, pero cuando el grafo de conectividad tiene grado acotado --- exactamente lo que la distancia y la LOS imponen sobre un conjunto acotado de candidatos --- la enumeración exacta de subconjuntos conexos cuesta $n \cdot \Delta^{O(k)}$, viable para $k$ pequeño.
+
+El motor se mide y se valida en tres pilotos con datos reales (Biobío, Metropolitana y Yumbel). La medición de régimen (fase 0) confirma que la estructura esperada existe: entre 45\,\% y 61\,\% de las combinaciones se eliminan por desconexas antes de evaluarse, y el solape entre coberturas --- hasta 258 localidades compartidas por dos antenas enlazadas --- cuantifica por qué el objetivo es la unión y no la suma por antena. En los tres pilotos el baseline goloso alcanzó el mismo valor que el exacto (razón $1{,}000$), con entre 17 y 78 veces menos evaluaciones; el valor del contraste rápido-vs-óptimo aparecerá en instancias mayores, donde se registre brecha.
+
+\section{Recorrido y cambios respecto de la propuesta}
+La propuesta entregada en septiembre formulaba el problema como Maximum Coverage ponderado y se comprometía a una ``solución exacta'' por evaluación de todas las combinaciones viables hasta $k$, con un límite de combinaciones como protección. Los comentarios del profesor sobre esa versión (anotaciones del PDF entregado) marcaron cuatro correcciones de fondo y dos de presentación; la Tabla~\ref{tab:retro} resume cada comentario y la decisión adoptada.
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{p{5.4cm}p{9.2cm}}
+\toprule
+\textbf{Comentario del profesor} & \textbf{Decisión adoptada} \\
+\midrule
+Evaluar todos los subconjuntos no es factible; sólo la creación del grafo de visibilidad puede ser exhaustiva (p.~3). & La fuerza bruta fue eliminada del motor. La enumeración exhaustiva de pares se conserva \emph{única y exclusivamente} en la capa geográfica (verificar LOS par a par sobre el DEM); el motor nunca genera combinaciones totales. \\
+Las antenas deben poder comunicarse entre ellas (p.~4). & Se exige $G_{conn}[S]$ conexo: existe enlace entre dos antenas sólo si hay distancia válida y LOS entre ambas (p.~5). \\
+Faltan los puntos de acceso a Internet (p.~4). & Gateways: un conjunto $G \subseteq R$ de candidatos con salida a Internet; toda solución factible debe incluir al menos uno ($S \cap G \neq \emptyset$). \\
+NP-difícil no significa no hacer nada: revisen literatura de Connected Maximum Coverage (p.~6). & El problema se mapea a PartialConRBDS de \cite{itcs2026}; la elección del algoritmo se justifica con su análisis de complejidad (§\ref{sec:teoria}). La segunda referencia sugerida \cite{dangelo2025} queda como literatura complementaria de aproximación. \\
+Igual deberían proponer algo mejor que la fuerza bruta (p.~6). & Enumeración canónica de subconjuntos conexos (ESU) + cota de prefijos + baseline goloso para el contraste rápido-vs-óptimo. \\
+Demasiado genérico; presentación concreta de los datos (p.~7). & Candidatos generados por criterio con fuentes verificadas (§\ref{sec:datos}); pilotos medidos con números concretos (§\ref{sec:fase0} y §\ref{sec:resultados}). \\
+\bottomrule
+\end{tabular}
+\caption{Retroalimentación del profesor sobre la propuesta y decisiones adoptadas.}
+\label{tab:retro}
+\end{table}
+
+Una aclaración sobre la continuidad: la propuesta prometía ``enumeración exacta'' y el informe final mantiene esa promesa en el sentido que importa --- el resultado es el óptimo de la instancia, no una aproximación --- pero el \emph{modo} de obtenerlo cambió, tal como el comentario de la p.~6 exigía. La sección \ref{sec:teoria} muestra que ese cambio no es un ajuste de ingeniería sino la consecuencia directa de lo que se sabe del problema: en su generalidad, ni la fuerza bruta es práctica ni existen algoritmos polinomiales con garantías finas, y la única vía exacta razonable para $k$ pequeño es explotar la estructura del grafo de conectividad.
+
+\section{Formulación del problema}
+Sea $R$ el conjunto de candidatos (tras el filtro territorial PRC y de establecimientos sensibles), $D$ las localidades con peso poblacional $w(d) \ge 0$ (SUBDERE/Censo), $C(a) \subseteq D$ las localidades que el candidato $a$ cubre y $G_{conn} = (R, E_{conn})$ el grafo de enlaces entre antenas. Cada candidato tiene un radio efectivo $\rho(a)$, igual a \texttt{max\_distance\_m} o derivado de su clase de potencia (§\ref{sec:potencia}). Las aristas se definen:
+\begin{align*}
+\text{Cobertura: } & (a,d) \in E_{cov} \iff \operatorname{dist}(a,d) \le \rho(a) \text{ y } LOS(a, d,\ h_{ant},\ h_{recv}) \\
+\text{Enlace: } & (u,v) \in E_{conn} \iff \operatorname{dist}(u,v) \le \min(\rho(u), \rho(v)) \text{ y } LOS(u, v,\ h_{ant},\ h_{ant})
+\end{align*}
+Dado $k$, un conjunto opcional de gateways $G \subseteq R$ y un umbral opcional de población $t$, se busca $S \subseteq R$ que maximice
+\begin{equation}
+f(S) \;=\; \sum_{d \,\in\, \bigcup_{a \in S} C(a)} w(d),
+\label{eq:objetivo}
+\end{equation}
+sujeto a $|S| \le k$, $G_{conn}[S]$ conexo y $S \cap G \neq \emptyset$ (sólo si $G \neq \emptyset$). La unión antes de sumar evita contar dos veces una localidad alcanzada por varias antenas --- el objetivo es población \emph{única} cubierta. Ante empates se devuelve el conjunto lexicográficamente menor en tupla ordenada de identificadores, lo que hace reproducible cada corrida. El mismo motor resuelve tres variantes: la optimización \eqref{eq:objetivo}; la de tamaño mínimo $m \le k$ con $f(S) \ge t$ (``¿cuántas antenas para el X\,\%?'') y la de decisión pura ``¿existe $S$ con $f(S) \ge t$?''; sin conectividad, $G_{conn}$ es la clique completa y el motor degenera a cobertura libre.
+
+\subsection{Mapeo a PartialConRBDS}
+El modelo de \cite{itcs2026} recibe un grafo bipartito de cobertura $G_{cov} = (R \cup B, E')$ --- ``rojos'' $R$ = conjuntos, ``azules'' $B$ = universo ---, un grafo auxiliar $G_{conn}$ sobre $R$ y enteros $k, t$; pide $S \subseteq R$ con $|S| \le k$, $G_{conn}[S]$ conexo y $|N_{G_{cov}}(S)| \ge t$. Nuestro problema es exactamente su variante de optimización (i) --- maximizar $|N_{G_{cov}}(S)|$ con $|S| \le k$ --- con pesos en $B$: los azules son las localidades, los rojos los candidatos, $G_{cov}$ es la incidencia de cobertura y $G_{conn}$ son los enlaces LOS. La Tabla~\ref{tab:mapeo} fija la posición.
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{p{6.2cm}p{8.4cm}}
+\toprule
+\textbf{Resultado de \cite{itcs2026}} & \textbf{Consecuencia para este proyecto} \\
+\midrule
+PartialConRBDS captura Connected Max Coverage \cite{hochbaum2020} y variantes; variante (i) con pesos = nuestro problema. & El modelo formal y la terminología del informe siguen al artículo; nada se reinventa. \\
+W[1]-duro en $k$, incluso con $G_{conn}$ clique o estrella y grafos de incidencia 3-degenerados. & No existe un algoritmo general rápido parametrizado sólo por $k$; hay que explotar estructura de la instancia. \\
+Sin aproximación polinomial $(1, 1-1/e+\varepsilon)$ para todo $\varepsilon > 0$; bajo ETH, ninguna $g(k)$-aproximación en $f(k) \cdot n^{o(k)}$. & El goloso clásico $(1-1/e)$ está esencialmente en el techo polinomial; por eso el contraste rápido-vs-óptimo se hace con instancias exactas, no esperando un polinomial ``casi óptimo''. \\
+Régimen $\Delta(G_{conn})$ acotado (§1.3): enumerar los $n \cdot \Delta^{O(k)}$ subconjuntos conexos de tamaño $\le k$ es FPT en $k+\Delta$, \emph{exacto}. & \textbf{Núcleo elegido.} La distancia y la LOS acotan $\Delta$ sobre un conjunto acotado de candidatos; la fase 0 lo mide (§\ref{sec:fase0}). \\
+Obstáculo de aditividad (§1.2): $w(S) \neq |N(S)|$; los solapes rompen la submodularidad útil del análisis por antena. & El motor puntúa la unión incrementalmente (contadores por localidad con traza de deshacer); nunca suma por antena. \\
+Techo teórico: EPAS/PAS (Teoremas 1 y 2) y exacto $(2e)^{t+o(t)}$ (Teorema 4); bicriterios de \cite{dangelo2025}. & Documentados, no implementados: el proyecto exige optimalidad exacta de la instancia (§\ref{sec:techo}). \\
+\bottomrule
+\end{tabular}
+\caption{Mapeo del problema al modelo PartialConRBDS de \cite{itcs2026} y decisiones derivadas.}
+\label{tab:mapeo}
+\end{table}
+
+\section{Justificación del algoritmo}
+\label{sec:teoria}
+
+\subsection{Por qué no fuerza bruta}
+Con $n = 40$ candidatos y $k = 5$, las combinaciones totales suman $\sum_{r \le 5}\binom{40}{r} = 760.098$; el número crece $\binom{n}{k}$-ápticamente y el comentario de la p.~3 es correcto: la fuerza bruta no escala ni siquiera a una ventana comunal. Pero la crítica va más allá del rendimiento. La dureza de PartialConRBDS (W[1]-dureza en $k$ bajo restricciones fuertes; inaproximabilidad $(1, 1-1/e+\varepsilon)$) dice que \emph{ninguna} reformulación genérica del problema va a ser fácil; la única salida es un algoritmo que explote la estructura que sí tenemos.
+
+\subsection{El régimen $\Delta(G_{conn})$ acotado hace viable el óptimo exacto}
+La estructura disponible es doble. Primero, la capa geográfica: dos candidatos se enlazan sólo si la distancia entre ambos no excede el mínimo de sus radios \emph{y} el perfil del terreno despeja la LOS; eso acota el grado de $G_{conn}$ por construcción --- una antena no ``ve'' a todo el conjunto de candidatos, sólo a las que están a distancia y vista. Segundo, la generación por criterio con tope \texttt{max\_candidates} fija el tamaño $n$ de la instancia. Con $\Delta$ acotado, \cite{itcs2026} §1.3 observa que se pueden enumerar los $n \cdot \Delta^{O(k)}$ subconjuntos conexos de tamaño $\le k$ y resolver \emph{exactamente}: el problema es FPT en $k + \Delta$. Nuestro $k$ es 5 y la fase 0 mide $\bar{\Delta}$ entre $0{,}96$ y $25{,}15$ con $\Delta_{\max} \le 35$ en los tres pilotos: el régimen exacto aplica y es medible, no una hipótesis.
+
+\subsection{El motor: enumeración canónica, unión incremental y desempate}
+El motor\footnote{Especificación completa e invariantes: \texttt{docs/algoritmo-conectado.md}; decisión de reemplazo: ADR 0006.} recorre cada subconjunto conexo de $G_{conn}$ con tamaño $\le k$ \emph{exactamente una vez} mediante ESU \cite{wernicke2006}: cada conjunto se genera bajo su vértice de identificador mínimo y las extensiones de una rama usan el vecindario exclusivo $\mathit{Nexcl}(a, S) = N(a) \setminus N(S)$ --- un vértice descartado nunca re-entra. Esto elimina por construcción los subconjuntos desconectos y los re-chequeos de conectividad de la fuerza bruta. Tres piezas completan el diseño:
+
+\begin{itemize}
+\item \textbf{Objetivo incremental como unión.} Contadores \texttt{cover[d]} registran cuántas antenas de $S$ alcanzan cada localidad; una localidad entra al objetivo sólo la primera vez y la traza de deshacer restaura el estado exactamente al retroceder. Costo amortizado $O(1)$ por localidad nueva. Es la respuesta en código al comentario ``no sólo sumar cardinalidad'' y al obstáculo de aditividad de \cite{itcs2026} §1.2.
+\item \textbf{Cota mayorante de prefijos.} Si a $S$ le quedan $m$ incorporaciones, el incremento de $f$ es a lo sumo la suma de los $m$ mayores pesos totales por candidato (\texttt{prefix[m]}); los solapes sólo reducen. La poda usa comparación estricta ($< \mathit{best\_f}$): una rama que \emph{empata} el mejor valor nunca se poda, porque el desempate lexicográfico exige verla --- podar por empate rompería la reproducibilidad.
+\item \textbf{Baseline goloso.} \texttt{greedy\_conectado}: desde cada semilla (gateway si se exige), agrega iterativamente el vecino conexo de mayor aporte marginal a la unión. Da la respuesta rápida que la propuesta prometió contrastar contra el óptimo.
+\end{itemize}
+
+\subsection{El techo teórico que se documenta y no se implementa}
+\label{sec:techo}
+\cite{itcs2026} aporta tres algoritmos para PartialConRBDS con incidencias $K_{d,d}$-libres: un esquema $(1, 1-\varepsilon)$-aproximado en $2^{O(k^2 d/\varepsilon)} \cdot |I|^{O(1)}$ (Teorema 1); uno $(1+\varepsilon, 1)$-aproximado en $2^{O(kd(k^2+\log d))} \cdot |I|^{O(1/\varepsilon)}$ (Teorema 2); y un algoritmo exacto en $(2e)^{t+o(t)}$ (Teorema 4). También \cite{dangelo2025} da bicriterios polilogarítmicos para el mismo problema. Se documentan como \emph{techo teórico}, no se implementan, por tres razones. Primera, de requerimientos: el activo del proyecto es el óptimo exacto de la instancia --- un techo de prefactibilidad ``con al menos el 90\,\% del óptimo'' debilitaría la herramienta sin necesidad. Segunda, de ajuste del parámetro: el exacto de la Teorema 4 es exponencial en $t$, que en nuestra instancia es la población cubierta (decenas de miles), mientras nuestro $k = 5$ es diminuto; el régimen $\Delta$ acotado usa el parámetro chico. Tercera, de garantías: los esquemas aproximados exigen incidencias $K_{d,d}$-libres y entregan compromisos $(\alpha, \beta)$ que el usuario del prototipo no pidió. El goloso cubre el rol de ``respuesta rápida'', con la razón goloso/exacto medida (§\ref{sec:resultados}) en lugar de una promesa teórica.
+
+\subsection{Hallazgo honesto: la cota de prefijos no poda en estos pilotos}
+La fase 0 midió tasa de poda $0$\,\% en los seis escenarios medidos: con radios de 30 km, el peso total de casi cualquier candidato es del orden de la población de la ventana, así que \texttt{prefix[m]} nunca queda bajo el mejor valor encontrado. La economía del motor viene de ESU --- no generar lo desconexo --- y no de la poda. Lo registramos tal cual: en instancias mayores con candidatos más discriminantes (radios heterogéneos ya lo empiezan a hacer en Yumbel) la cota debería activarse; si no, la vía es una cota por vecindario, no comprometida en la especificación.
+
+\section{Datos concretos del modelo}
+\label{sec:datos}
+
+\subsection{Candidatos por criterio, no grilla}
+\label{sec:criterio}
+La retícula regular de la primera versión se reemplazó por generación determinista de candidatos (ADR 0007): anclas en las localidades (la demanda exacta), intersecciones de circunferencias de radio $\rho$ centradas en pares de localidades (sitios que cubren dos demandas a la vez, al estilo Murray--Tong) y sitios altos del DEM con supresión no-máxima (cumbres con visibilidad natural). Sobre lo generado actúan filtros en cadena: celdas DEM sin dato no generan candidatos; pendiente excesiva se descarta (\texttt{max\_slope\_deg}); proximidad mínima entre candidatos (\texttt{candidate\_separation\_m}); establecimientos sensibles (OGUC 116 bis E; Ley 20.599) excluyen sitios inmediatos; y el tope \texttt{max\_candidates} selecciona por población alcanzable. Sin el filtro de proximidad el tope se llena de casi-duplicados de un mismo clúster --- en la primera corrida de Yumbel el cobertura cayó a $7{,}83$\,\%; con separación de $4$ km ($\approx \sqrt{\text{área}/n}$, el mismo esfuerzo de muestreo de la grilla original de 10 km) subió a $39{,}01$\,\%. La Tabla~\ref{tab:criterio} muestra el embudo completo en los tres pilotos.
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{lrrr}
+\toprule
+ & \textbf{Biobío} & \textbf{Metropolitana} & \textbf{Yumbel (criterio)} \\
+\midrule
+Puntos crudos generados & 6.935 & 95.878 & 754.626 \\
+Excluidos por proximidad & 108 & 249 & 578.495 \\
+Candidatos finales $n$ (tope activo) & 40 & 40 & 25 \\
+\bottomrule
+\end{tabular}
+\caption{Embudo de generación de candidatos por criterio (ADR 0007), $k = 5$.}
+\label{tab:criterio}
+\end{table}
+
+\subsection{Potencias y radios por clase de antena}
+\label{sec:potencia}
+El modelo no calcula pérdidas de propagación; la ``potencia'' entra como radio efectivo de referencia por clase de estación, con órdenes de magnitud verificados contra fuentes primarias\footnote{\texttt{docs/referencias-potencia-antenas.md}: 3GPP/ETSI TS 136 104 (Wide Area BS sin techo normativo), FCC 47 CFR §15.709 y ET Docket 20-36 (TVWS rural hasta 16 W EIRP $= 42$ dBm), Subtel Res. 1985/2017 (1 W radiado en bandas Wi-Fi outdoor).}: la clase macro de baja banda justifica radios hasta 30 km en terreno con LOS (la Tabla 6.2-1 de ETSI TS 136 104 no fija techo para estaciones Wide Area; el rango rural a 700 MHz citado por fabricantes llega a $\sim$8,5 km y los modelos COST-Hata-231 a $\sim$16,3 km), la clase WISP/TVWS intermedia y la clase Wi-Fi de alcance reducido. El piloto Yumbel usa tres clases con radios 30/12/6 km en proporciones 8/12/3; un enlace entre antenas exige que la distancia no exceda $\min(\rho(u), \rho(v))$. Esta heterogeneidad es la que hace interesantes las clases en el grafo: no todas las antenas ven lo mismo.
+
+\subsection{Configuración de los pilotos}
+Los tres pilotos son ventanas de 50 $\times$ 50 km con DEM ALOS a 25 m, altura de antena 30 m y receptor 1,5 m: Biobío y Metropolitana como ventanas regionales de prueba, Yumbel centrado en la comuna ($[-72{,}5564, -37{,}1277]$) con clases de potencia, umbral didáctico \texttt{min\_population} $= 5.000$ hab y presupuesto \texttt{max\_evaluations} $= 100.000$. El PRC actúa como \emph{screening} territorial: descarta lo inequívocamente incompatible (agua, áreas verdes, drenaje, riesgo), nunca habilita una instalación --- las torres de más de 12 m quedan además sujetas a recepción municipal (Ley 20.599; LGUC art. 116 bis F).
+
+\section{Medición de fase 0: el régimen $\Delta$ y el solape}
+\label{sec:fase0}
+Antes de prometer rendimientos, se midió el régimen real de los pilotos\footnote{Metodología y números crudos: \texttt{simulacion/docs/report/fase0-medicion.md}; script \texttt{docs/report/medicion\_fase0.py} sobre cada corrida (\texttt{fase0.json}).}: grado del grafo de conectividad, conteo real de subconjuntos conexos $\le k$ con el motor sin poda (el conteo ESU está validado contra un oráculo independiente de fuerza bruta), tasa de poda de la cota de prefijos y solapes de cobertura entre pares de candidatos. La Tabla~\ref{tab:fase0-grilla} conserva el registro sobre retícula regular; la Tabla~\ref{tab:fase0-criterio} es la medición vigente sobre candidatos por criterio.
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Retícula (registro), $k=5$} & \textbf{Biobío} & \textbf{Metropolitana} & \textbf{Yumbel (clases 30/12/6)} \\
+\midrule
+Candidatos $n$ & 20 & 19 & 23 \\
+Aristas $G_{conn}$ & 82 & 62 & 11 \\
+$\bar{\Delta}$ / $\Delta_{\max}$ & 8,2 / 13 & 6,5 / 11 & 0,96 / 3 \\
+Combinaciones $\sum_{r\le 5}\binom{n}{r}$ & 21.699 & 16.663 & 44.551 \\
+\textbf{Subconjuntos conexos reales} & \textbf{9.922} & \textbf{4.394} & \textbf{84} \\
+Reducción por ESU & 54\,\% & 74\,\% & 99,8\,\% \\
+Solape medio/máx entre enlazadas & 3,68 / 11 & 54,7 / 103 & 3,82 / 10 \\
+Exacto conectado (hab) & 4.210 & 25.119 & 8.950 \\
+Razón goloso/exacto & 1,000 & 1,000 & 1,000 \\
+\bottomrule
+\end{tabular}
+\caption{Fase 0 sobre retícula regular (pilotos de regresión del reemplazo del algoritmo).}
+\label{tab:fase0-grilla}
+\end{table}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Criterio (vigente), $k=5$} & \textbf{Biobío} & \textbf{Metropolitana} & \textbf{Yumbel (criterio)} \\
+\midrule
+Candidatos $n$ (tope activo) & 40 & 40 & 25 \\
+Aristas $G_{conn}$ & 503 & 450 & 123 \\
+$\bar{\Delta}$ / $\Delta_{\max}$ & 25,15 / 35 & 22,5 / 35 & 9,84 / 16 \\
+Combinaciones $\sum_{r\le 5}\binom{n}{r}$ & 760.098 & 760.098 & 68.405 \\
+\textbf{Subconjuntos conexos reales} & \textbf{415.140} & \textbf{360.107} & \textbf{26.982} \\
+Reducción por ESU & 45\,\% & 53\,\% & 61\,\% \\
+Tasa de poda (cota de prefijos) & 0\,\% & 0\,\% & 0\,\% \\
+Solape medio/máx entre enlazadas & 10,14 / 41 & 92,32 / 258 & 5,11 / 21 \\
+Exacto conectado (hab) & 4.467 (85,35\,\%) & 26.254 (92,65\,\%) & 12.063 (39,01\,\%) \\
+Razón goloso/exacto & 1,000 & 1,000 & 1,000 \\
+\bottomrule
+\end{tabular}
+\caption{Fase 0 sobre candidatos por criterio (ADR 0007): el insumo vigente del proyecto.}
+\label{tab:fase0-criterio}
+\end{table}
+
+Tres lecturas. Primera, el régimen $\Delta$ acotado se confirma con datos: la generación por criterio concentra candidatos cerca de la demanda y sube el grado ($\bar\Delta$ 10--25 contra 6,5--8,2 de la grilla), pero sigue acotado ($\Delta_{\max} \le 35$) y ESU elimina entre 45\,\% y 61\,\% de las combinaciones antes de evaluar; las evaluaciones reales (415k / 360k / 27k) caben holgadamente en los presupuestos configurados. Segunda, el solape cuantifica el objetivo-unión: en Metropolitana las antenas enlazadas comparten en media 92 localidades (máximo 258) --- optimizar la suma por antena sobredimensionaría el cobertura en ese orden; el comentario ``no sólo sumar cardinalidad'' queda medido, no solo argüido. Tercera, el mayorante teórico $n\sum_{r}(e(\Delta_{\max}-1))^{r-1}$ de \cite{wernicke2006} se vuelve muy flojo en grafos densos ($2{,}95 \cdot 10^9$ contra 415k reales en Biobío): el conteo real, no el mayorante, es el insumo fiable de planificación.
+
+\section{Resultados en los pilotos}
+\label{sec:resultados}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=0.42cm, box/.style={draw=accent,rounded corners,align=center,text width=2.6cm,minimum height=1.05cm,fill=accent!8}, every node/.style={font=\small}, arr/.style={-latex,thick,draw=accent}]
+\node[box] (a) {Territorio, localidades y población};
+\node[box,right=of a] (b) {Candidatos por criterio + filtro PRC};
+\node[box,right=of b] (c) {Grafo doble $G_{cov}$, $G_{conn}$ (LOS par a par)};
+\node[box,right=of c] (d) {ESU exacto + goloso baseline};
+\node[box,below=0.55cm of d] (e) {Sitios, población única, evidencia};
+\draw[arr] (a)--(b); \draw[arr] (b)--(c); \draw[arr] (c)--(d); \draw[arr] (d)--(e);
+\end{tikzpicture}
+\caption{Pipeline final: la exhaustividad quedó sólo en la construcción del grafo de visibilidad (comentario p.~3); el motor recorre conexos canónicos.}
+\label{fig:flujo}
+\end{figure}
+
+La Tabla~\ref{tab:pilotos} resume los tres pilotos con candidatos por criterio y $k = 5$, y la Tabla~\ref{tab:greedy} --- el contraste que la propuesta prometió --- presenta goloso contra exacto sobre el mismo motor, el mismo objetivo-unión y el mismo desempate.
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Piloto} & \textbf{Pob. ventana} & \textbf{Exacto (hab)} & \textbf{Cobertura} & \textbf{Eval. libre} & \textbf{Eval. conexo} \\
+\midrule
+Biobío & 5.234 & 4.467 & 85,35\,\% & 760.098 & 415.140 \\
+Metropolitana & 28.337 & 26.254 & 92,65\,\% & 760.098 & 360.107 \\
+Yumbel (clases 30/12/6) & 30.923 & 12.063 & 39,01\,\% & 68.405 & 26.982 \\
+\bottomrule
+\end{tabular}
+\caption{Pilotos con candidatos por criterio, $k=5$. ``Eval. libre'' son las combinaciones totales de la fuerza bruta; ``Eval. conexo'' las que el motor ESU visita realmente.}
+\label{tab:pilotos}
+\end{table}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{lrrrrrr}
+\toprule
+\textbf{Piloto} & $f$ \textbf{exacto} & $f$ \textbf{goloso} & \textbf{Razón} & \textbf{Eval. exacto} & \textbf{Eval. goloso} & \textbf{Factor} \\
+\midrule
+Biobío & 4.467 & 4.467 & 1,000 & 415.140 & 5.355 & 78$\times$ \\
+Metropolitana & 26.254 & 26.254 & 1,000 & 360.107 & 5.058 & 71$\times$ \\
+Yumbel (criterio) & 12.063 & 12.063 & 1,000 & 26.982 & 1.567 & 17$\times$ \\
+\bottomrule
+\end{tabular}
+\caption{Tabla greedy-vs-exacto. En los tres pilotos el goloso encontró \emph{la misma} selección de antenas que el exacto, con 17--78 veces menos evaluaciones.}
+\label{tab:greedy}
+\end{table}
+
+Lecturas de resultado. (1) El goloso empató al óptimo en los tres pilotos: consistente con instancias pequeñas y densas, donde el aporte marginal ordena igual; la utilidad del baseline es operativa (respuesta en segundos para explorar escenarios) y se verificará en instancias mayores, donde se registre brecha --- por construcción el goloso nunca supera al exacto, así que la razón queda acotada en $[0, 1]$ y medible por corrida. (2) La conectividad y las clases de potencia no son decorativas: en Yumbel el corte por $\min(\rho_u, \rho_v)$ + LOS deja $\bar{\Delta} = 9{,}84$, diez antenas aisladas y un espacio conexo 61\,\% menor que el combinatorio --- el grafo de conectividad restringe de verdad. (3) Sobre la retícula original los mismos pilotos daban 80,44\,\% (Biobío) y 88,64\,\% (Metropolitana); los candidatos por criterio suman $+4{,}91$ y $+4{,}01$ puntos porcentuales \emph{con menos o igual esfuerzo de muestreo}, y $+10{,}07$ en Yumbel respecto de su corrida con clases y grilla (28,94\,\%). (4) La corrida de regresión del reemplazo del motor reprodujo idénticos los valores de la retícula (4.210 y 25.119 hab), lo que valida el cutover sin cambiar resultados: cambió el costo, no el óptimo.
+
+\section{Límites del modelo y alcance del resultado}
+Los límites viven en la capa geográfica --- el motor es agnóstico y optimiza exactamente la instancia que recibe --- y se declaran para no sobreinterpretar: (i) la cobertura es por pares, no por zonas: dentro del disco una localidad es arista sólo si el perfil DEM despeja a paso $\le$ medio píxel; ``la zona tiene señal'' no existe como concepto; (ii) cada localidad es un punto interior: si el punto queda sombreado, la localidad completa se cuenta sin cobertura por esa antena (conservador); el sombreado sub-local no se modela; (iii) no hay difracción, zona de Fresnel, vegetación ni curvatura terrestre: un perfil bloqueado es fallo duro; (iv) celdas DEM sin dato nunca significan cobertura garantizada; (v) el PRC es \emph{screening}: no certifica factibilidad ni reemplaza permisos --- toda torre de más de 12 m requiere recepción municipal (Ley 20.599; LGUC 116 bis F); (vi) la población aún no incorpora Censo 2024. La consecuencia combinatoria de (i)--(ii) no es un defecto silencioso: el sombreado se manifiesta como aristas faltantes y el motor captura el tradeoff (dos antenas con discos que se solapan pero una por lado de una loma) exactamente porque optimiza la unión sobre el grafo.
+
+\section{Conclusiones}
+El proyecto entrega lo prometido con la corrección de fondo que la retroalimentación exigió: un prototipo reproducible que, dados territorio, población, DEM y PRC, devuelve el conjunto de hasta $k$ antenas que maximiza población única cubierta con la red conexa y anclada a un gateway --- y lo justifica. La justificación teórica es la lección central del curso aplicada al caso: el problema general es duro (W[1]-duro en $k$, inaproximable en tiempo polinomial), pero la instancia territorial tiene estructura ($\Delta(G_{conn})$ acotado por distancia + LOS, $n$ acotado por criterio) que convierte la enumeración exacta de conexos en FPT y medible; la fase 0 cuantifica esa estructura en los pilotos en lugar de asumirla. El contraste goloso-vs-exacto queda implementado y medido (razón 1,000 con 17--78$\times$ menos evaluaciones), listo para registrar brecha en instancias mayores. Trabajo futuro: una cota de poda por vecindario si la cota de prefijos sigue inactiva en instancias mayores; Censo 2024 como fuente de peso; leer en detalle \cite{dangelo2025} como referencia complementaria de aproximación; y ampliar las ventanas piloto hacia regiones completas, donde el régimen $\Delta$ acotado deberá revalidarse.
+
+\begin{thebibliography}{14}
+\bibitem{itcs2026} T. Inamdar, S. Jana, M. Kundu, D. Lokshtanov, S. Saurabh y M. Zehavi. FPT Approximations for Connected Maximum Coverage. \emph{17th Innovations in Theoretical Computer Science Conference (ITCS 2026)}, LIPIcs 80, art. 80. \url{https://doi.org/10.4230/LIPIcs.ITCS.2026.80}.
+\bibitem{wernicke2006} S. Wernicke. Efficient detection of network motifs. \emph{IEEE/ACM Transactions on Computational Biology and Bioinformatics}, 3(4):347--359, 2006.
+\bibitem{dangelo2025} G. D'Angelo y E. Delfaraz. Approximation algorithms for connected maximum coverage. \emph{AAMAS 2025}. \url{https://dl.acm.org/doi/10.5555/3709347.3743569}.
+\bibitem{hochbaum2020} D. S. Hochbaum y A. Rao. Approximation algorithms for connected maximum coverage. \emph{Information Processing Letters}, 2020. \url{https://www.sciencedirect.com/science/article/abs/pii/S0020019020300272}.
+\bibitem{propuesta} F. Llancao y C. Jara. \emph{Optimización de Cobertura Territorial mediante Grafos: propuesta de proyecto semestral} (versión comentada por el profesor). Septiembre de 2026.
+\bibitem{etsi136104} ETSI. \emph{TS 136 104 V15.13.0 (3GPP TS 36.104) --- LTE; Base Station (BS) radio transmission and reception}. Tabla 6.2-1, §4.2.
+\bibitem{fcc} Federal Communications Commission. \emph{47 CFR § 15.709} y \emph{ET Docket No. 20-36, Fact Sheet} (TV White Spaces, 16 W EIRP rural). 2020.
+\bibitem{subtel1985} SUBTEL (Chile). \emph{Resolución Exenta N.\textsuperscript{o} 1985 de 2017 (refundido 2019) --- Norma Técnica de Equipos de Alcance Reducido}.
+\bibitem{ley20599} Ley 20.599 (2012) sobre regularización de antenas; LGUC art. 116 bis F. Biblioteca del Congreso Nacional de Chile.
+\bibitem{inecenso2024} Instituto Nacional de Estadísticas (INE). \emph{Censo de Población y Vivienda 2024}. \url{https://www.ine.gob.cl}.
+\bibitem{copernicus} Copernicus Data Space Ecosystem. \emph{Copernicus DEM: Global and European Digital Elevation Model}.
+\bibitem{minvuprc} Ministerio de Vivienda y Urbanismo (MINVU). \emph{¿Qué es un Plan Regulador Comunal?} Instrumento conforme al art. 41 de la LGUC.
+\end{thebibliography}
+\end{document}

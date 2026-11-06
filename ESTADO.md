@@ -8,6 +8,7 @@
 - Simulación V1: pipeline geoespacial, pruebas automatizadas, documentación técnica y visor local del piloto Biobío.
 - Solución: optimización exacta de cobertura máxima ponderada, usando distancia y línea de vista sobre un DEM.
 - Motor exacto conectado (rama `feat/algoritmo`): enumeración ESU de subconjuntos conexos ([spec](docs/algoritmo-conectado.md)), objetivo incremental como unión, cota de prefijos con desempate lexicográfico, gateway opcional, clases de potencia con radio efectivo, umbral `t` y baseline goloso. Fuerza bruta eliminada; ver [ADR 0006](simulacion/docs/adr/0006-motor-esu-gateway-potencia-umbral.md).
+- Informe final (fase 3): [fuente](informe/informe-final.tex) y [PDF](informe/entregables/informe-final.pdf) — mapeo a PartialConRBDS, techo teórico documentado (Teoremas 1, 2 y 4 del paper ITCS), datos concretos de fase 0 y tabla greedy-vs-exacto (razón 1,000 en los tres pilotos, con 17–78× menos evaluaciones).
 
 ## Pilotos disponibles
 
@@ -22,7 +23,6 @@ Las corridas de regresión del cutover están en `simulacion/outputs/biobio-regr
 
 - Los presets regionales son ventanas piloto, no regiones administrativas completas.
 - El modelo representa cada localidad mediante un punto interior; no certifica cobertura radioeléctrica ni la factibilidad de instalación.
-- Informe final (fase 3, lo último) con la tabla greedy-vs-exacto; el insumo de fase 0 está medido en `simulacion/docs/report/fase0-medicion.md`.
 - El modelo aún no incorpora Censo 2024. Ver [documento explicativo](simulacion/docs/documento-explicativo.md).
 
 ## Para continuar
