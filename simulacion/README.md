@@ -45,7 +45,6 @@ uv run ruff format --check .
 - [Operación, fuentes, configuración y resultados](docs/runbooks/pipeline.md).
 - [Decisión de arquitectura V1](docs/adr/0001-pipeline-geoespacial.md).
 - [Decisión sobre filtro territorial PRC](docs/adr/0005-prc-screening-territorial.md).
-- [Plan y validación realizada](PLANS.md).
 - [Piloto web interactivo de Biobío](web/README.md): visor local animado de las cinco ubicaciones seleccionadas.
 - [Visor didáctico de conectividad](web-conectividad/README.md): explica candidatos, aristas y red conectada mediante animación SVG.
 
