@@ -21,3 +21,4 @@ simulacion/output/pdf/build/
 *.log
 *.out
 *.toc
+informe/informe-final.pdf
