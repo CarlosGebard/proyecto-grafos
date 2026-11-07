@@ -9,12 +9,23 @@ import matplotlib
 matplotlib.use("Agg")
 import geopandas as gpd
 import matplotlib.pyplot as plt
+from matplotlib.cm import ScalarMappable
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
+from src.visualization.relief import paint_relief
+
 
 def export_map(
-    demands, candidates, solution, crs, area, output: Path, excluded_candidates=None
+    demands,
+    candidates,
+    solution,
+    crs,
+    area,
+    output: Path,
+    dem_path: Path,
+    hypsometric_palette: str,
+    excluded_candidates=None,
 ) -> None:
     demand = gpd.GeoDataFrame(
         [
@@ -70,12 +81,14 @@ def export_map(
     )
 
     fig, ax = plt.subplots(figsize=(11, 9), layout="constrained")
+    relief_info = paint_relief(ax, dem_path, hypsometric_palette)
     demand.plot(
         ax=ax,
         column="population",
         cmap="YlOrBr",
         edgecolor="#999999",
         linewidth=0.3,
+        alpha=0.55,
         legend=True,
         legend_kwds={"label": "Población censal de la localidad"},
     )
@@ -103,28 +116,38 @@ def export_map(
         f"{solution.population_covered:,.0f} habitantes en localidades cubiertas",
     )
     ax.ticklabel_format(style="plain", useOffset=False)
-    ax.legend(
-        handles=[
-            Patch(
-                facecolor="none",
-                edgecolor="#168354",
-                label="Localidad cubierta (punto interior)",
-            ),
-            Line2D(
-                [], [], marker="x", linestyle="none", color="#6d78a0", label="Candidato"
-            ),
-            Line2D(
-                [],
-                [],
-                marker="*",
-                linestyle="none",
-                color="#1868d0",
-                markersize=12,
-                label="Seleccionada",
-            ),
-        ],
-        loc="upper left",
-        fontsize=8,
+    fig.colorbar(
+        ScalarMappable(norm=relief_info["norm"], cmap=relief_info["cmap"]),
+        ax=ax,
+        boundaries=relief_info["breaks"],
+        spacing="proportional",
+        shrink=0.6,
+        pad=0.02,
+        label="Elevación (m)",
     )
+    legend_handles = [
+        Patch(
+            facecolor="none",
+            edgecolor="#168354",
+            label="Localidad cubierta (punto interior)",
+        ),
+        Line2D(
+            [], [], marker="x", linestyle="none", color="#6d78a0", label="Candidato"
+        ),
+        Line2D(
+            [],
+            [],
+            marker="*",
+            linestyle="none",
+            color="#1868d0",
+            markersize=12,
+            label="Seleccionada",
+        ),
+    ]
+    if relief_info["has_nodata"]:
+        legend_handles.append(
+            Patch(facecolor="#D8D8D8", edgecolor="none", label="Sin datos del DEM")
+        )
+    ax.legend(handles=legend_handles, loc="upper left", fontsize=8)
     fig.savefig(output / "map.png", dpi=160)
     plt.close(fig)

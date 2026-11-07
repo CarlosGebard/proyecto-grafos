@@ -13,6 +13,7 @@ Pilotos ya ejecutados: Biobío 4.210/5.234 hab (80,44 %), Metropolitana 25.119/2
 - **Motor exacto conectado implementado** (cutover completo, `exact.py` eliminado): `simulacion/src/algorithms/connected.py` con ESU + unión incremental + cota de prefijos + desempate lexicográfico, gateway, clases de potencia (`radius_m` por candidato, `min(ρu, ρv)` en enlaces), umbral `t` y baseline goloso. Pilotos reproducidos idénticos: Biobío 4.210 hab (80,44 %), Metropolitana 25.119 hab (88,64 %); ver ADR 0006.
 - **Candidatos por criterio (ADR 0007)**: la retícula regular fue reemplazada por anclas en localidades + intersecciones Murray–Tong + sitios altos del DEM, con filtros de pendiente, proximidad y establecimientos sensibles (OGUC 116 bis E / Ley 20.599; sin capa declarada queda como limitación de datos, nunca como permiso). Pilotos re-corridos con `k=5`; los tres superan a la retícula: Biobío 85,35 % (4.467/5.234, +4,91), Metropolitana 92,65 % (26.254/28.337, +4,01), Yumbel con clases 39,01 % conectado (12.063/30.923, +10,07).
 - **Rama activa: `feat/algoritmo`**. Push funcionando como colaborador de `CarlosGebard/proyecto-grafos` (antes la clave autenticaba como `not-narleeek`, sin acceso: resuelto el 6 de noviembre de 2026).
+- **Presentación visual (rama `presentacion-web`)**: mapa PNG con tintas hipsométricas cross-blended (Patterson & Jenny 2011; rampas verificadas en `src/visualization/palettes.py`) + hillshade (`src/visualization/relief.py`); visor web con relieve 3D real (three.js vendido, sin build ni red — ADR 0008, que revisa ADR 0003); `terrain.json` exporta la paleta para que PNG y 3D compartan tinta; antenas y enlaces entran a la escena como placeholders. Plan: `simulacion/docs/plan-visualizacion-relieve.md`.
 - **Informe final (fase 3) hecho**: `informe/informe-final.tex` (+ PDF compilado en `informe/entregables/`) — mapeo a PartialConRBDS, techo teórico documentado (Thm 1/2/4 de [1]), datos concretos de fase 0 y tabla greedy-vs-exacto. Fase 0 re-medida sobre el criterio (`simulacion/docs/report/fase0-medicion.md`, sección criterio).
 
 ## 3. Mandato de la rama (estado)
@@ -88,10 +89,10 @@ simulacion/
     graph/               CoverageGraph/Solution (models.py), builder
     algorithms/          connected.py (motor exacto conectado: ESU + unión incremental)
     evaluation/          metrics.py
-    visualization/       mapa PNG y payload de terreno para web
+    visualization/       mapa PNG con tintas hipsométricas + hillshade (relief.py, palettes.py), payload de terreno con paleta
   tests/                 test_algorithms.py (oracle), test_geo.py, test_data_pipeline.py
   configs/               biobio.toml, metropolitana.toml, yumbel-50km-prc.toml
-  web-conectividad/        visor estático (consume outputs; no tocar el motor por él)
+  web-conectividad/        visor estático con relieve 3D (three.js vendido, ADR 0008; no tocar el motor por él)
 prc-mapas/               GeoJSON PRC Biobío + descargador
 ```
 

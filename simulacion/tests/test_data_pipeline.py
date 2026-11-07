@@ -112,7 +112,13 @@ def test_pipeline_exports_and_exact_skip(study_inputs, tmp_path):
     graph = json.loads((output / "graph.json").read_text())
     assert graph["population"] == {"x": 10, "y": 20}
     terrain = json.loads((output / "terrain.json").read_text())
-    assert terrain["width"] <= 96 and terrain["height"] <= 96
+    assert terrain["width"] <= 160 and terrain["height"] <= 160
+    palette = terrain["palette"]
+    assert palette["name"] == "warm_humid"
+    assert len(palette["stops"]) >= 2
+    assert all(stop["hex"].startswith("#") for stop in palette["stops"])
+    assert palette["stops"][0]["limit_m"] <= terrain["elevation_min_m"] + 1e-6
+    assert palette["stops"][-1]["limit_m"] >= terrain["elevation_max_m"] - 1e-6
     assert terrain["bounds_metric_m"][2] > terrain["bounds_metric_m"][0]
     assert terrain["elevation_max_m"] >= terrain["elevation_min_m"]
     manifest = json.loads((output / "manifest.json").read_text())

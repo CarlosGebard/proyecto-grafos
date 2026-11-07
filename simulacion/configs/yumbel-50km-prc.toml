@@ -12,6 +12,7 @@ max_distance_m = 30000.0
 antenna_height_m = 30.0
 receiver_height_m = 1.5
 dem_source = "alos"
+hypsometric_palette = "warm_humid"
 dem_resolution_m = 25.0
 prc_directory = "../prc-mapas/prc_biobio"
 # Excluye agua, áreas verdes, drenajes y zonas de riesgo inequívocas.

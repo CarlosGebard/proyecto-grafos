@@ -11,4 +11,5 @@ receiver_height_m = 1.5
 max_candidates = 40
 max_evaluations = 2000000
 dem_source = "alos"
+hypsometric_palette = "warm_humid"
 output = "outputs/biobio"

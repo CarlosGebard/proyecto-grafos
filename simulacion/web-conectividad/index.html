@@ -19,8 +19,8 @@
       <section class="simulation" aria-label="Simulación interactiva">
         <div class="tabs" role="tablist" aria-label="Escenario de simulación">
           <button class="tab active" id="yumbel-tab" type="button" role="tab" aria-selected="true">Yumbel 50 km · PRC</button>
-          <button class="tab" id="biobio-tab" type="button" role="tab" aria-selected="false">Biobío 2D</button>
-          <button class="tab" id="metro-tab" type="button" role="tab" aria-selected="false">Metropolitana 2D</button>
+          <button class="tab" id="biobio-tab" type="button" role="tab" aria-selected="false">Biobío 3D</button>
+          <button class="tab" id="metro-tab" type="button" role="tab" aria-selected="false">Metropolitana 3D</button>
           <button class="tab" id="demo-tab" type="button" role="tab" aria-selected="false">Ejemplo didáctico</button>
         </div>
         <div class="story-layout">
@@ -45,12 +45,33 @@
           <section class="canvas-panel" aria-label="Grafo didáctico">
             <div class="scene-status" id="scene-status">Ejemplo didáctico</div>
             <button class="terrain-reset" id="terrain-reset" type="button" hidden>Reiniciar vista</button>
+            <label class="terrain-exaggeration" id="terrain-exaggeration-wrap" hidden>Relieve vertical
+              <select id="terrain-exaggeration">
+                <option value="5">×5</option>
+                <option value="10" selected>×10</option>
+                <option value="20">×20</option>
+                <option value="40">×40</option>
+              </select>
+            </label>
             <button class="prc-layer-toggle" id="prc-layer-toggle" type="button" aria-pressed="true" hidden>Restricciones PRC</button>
             <svg id="network" viewBox="0 0 720 470" role="img" aria-labelledby="network-title network-description">
               <title id="network-title">Construcción de una red de antenas conectada</title>
               <desc id="network-description">Diagrama animado con localidades, antenas candidatas, enlaces de cobertura y enlaces entre antenas.</desc>
             </svg>
-            <canvas id="terrain-3d" hidden aria-label="Relieve 3D del piloto Biobío. Arrastra para rotar."></canvas>
+            <div id="terrain-3d" hidden role="img" aria-label="Mapa 3D de la región. Arrastra para rotar y usa la rueda para acercar."></div>
+            <div class="terrain-legend" id="terrain-overlay" hidden aria-label="Leyenda del relieve 3D">
+              <div class="legend-row">
+                <span class="legend-name">Elevación</span>
+                <div class="legend-gradient" id="elev-gradient"></div>
+                <span class="legend-range" id="elev-range"></span>
+              </div>
+              <div class="legend-row">
+                <span class="legend-name">Población</span>
+                <div class="legend-gradient" id="pop-gradient"></div>
+                <span class="legend-range" id="pop-range"></span>
+              </div>
+              <p class="legend-note" id="terrain-note"></p>
+            </div>
             <div class="legend" aria-label="Leyenda">
               <span><i class="legend-demand"></i> Localidad</span>
               <span><i class="legend-candidate"></i> Antena candidata</span>
@@ -71,6 +92,9 @@
         </div>
       </section>
     </main>
-    <script src="app.js"></script>
+    <script type="importmap">
+      {"imports": {"three": "./vendor/three.module.min.js"}}
+    </script>
+    <script type="module" src="app.js"></script>
   </body>
 </html>

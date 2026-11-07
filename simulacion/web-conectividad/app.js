@@ -1,9 +1,17 @@
-"use strict";
+import { createTerrainView, populationColor } from "./terrain-view.js";
 
 const svgNs = "http://www.w3.org/2000/svg";
 const network = document.querySelector("#network");
-const terrainCanvas = document.querySelector("#terrain-3d");
+const terrainStage = document.querySelector("#terrain-3d");
 const terrainReset = document.querySelector("#terrain-reset");
+const terrainExaggeration = document.querySelector("#terrain-exaggeration");
+const terrainOverlay = document.querySelector("#terrain-overlay");
+const elevationGradient = document.querySelector("#elev-gradient");
+const elevationRange = document.querySelector("#elev-range");
+const populationGradient = document.querySelector("#pop-gradient");
+const populationRange = document.querySelector("#pop-range");
+const terrainNote = document.querySelector("#terrain-note");
+const exaggerationWrap = document.querySelector("#terrain-exaggeration-wrap");
 const prcLayerToggle = document.querySelector("#prc-layer-toggle");
 const mapLegend = document.querySelector(".legend");
 const previousButton = document.querySelector("#previous-button");
@@ -14,12 +22,7 @@ const demoTab = document.querySelector("#demo-tab");
 const biobioTab = document.querySelector("#biobio-tab");
 const metroTab = document.querySelector("#metro-tab");
 const yumbelTab = document.querySelector("#yumbel-tab");
-const antennaAsset = new Image();
-const terrainVerticalExaggeration = 10;
-antennaAsset.src = "assets/radio-tower.svg";
-antennaAsset.addEventListener("load", () => {
-  if (state.view === "terrain") drawTerrain();
-});
+const terrainView = createTerrainView(terrainStage);
 
 const demo = {
   name: "Ejemplo didáctico",
@@ -74,10 +77,7 @@ const state = {
   yumbel: null,
   terrain: null,
   view: "diagram",
-  camera: { yaw: -0.62, pitch: 0.62 },
-  drag: null,
   showPrcConstraints: false,
-  animationFrame: null,
   step: 0,
   timer: null,
   elements: { demands: new Map(), candidates: new Map(), coverage: [], links: [] },
@@ -119,14 +119,20 @@ function render() {
   const isTerrain = state.view === "terrain";
   updatePrcLayerToggle();
   network.hidden = isTerrain;
-  terrainCanvas.hidden = !isTerrain;
   network.style.display = isTerrain ? "none" : "block";
-  terrainCanvas.style.display = isTerrain ? "block" : "none";
+  terrainStage.hidden = !isTerrain;
+  terrainOverlay.hidden = !isTerrain;
+  exaggerationWrap.hidden = !isTerrain;
   terrainReset.hidden = !isTerrain;
   mapLegend.hidden = isTerrain;
   mapLegend.style.display = isTerrain ? "none" : "flex";
   if (isTerrain) {
-    drawTerrain();
+    try {
+      terrainView.render(state);
+      updateTerrainLegend();
+    } catch (error) {
+      sceneStatus.textContent = error.message;
+    }
     update();
     return;
   }
@@ -284,10 +290,14 @@ function stop() {
 function setStep(step) {
   state.step = Math.max(0, Math.min(steps.length - 1, step));
   update();
-  if (state.view === "terrain") drawTerrain();
+  if (state.view === "terrain") terrainView.update(state);
 }
 
 function play() {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    setStep(steps.length - 1);
+    return;
+  }
   if (state.timer) {
     stop();
     update();
@@ -405,10 +415,16 @@ async function showBiobio() {
     sceneStatus.textContent = "Piloto Biobío no disponible";
     return;
   }
+  state.terrain = await loadTerrain("biobio");
   state.scenario = state.biobio;
-  state.view = "map";
   state.step = 0;
-  sceneStatus.textContent = state.scenario.name;
+  if (state.terrain) {
+    state.view = "terrain";
+    sceneStatus.textContent = state.scenario.name;
+  } else {
+    state.view = "map";
+    sceneStatus.textContent = `${state.scenario.name} · sin terrain.json (regenera el piloto)`;
+  }
   setActiveTab("biobio");
   render();
 }
@@ -420,10 +436,16 @@ async function showMetropolitana() {
     sceneStatus.textContent = "Piloto Metropolitana no disponible";
     return;
   }
+  state.terrain = await loadTerrain("metropolitana");
   state.scenario = state.metropolitana;
-  state.view = "map";
   state.step = 0;
-  sceneStatus.textContent = state.scenario.name;
+  if (state.terrain) {
+    state.view = "terrain";
+    sceneStatus.textContent = state.scenario.name;
+  } else {
+    state.view = "map";
+    sceneStatus.textContent = `${state.scenario.name} · sin terrain.json (regenera el piloto)`;
+  }
   setActiveTab("metro");
   render();
 }
@@ -435,29 +457,6 @@ function showDemo() {
   state.step = 0;
   sceneStatus.textContent = demo.name;
   setActiveTab("demo");
-  render();
-}
-
-async function showTerrain() {
-  stop();
-  sceneStatus.textContent = "Cargando relieve 3D";
-  if (!(await loadBiobio())) {
-    showDemo();
-    sceneStatus.textContent = "Piloto Biobío no disponible";
-    return;
-  }
-  state.terrain = await loadTerrain("biobio");
-  if (!state.terrain) {
-    showDemo();
-    sceneStatus.textContent = "Falta terreno 3D";
-    return;
-  }
-  state.scenario = state.biobio;
-  state.view = "terrain";
-  state.step = 0;
-  state.camera = { yaw: -0.62, pitch: 0.62 };
-  sceneStatus.textContent = "Relieve 3D · arrastra para rotar";
-  setActiveTab("terrain");
   render();
 }
 
@@ -476,307 +475,43 @@ async function showYumbel() {
   state.scenario = state.yumbel;
   state.view = "terrain";
   state.step = 0;
-  state.camera = { yaw: -0.62, pitch: 0.62 };
   sceneStatus.textContent = "Yumbel 50 km · PRC + clases de potencia · arrastra para rotar";
   setActiveTab("yumbel");
   render();
 }
 
-function terrainPoint(longitude, latitude, elevation) {
-  const [west, south, east, north] = state.terrain.bounds_wgs84;
-  const [left, bottom, right, top] = state.terrain.bounds_metric_m || [0, 0, 1, 1];
-  const widthM = Math.max(1, right - left);
-  const heightM = Math.max(1, top - bottom);
-  const spanM = Math.max(widthM, heightM);
-  const x = ((longitude - west) / (east - west) - 0.5) * 2 * widthM / spanM;
-  const y = ((latitude - south) / (north - south) - 0.5) * 2 * heightM / spanM;
-  const z = (elevation - state.terrain.elevation_min_m) / spanM * 2 * terrainVerticalExaggeration;
-  const { yaw, pitch } = state.camera;
-  const horizontal = x * Math.cos(yaw) - y * Math.sin(yaw);
-  const depth = x * Math.sin(yaw) + y * Math.cos(yaw);
-  return { horizontal, depth, vertical: z * 0.48 + depth * Math.sin(pitch) };
-}
-
-function canvasPoint(point, scale, centerX, centerY) {
-  return { x: centerX + point.horizontal * scale, y: centerY + point.vertical * scale };
-}
-
-function elevationAt(longitude, latitude) {
-  const [west, south, east, north] = state.terrain.bounds_wgs84;
-  const col = Math.max(0, Math.min(state.terrain.width - 1, Math.round((longitude - west) / (east - west) * (state.terrain.width - 1))));
-  const row = Math.max(0, Math.min(state.terrain.height - 1, Math.round((north - latitude) / (north - south) * (state.terrain.height - 1))));
-  return state.terrain.elevations_m[row][col] ?? state.terrain.elevation_min_m;
-}
-
-function terrainColor(value) {
-  const stops = [
-    [0, [39, 85, 93]],
-    [.28, [72, 125, 88]],
-    [.62, [136, 151, 83]],
-    [1, [214, 202, 167]],
-  ];
-  const start = stops.findLast(([position]) => position <= value) || stops[0];
-  const end = stops.find(([position]) => position >= value) || stops.at(-1);
-  const span = Math.max(.0001, end[0] - start[0]);
-  const mix = (value - start[0]) / span;
-  return start[1].map((channel, index) => Math.round(channel + (end[1][index] - channel) * mix));
-}
-
-function drawElevationLegend(context, width, height) {
-  const minimum = Math.round(state.terrain.elevation_min_m);
-  const maximum = Math.round(state.terrain.elevation_max_m);
-  const x = 22;
-  const y = height - 34;
-  const gradient = context.createLinearGradient(x, y, x + 146, y);
-  [0, .28, .62, 1].forEach((value) => {
-    const [red, green, blue] = terrainColor(value);
-    gradient.addColorStop(value, `rgb(${red}, ${green}, ${blue})`);
-  });
-  context.fillStyle = "rgba(19, 40, 32, .82)";
-  context.fillRect(x - 10, y - 22, 214, 42);
-  context.fillStyle = gradient;
-  context.fillRect(x, y - 3, 146, 9);
-  context.fillStyle = "#edf3ed";
-  context.font = "12px system-ui";
-  context.fillText(`${minimum} m`, x, y - 8);
-  context.fillText(`${maximum} m`, x + 154, y + 5);
-  context.fillText("Elevación", x, y + 18);
-}
-
-function populationColor(value) {
-  const stops = [
-    [0, [255, 238, 184]],
-    [.45, [239, 167, 82]],
-    [1, [184, 72, 40]],
-  ];
-  const start = stops.findLast(([position]) => position <= value) || stops[0];
-  const end = stops.find(([position]) => position >= value) || stops.at(-1);
-  const mix = (value - start[0]) / Math.max(.0001, end[0] - start[0]);
-  return start[1].map((channel, index) => Math.round(channel + (end[1][index] - channel) * mix));
-}
-
-function geometryRings(geometry) {
-  return geometry.type === "Polygon" ? geometry.coordinates : geometry.coordinates.flat();
-}
-
-function geometryLines(geometry) {
-  return geometry.type === "LineString" ? [geometry.coordinates] : geometry.coordinates;
-}
-
-function drawPopulationLegend(context, width, height, minimum, maximum) {
-  const x = width - 184;
-  const y = height - 34;
-  const gradient = context.createLinearGradient(x, y, x + 126, y);
-  [0, .45, 1].forEach((value) => {
-    const [red, green, blue] = populationColor(value);
-    gradient.addColorStop(value, `rgb(${red}, ${green}, ${blue})`);
-  });
-  context.fillStyle = "rgba(19, 40, 32, .82)";
-  context.fillRect(x - 10, y - 22, 172, 42);
-  context.fillStyle = gradient;
-  context.fillRect(x, y - 3, 126, 9);
-  context.fillStyle = "#edf3ed";
-  context.font = "12px system-ui";
-  context.fillText(`${Math.round(minimum)}`, x, y - 8);
-  context.fillText(`${Math.round(maximum)} hab.`, x + 132, y + 5);
-  context.fillText("Población", x, y + 18);
-}
-
-function drawMetricAxes(context, scale, centerX, centerY) {
-  if (!state.terrain.bounds_metric_m) return;
-  const [west, south, east, north] = state.terrain.bounds_wgs84;
-  const [left, bottom, right, top] = state.terrain.bounds_metric_m;
-  const minimum = state.terrain.elevation_min_m;
-  const maximum = state.terrain.elevation_max_m;
-  const origin = canvasPoint(terrainPoint(west, south, minimum), scale, centerX, centerY);
-  const eastPoint = canvasPoint(terrainPoint(east, south, minimum), scale, centerX, centerY);
-  const northPoint = canvasPoint(terrainPoint(west, north, minimum), scale, centerX, centerY);
-  const heightPoint = canvasPoint(terrainPoint(west, south, maximum), scale, centerX, centerY);
+function updateTerrainLegend() {
+  const terrain = state.terrain;
+  if (!terrain || !terrain.palette || state.view !== "terrain") {
+    terrainOverlay.hidden = true;
+    return;
+  }
+  terrainOverlay.hidden = false;
+  const stops = terrain.palette.stops;
+  elevationGradient.style.background = `linear-gradient(90deg, ${stops
+    .map((stop, index) => `${stop.hex} ${((index / (stops.length - 1)) * 100).toFixed(1)}%`)
+    .join(", ")})`;
+  elevationRange.textContent = `${Math.round(terrain.elevation_min_m)}–${Math.round(terrain.elevation_max_m)} m`;
+  populationGradient.style.background = `linear-gradient(90deg, ${[0, 0.45, 1]
+    .map((position) => {
+      const [red, green, blue] = populationColor(position);
+      return `rgb(${red}, ${green}, ${blue}) ${position * 100}%`;
+    })
+    .join(", ")})`;
+  const populations = state.scenario.localityPolygons.map((locality) => locality.population);
+  populationRange.textContent = populations.length
+    ? `${Math.round(Math.min(...populations))}–${Math.round(Math.max(...populations))} hab.`
+    : "";
+  const [left, bottom, right, top] = terrain.bounds_metric_m || [0, 0, 0, 0];
   const km = (value) => new Intl.NumberFormat("es-CL", { maximumFractionDigits: 1 }).format(value / 1000);
-  const axes = [
-    [eastPoint, "#dd7957", `Este: 0-${km(right - left)} km`],
-    [northPoint, "#6bbcad", `Norte: 0-${km(top - bottom)} km`],
-    [heightPoint, "#f1e4ac", `Elevación: ${Math.round(minimum)}-${Math.round(maximum)} m (×${terrainVerticalExaggeration})`],
+  const notes = [
+    `Este: 0-${km(right - left)} km · Norte: 0-${km(top - bottom)} km`,
+    `Relieve vertical ×${terrainView.exaggeration}`,
   ];
-  context.font = "11px system-ui";
-  axes.forEach(([point, color, label]) => {
-    context.strokeStyle = color;
-    context.fillStyle = color;
-    context.lineWidth = 2;
-    context.beginPath(); context.moveTo(origin.x, origin.y); context.lineTo(point.x, point.y); context.stroke();
-    context.beginPath(); context.arc(point.x, point.y, 3, 0, Math.PI * 2); context.fill();
-    context.fillStyle = "rgba(18, 39, 31, .78)";
-    const textWidth = context.measureText(label).width;
-    context.fillRect(point.x + 5, point.y - 15, textWidth + 8, 18);
-    context.fillStyle = color;
-    context.fillText(label, point.x + 9, point.y - 2);
-  });
-}
-
-function drawRoads(context, project) {
-  if (!state.scenario.roads?.length) return;
-  const wide = new Set(["motorway", "trunk", "primary", "secondary"]);
-  state.scenario.roads.forEach((road) => {
-    const width = wide.has(road.properties.highway) ? 2 : 1;
-    context.strokeStyle = wide.has(road.properties.highway)
-      ? "rgba(64, 52, 36, .85)"
-      : "rgba(64, 52, 36, .45)";
-    context.lineWidth = width;
-    geometryLines(road.geometry).forEach((line) => {
-      context.beginPath();
-      line.forEach(([longitude, latitude], index) => {
-        const point = project({ longitude, latitude });
-        if (index) context.lineTo(point.x, point.y); else context.moveTo(point.x, point.y);
-      });
-      context.stroke();
-    });
-  });
-  context.fillStyle = "rgba(18, 39, 31, .78)";
-  context.fillRect(18, 46, 154, 20);
-  context.fillStyle = "#edf3ed";
-  context.font = "11px system-ui";
-  context.fillText("© OpenStreetMap contributors", 24, 60);
-}
-
-function drawConstraints(context, project) {
-  if (!state.showPrcConstraints) return;
+  if (state.scenario.roads?.length) notes.push("© OpenStreetMap contributors");
   const exclusions = prcExclusions();
-  if (!exclusions.length) return;
-  context.fillStyle = "rgba(167, 47, 36, .24)";
-  context.strokeStyle = "rgba(128, 37, 30, .8)";
-  context.lineWidth = .7;
-  exclusions.forEach((feature) => geometryRings(feature.geometry).forEach((ring) => {
-    context.beginPath();
-    ring.forEach(([longitude, latitude], index) => {
-      const point = project({ longitude, latitude });
-      if (index) context.lineTo(point.x, point.y); else context.moveTo(point.x, point.y);
-    });
-    context.closePath();
-    context.fill();
-    context.stroke();
-  }));
-  context.fillStyle = "rgba(18, 39, 31, .78)";
-  const label = `PRC: ${exclusions.length} exclusiones explícitas`;
-  const width = context.measureText(label).width;
-  context.fillRect(18, 70, width + 12, 20);
-  context.fillStyle = "#edf3ed";
-  context.font = "11px system-ui";
-  context.fillText(label, 24, 84);
-}
-
-function drawTerrain() {
-  if (!state.terrain) return;
-  const rect = terrainCanvas.getBoundingClientRect();
-  const ratio = window.devicePixelRatio || 1;
-  terrainCanvas.width = Math.round(rect.width * ratio);
-  terrainCanvas.height = Math.round(rect.height * ratio);
-  const context = terrainCanvas.getContext("2d");
-  context.scale(ratio, ratio);
-  context.clearRect(0, 0, rect.width, rect.height);
-  context.fillStyle = "#dce6df";
-  context.fillRect(0, 0, rect.width, rect.height);
-  const scale = Math.min(rect.width * 0.39, rect.height * 0.56);
-  const centerX = rect.width / 2;
-  const centerY = rect.height * 0.60;
-  const { width, height, elevations_m: elevations } = state.terrain;
-  const range = Math.max(1, state.terrain.elevation_max_m - state.terrain.elevation_min_m);
-  const points = Array.from({ length: height }, (_, row) => Array.from({ length: width }, (_, col) => {
-    const elevation = elevations[row][col] ?? state.terrain.elevation_min_m;
-    const longitude = state.terrain.bounds_wgs84[0] + col / (width - 1) * (state.terrain.bounds_wgs84[2] - state.terrain.bounds_wgs84[0]);
-    const latitude = state.terrain.bounds_wgs84[3] - row / (height - 1) * (state.terrain.bounds_wgs84[3] - state.terrain.bounds_wgs84[1]);
-    return canvasPoint(terrainPoint(longitude, latitude, elevation), scale, centerX, centerY);
-  }));
-  const cells = [];
-  for (let row = 0; row < height - 1; row += 1) for (let col = 0; col < width - 1; col += 1) {
-    const elevation = (
-      (elevations[row][col] ?? 0) +
-      (elevations[row + 1][col] ?? 0) +
-      (elevations[row][col + 1] ?? 0) +
-      (elevations[row + 1][col + 1] ?? 0)
-    ) / 4;
-    cells.push({ row, col, elevation, depth: (points[row][col].y + points[row + 1][col + 1].y) / 2 });
-  }
-  cells.sort((left, right) => left.depth - right.depth);
-  cells.forEach(({ row, col, elevation }) => {
-    const [red, green, blue] = terrainColor(Math.max(0, Math.min(1, (elevation - state.terrain.elevation_min_m) / range)));
-    context.fillStyle = `rgb(${red}, ${green}, ${blue})`;
-    context.beginPath();
-    [points[row][col], points[row][col + 1], points[row + 1][col + 1], points[row + 1][col]].forEach((point, index) => index ? context.lineTo(point.x, point.y) : context.moveTo(point.x, point.y));
-    context.closePath();
-    context.fill();
-  });
-  const showCoverage = state.step >= 2;
-  const showCandidates = state.step >= 1;
-  const selected = new Set(state.step === steps.length - 1 ? state.scenario.connectedSolution : []);
-  const covered = state.step === steps.length - 1 ? coveredBy(state.scenario.connectedSolution) : new Set();
-  const reachable = showCoverage
-    ? new Set(Object.values(state.scenario.coverage).flat())
-    : new Set();
-  const projectNode = (item) => canvasPoint(terrainPoint(item.longitude, item.latitude, elevationAt(item.longitude, item.latitude)), scale, centerX, centerY);
-  if (state.scenario.localityPolygons) {
-    const values = state.scenario.localityPolygons.map((locality) => locality.population);
-    const populationMin = Math.min(...values);
-    const populationRange = Math.max(1, Math.max(...values) - populationMin);
-    const polygons = state.scenario.localityPolygons.map((locality) => {
-      const rings = geometryRings(locality.geometry).map((ring) => ring.map(([longitude, latitude]) => {
-        const elevation = elevationAt(longitude, latitude);
-        return canvasPoint(terrainPoint(longitude, latitude, elevation), scale, centerX, centerY);
-      }));
-      const depth = rings[0].reduce((sum, point) => sum + point.y, 0) / rings[0].length;
-      return { ...locality, rings, depth };
-    }).sort((left, right) => left.depth - right.depth);
-    polygons.forEach((locality) => {
-      const intensity = (locality.population - populationMin) / populationRange;
-      const [red, green, blue] = populationColor(intensity);
-      context.fillStyle = `rgba(${red}, ${green}, ${blue}, .52)`;
-      context.strokeStyle = covered.has(locality.id) ? "#f7f4df" : "rgba(35, 50, 38, .58)";
-      context.lineWidth = covered.has(locality.id) ? 1.8 : .65;
-      locality.rings.forEach((ring) => {
-        context.beginPath();
-        ring.forEach((point, index) => index ? context.lineTo(point.x, point.y) : context.moveTo(point.x, point.y));
-        context.closePath();
-        context.fill();
-        context.stroke();
-      });
-    });
-    drawPopulationLegend(context, rect.width, rect.height, populationMin, populationMin + populationRange);
-  }
-  drawConstraints(context, projectNode);
-  drawRoads(context, projectNode);
-  drawMetricAxes(context, scale, centerX, centerY);
-  if (state.step === steps.length - 1 && state.scenario.hasConnectivity) {
-    const emitted = new Set();
-    context.strokeStyle = "#0c7666";
-    context.lineWidth = 3;
-    state.scenario.connectedSolution.forEach((sourceId) => {
-      (state.scenario.connectivity[sourceId] || []).forEach((targetId) => {
-        const key = [sourceId, targetId].sort().join("-");
-        if (selected.has(targetId) && !emitted.has(key)) {
-          emitted.add(key);
-          const start = projectNode(candidateById(sourceId));
-          const end = projectNode(candidateById(targetId));
-          context.beginPath(); context.moveTo(start.x, start.y); context.lineTo(end.x, end.y); context.stroke();
-        }
-      });
-    });
-  }
-  state.scenario.demands.forEach((demand) => {
-    const point = projectNode(demand);
-    context.fillStyle = covered.has(demand.id)
-      ? "#b44828"
-      : reachable.has(demand.id) ? "#e9ad45" : "#e9eee9";
-    context.strokeStyle = "#193128";
-    context.lineWidth = 1.5;
-    context.beginPath(); context.arc(point.x, point.y, 3.8, 0, Math.PI * 2); context.fill(); context.stroke();
-  });
-  if (showCandidates) state.scenario.candidates.forEach((candidate) => {
-    const point = projectNode(candidate);
-    const size = selected.has(candidate.id) ? 28 : 20;
-    context.fillStyle = selected.has(candidate.id) ? "#0c7666" : "rgba(236, 241, 236, .9)";
-    context.beginPath(); context.arc(point.x, point.y + 5, size * .48, 0, Math.PI * 2); context.fill();
-    if (antennaAsset.complete) context.drawImage(antennaAsset, point.x - size / 2, point.y - size, size, size);
-  });
-  drawElevationLegend(context, rect.width, rect.height);
+  if (exclusions.length) notes.push(`PRC: ${exclusions.length} exclusiones (screening, no permiso)`);
+  terrainNote.textContent = notes.join(" · ");
 }
 
 previousButton.addEventListener("click", () => { stop(); setStep(state.step - 1); });
@@ -786,19 +521,15 @@ demoTab.addEventListener("click", showDemo);
 biobioTab.addEventListener("click", showBiobio);
 metroTab.addEventListener("click", showMetropolitana);
 yumbelTab.addEventListener("click", showYumbel);
-terrainReset.addEventListener("click", () => { state.camera = { yaw: -0.62, pitch: 0.62 }; drawTerrain(); });
-prcLayerToggle.addEventListener("click", () => { state.showPrcConstraints = !state.showPrcConstraints; render(); });
-terrainCanvas.addEventListener("pointerdown", (event) => { state.drag = { x: event.clientX, y: event.clientY }; terrainCanvas.setPointerCapture(event.pointerId); });
-terrainCanvas.addEventListener("pointermove", (event) => {
-  if (!state.drag) return;
-  state.camera.yaw -= (event.clientX - state.drag.x) * .008;
-  state.camera.pitch = Math.max(.15, Math.min(1.15, state.camera.pitch + (event.clientY - state.drag.y) * .006));
-  state.drag = { x: event.clientX, y: event.clientY };
-  if (state.animationFrame) window.cancelAnimationFrame(state.animationFrame);
-  state.animationFrame = window.requestAnimationFrame(() => {
-    state.animationFrame = null;
-    drawTerrain();
-  });
+terrainReset.addEventListener("click", () => terrainView.reset());
+prcLayerToggle.addEventListener("click", () => {
+  state.showPrcConstraints = !state.showPrcConstraints;
+  updatePrcLayerToggle();
+  if (state.view === "terrain") terrainView.update(state);
+  else render();
 });
-terrainCanvas.addEventListener("pointerup", () => { state.drag = null; });
+terrainExaggeration.addEventListener("change", () => {
+  terrainView.setExaggeration(Number(terrainExaggeration.value));
+  if (state.view === "terrain") render();
+});
 showYumbel();

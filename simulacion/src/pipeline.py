@@ -323,11 +323,16 @@ def run(config: PipelineConfig) -> dict:
         crs,
         metric_area,
         output,
+        dem_path,
+        config.hypsometric_palette,
         excluded_candidates,
     )
     timings["visualization"] = perf_counter() - step
     step = perf_counter()
-    write_json(output / "terrain.json", terrain_payload(dem_path))
+    write_json(
+        output / "terrain.json",
+        terrain_payload(dem_path, config.hypsometric_palette),
+    )
     timings["terrain_export"] = perf_counter() - step
     manifest = {
         "created_utc": datetime.now(timezone.utc).isoformat(),
