@@ -32,6 +32,7 @@ Las corridas de regresión del cutover están en `simulacion/outputs/biobio-regr
 
 - Censo 2024.
 - Modelo radioeléctrico, permisos, costos y factibilidad real.
+- Mejorar la representación de densidad poblacional y la de la población afectada vs no afectada por la solución (la parte de densidad ya tiene declarado el refinamiento dasimétrico en [ADR 0009](simulacion/docs/adr/0009-densidad-coropletas-relieve-real.md), que requiere datos auxiliares de ocupación del suelo).
 
 ## Límites declarados
 
