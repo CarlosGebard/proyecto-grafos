@@ -10,8 +10,14 @@ from rasterio.warp import transform_bounds
 
 from src.visualization import palettes
 
+# Granularidad de la malla web (ADR 0010): 320 lados mantienen el relieve
+# legible sin inflar terrain.json más allá de ~1 MB por piloto.
+TERRAIN_MAX_SIDE = 320
 
-def terrain_payload(path: Path, hypsometric_palette: str, max_side: int = 160) -> dict:
+
+def terrain_payload(
+    path: Path, hypsometric_palette: str, max_side: int = TERRAIN_MAX_SIDE
+) -> dict:
     """Reducir un GeoTIFF a una grilla JSON apta para el visor.
 
     Artefacto de comunicación (ADR 0003): nunca se usa para recalcular LOS.
@@ -57,7 +63,7 @@ def terrain_payload(path: Path, hypsometric_palette: str, max_side: int = 160) -
             ),
         },
         "elevations_m": [
-            [float(value) if math.isfinite(value) else None for value in row]
+            [round(float(value), 1) if math.isfinite(value) else None for value in row]
             for row in values
         ],
     }

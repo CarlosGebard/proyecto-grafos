@@ -15,6 +15,7 @@ from src.data.osm import roads_from_geodataframe, roads_from_overpass
 from src.data.population import load_population
 from src.geo.area import project_geometry, study_area
 from src.pipeline import parse_config, run
+from src.visualization.terrain import TERRAIN_MAX_SIDE, terrain_payload
 
 
 @pytest.fixture
@@ -112,7 +113,11 @@ def test_pipeline_exports_and_exact_skip(study_inputs, tmp_path):
     graph = json.loads((output / "graph.json").read_text())
     assert graph["population"] == {"x": 10, "y": 20}
     terrain = json.loads((output / "terrain.json").read_text())
-    assert terrain["width"] <= 160 and terrain["height"] <= 160
+    assert (
+        terrain["width"] <= TERRAIN_MAX_SIDE and terrain["height"] <= TERRAIN_MAX_SIDE
+    )
+    detail = terrain_payload(dem, config.hypsometric_palette, max_side=32)
+    assert detail["width"] <= 32 and detail["height"] <= 32
     palette = terrain["palette"]
     assert palette["name"] == "warm_humid"
     assert len(palette["stops"]) >= 2
