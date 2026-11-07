@@ -10,9 +10,9 @@ const NODATA_COLOR = 0xd8d8d8;
 const COLOR_COVERED = 0xb44828;
 const COLOR_REACHABLE = 0xe9ad45;
 const COLOR_UNCOVERED = 0xe9eee9;
-const COLOR_LINK = 0x0c7666;
+const COLOR_LINK = 0x6b3fa8;
 const COLOR_CANDIDATE = 0xecf1ec;
-const COLOR_SELECTED = 0x0c7666;
+const COLOR_SELECTED = 0x6b3fa8;
 
 const populationStops = [
   [0, [255, 238, 184]],
