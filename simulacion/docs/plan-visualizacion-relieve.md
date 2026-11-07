@@ -33,8 +33,9 @@ enumeración de pares con LOS, la generación de candidatos ni la semántica PRC
   sombreado**, exageración vertical 10×, cámara yaw/pitch fija con arrastre.
 - ADR 0003: el visor renderiza sin dependencias de frontend y `terrain.json` es
   sólo un artefacto de comunicación (no se recalcula LOS desde él).
-- Datos: el DEM se descarga de Copernicus 30 m (S3) en `prepare_dem`;
-  `outputs/` y los RAR no están versionados — regenerar con el pipeline.
+- Datos: el DEM se descarga de Copernicus 30 m (S3) en `prepare_dem`; los RAR
+  no están versionados. Las corridas de verificación de los tres pilotos en
+  `outputs/` están versionadas en git (corridas nuevas siguen ignoradas).
 
 ## 3. Base cartográfica (literatura y proyectos)
 

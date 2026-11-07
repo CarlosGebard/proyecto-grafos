@@ -8,7 +8,12 @@ __pycache__/
 # Datos y ejecuciones reproducibles
 simulacion/data/prepared/
 simulacion/data/downloads/
-simulacion/outputs/
+# Ejecuciones: sólo las corridas de verificación de los pilotos están versionadas;
+# toda corrida nueva bajo outputs/ sigue ignorada
+simulacion/outputs/*
+!simulacion/outputs/biobio
+!simulacion/outputs/metropolitana
+!simulacion/outputs/yumbel-criterio
 simulacion/data/*.rar
 simulacion/data/para-drive/*.rar
 

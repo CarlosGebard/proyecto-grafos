@@ -6,7 +6,7 @@ Archivo de orientación para cualquier IA (o persona) que trabaje en este reposi
 
 Proyecto universitario (Grafos y Algoritmos, prof. Karol Suchan): **optimización de cobertura territorial mediante grafos**. Herramienta de prefactibilidad para conectividad rural en Chile: dado un área, localidades con población (SUBDERE/Censo) y un DEM real (ALOS/Copernicus), selecciona hasta `k` sitios de antena maximizando la **población única cubierta**, con cobertura definida por distancia + línea de vista (LOS) sobre el relieve. Los Planes Reguladores Comunales (PRC) filtran candidatos como *screening territorial* — nunca como permiso de construcción.
 
-Pilotos ya ejecutados: Biobío 4.210/5.234 hab (80,44 %), Metropolitana 25.119/28.337 hab (88,64 %), `k=5`. Evidencia local en `simulacion/outputs/` (no versionada).
+Pilotos ya ejecutados: Biobío 4.210/5.234 hab (80,44 %), Metropolitana 25.119/28.337 hab (88,64 %), `k=5`. Evidencia en `simulacion/outputs/` — las tres corridas de verificación (`biobio`, `metropolitana`, `yumbel-criterio`) están versionadas en git; toda corrida nueva sigue ignorada.
 
 ## 2. Estado actual (noviembre 2026)
 
@@ -65,7 +65,7 @@ uv run ruff format --check .
 - Los tests comparan el motor contra un **oracle independiente** (combinaciones + filtro); deben seguir pasando y extenderse a conectividad + gateways.
 - **Regresión obligatoria**: Biobío 80,44 % y Metropolitana 88,64 % deben reproducirse idénticos tras el cutover (mismo valor óptimo; deben bastar menos evaluaciones).
 - Los datos GIS pesados (`simulacion/data/*.rar`) no están en git; si no existen localmente, valida con instancias sintéticas y NO inventes resultados de pilotos.
-- Cada corrida real va a un directorio nuevo bajo `simulacion/outputs/`; `outputs/` no se commitea.
+- Cada corrida real va a un directorio nuevo bajo `simulacion/outputs/`; sólo las corridas de verificación de los pilotos (`biobio`, `metropolitana`, `yumbel-criterio`) están versionadas — el resto de `outputs/` sigue en `.gitignore`.
 
 ### Trampas conocidas
 

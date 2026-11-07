@@ -4,6 +4,9 @@ __pycache__/
 .ruff_cache/
 data/prepared/
 data/downloads/
-outputs/
+outputs/*
+!outputs/biobio
+!outputs/metropolitana
+!outputs/yumbel-criterio
 *.pyc
 tmp/pdfs/
