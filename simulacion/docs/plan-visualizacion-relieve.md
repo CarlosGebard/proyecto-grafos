@@ -14,8 +14,9 @@ enumeración de pares con LOS, la generación de candidatos ni la semántica PRC
 2. **Visor web con mapa 3D** de la región modelada (relieve navegable).
 3. **Antenas y enlaces en el 3D: placeholders.** Posiciones reales del escenario,
    geometría genérica; la integración con la solución se decide después.
-4. **Densidad de población: diferido.** Se decide más adelante (el visor ya tiene
-   `populationColor`; el plan sólo reserva el gancho de leyenda/paleta separada).
+4. **Densidad de población: coropletas por cuantiles (hab/km²) integradas al
+   terreno** (ADR 0009, con fundamento en Brewer & Pickle 2002 y Slocum et al.);
+   relieve 3D a escala real sin exageración.
 
 ## 2. Estado actual (hecho verificado)
 
@@ -144,9 +145,10 @@ conserva Canvas/SVG. Sin construir nada: `python -m http.server`.
 
 ## 6. Fuera de alcance
 
-- Representación de densidad de población (decisión posterior).
 - Integración de la solución exacta en la escena 3D (los marcadores son
   placeholders hasta decidir).
+- Mapeo dasimétrico de densidad (requiere datos auxiliares de ocupación del
+  suelo; ADR 0009 lo declara como refinamiento futuro).
 - Cualquier cambio al motor, LOS, candidatos o semántica PRC.
 
 ## 7. Referencias

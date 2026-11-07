@@ -45,14 +45,6 @@
           <section class="canvas-panel" aria-label="Grafo didáctico">
             <div class="scene-status" id="scene-status">Ejemplo didáctico</div>
             <button class="terrain-reset" id="terrain-reset" type="button" hidden>Reiniciar vista</button>
-            <label class="terrain-exaggeration" id="terrain-exaggeration-wrap" hidden>Relieve vertical
-              <select id="terrain-exaggeration">
-                <option value="5">×5</option>
-                <option value="10" selected>×10</option>
-                <option value="20">×20</option>
-                <option value="40">×40</option>
-              </select>
-            </label>
             <button class="prc-layer-toggle" id="prc-layer-toggle" type="button" aria-pressed="true" hidden>Restricciones PRC</button>
             <svg id="network" viewBox="0 0 720 470" role="img" aria-labelledby="network-title network-description">
               <title id="network-title">Construcción de una red de antenas conectada</title>
@@ -66,9 +58,9 @@
                 <span class="legend-range" id="elev-range"></span>
               </div>
               <div class="legend-row">
-                <span class="legend-name">Población</span>
-                <div class="legend-gradient" id="pop-gradient"></div>
-                <span class="legend-range" id="pop-range"></span>
+                <span class="legend-name">Densidad</span>
+                <div class="legend-classes" id="pop-classes"></div>
+                <span class="legend-range">hab/km²</span>
               </div>
               <p class="legend-note" id="terrain-note"></p>
             </div>

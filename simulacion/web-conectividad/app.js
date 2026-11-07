@@ -1,17 +1,14 @@
-import { createTerrainView, populationColor } from "./terrain-view.js";
+import { createTerrainView } from "./terrain-view.js";
 
 const svgNs = "http://www.w3.org/2000/svg";
 const network = document.querySelector("#network");
 const terrainStage = document.querySelector("#terrain-3d");
 const terrainReset = document.querySelector("#terrain-reset");
-const terrainExaggeration = document.querySelector("#terrain-exaggeration");
 const terrainOverlay = document.querySelector("#terrain-overlay");
 const elevationGradient = document.querySelector("#elev-gradient");
 const elevationRange = document.querySelector("#elev-range");
-const populationGradient = document.querySelector("#pop-gradient");
-const populationRange = document.querySelector("#pop-range");
+const populationClasses = document.querySelector("#pop-classes");
 const terrainNote = document.querySelector("#terrain-note");
-const exaggerationWrap = document.querySelector("#terrain-exaggeration-wrap");
 const prcLayerToggle = document.querySelector("#prc-layer-toggle");
 const mapLegend = document.querySelector(".legend");
 const previousButton = document.querySelector("#previous-button");
@@ -122,7 +119,6 @@ function render() {
   network.style.display = isTerrain ? "none" : "block";
   terrainStage.hidden = !isTerrain;
   terrainOverlay.hidden = !isTerrain;
-  exaggerationWrap.hidden = !isTerrain;
   terrainReset.hidden = !isTerrain;
   mapLegend.hidden = isTerrain;
   mapLegend.style.display = isTerrain ? "none" : "flex";
@@ -492,22 +488,18 @@ function updateTerrainLegend() {
     .map((stop, index) => `${stop.hex} ${((index / (stops.length - 1)) * 100).toFixed(1)}%`)
     .join(", ")})`;
   elevationRange.textContent = `${Math.round(terrain.elevation_min_m)}–${Math.round(terrain.elevation_max_m)} m`;
-  populationGradient.style.background = `linear-gradient(90deg, ${[0, 0.45, 1]
-    .map((position) => {
-      const [red, green, blue] = populationColor(position);
-      return `rgb(${red}, ${green}, ${blue}) ${position * 100}%`;
+  const fmt = (value) => new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(value);
+  const classes = terrainView.densityClasses;
+  populationClasses.innerHTML = classes
+    .map((klass) => {
+      const color = `rgb(${klass.color.join(", ")})`;
+      const range = `${fmt(klass.min)}–${fmt(klass.max)}`;
+      return `<i class="legend-swatch" style="background: ${color}" title="${range} hab/km²"></i>`;
     })
-    .join(", ")})`;
-  const populations = state.scenario.localityPolygons.map((locality) => locality.population);
-  populationRange.textContent = populations.length
-    ? `${Math.round(Math.min(...populations))}–${Math.round(Math.max(...populations))} hab.`
-    : "";
+    .join("");
   const [left, bottom, right, top] = terrain.bounds_metric_m || [0, 0, 0, 0];
   const km = (value) => new Intl.NumberFormat("es-CL", { maximumFractionDigits: 1 }).format(value / 1000);
-  const notes = [
-    `Este: 0-${km(right - left)} km · Norte: 0-${km(top - bottom)} km`,
-    `Relieve vertical ×${terrainView.exaggeration}`,
-  ];
+  const notes = [`Este: 0-${km(right - left)} km · Norte: 0-${km(top - bottom)} km · Relieve a escala real (sin exageración)`];
   if (state.scenario.roads?.length) notes.push("© OpenStreetMap contributors");
   const exclusions = prcExclusions();
   if (exclusions.length) notes.push(`PRC: ${exclusions.length} exclusiones (screening, no permiso)`);
@@ -527,9 +519,5 @@ prcLayerToggle.addEventListener("click", () => {
   updatePrcLayerToggle();
   if (state.view === "terrain") terrainView.update(state);
   else render();
-});
-terrainExaggeration.addEventListener("change", () => {
-  terrainView.setExaggeration(Number(terrainExaggeration.value));
-  if (state.view === "terrain") render();
 });
 showYumbel();

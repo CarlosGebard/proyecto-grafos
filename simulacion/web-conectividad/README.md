@@ -20,9 +20,9 @@ La URL `trycloudflare.com` que entregue Cloudflare sólo dura mientras el túnel
 
 ## Relieve 3D (todos los pilotos)
 
-Biobío, Metropolitana y Yumbel se presentan como mapa 3D de la región: malla construida desde `outputs/<piloto>/terrain.json` con tinta hipsométrica por vértice (la misma rampa del mapa PNG, exportada por el pipeline), luz direccional 315°/45° igual al hillshade del PNG, órbita con arrastre y zoom con rueda. Controles: `Reiniciar vista`, `Relieve vertical` (exageración ×5–×40) y `Restricciones PRC` para mostrar u ocultar en rojo las exclusiones territoriales explícitas (screening, no permiso; ADR 0005).
+Biobío, Metropolitana y Yumbel se presentan como mapa 3D de la región: malla construida desde `outputs/<piloto>/terrain.json` con tinta hipsométrica por vértice (la misma rampa del mapa PNG, exportada por el pipeline), luz direccional 315°/45° igual al hillshade del PNG, órbita con arrastre y zoom con rueda, y **relieve a escala real (sin exageración vertical)**: la topografía la transmiten la geometría y el sombreado. Controles: `Reiniciar vista` y `Restricciones PRC` para mostrar u ocultar en rojo las exclusiones territoriales explícitas (screening, no permiso; ADR 0005).
 
-Las localidades se colorean por población y por estado de cobertura; las antenas y sus enlaces son **placeholders** (marcadores cónicos y segmentos genéricos sobre posiciones reales; su integración con la solución se decide después). El ejemplo didáctico conserva el diagrama SVG paso a paso.
+La subdivisión territorial es parte del terreno (una misma dimensión): cada localidad se pinta a ras de superficie con una **coropleta de densidad de población (hab/km², 5 clases por cuantiles**; Brewer & Pickle 2002; ADR 0009), iluminada como el relieve. Los puntos marcan localidades (tamaño ∝ √población) y su estado de cobertura. Las antenas y sus enlaces son **placeholders** (marcadores cónicos y segmentos genéricos sobre posiciones reales; su integración con la solución se decide después). El ejemplo didáctico conserva el diagrama SVG paso a paso.
 
 `terrain.json` es un artefacto de comunicación (ADR 0003): nunca se recalcula LOS desde él. Si el piloto no tiene `terrain.json` o carece de paleta, el visor muestra el mapa 2D o un aviso: regenerar con el pipeline actual.
 

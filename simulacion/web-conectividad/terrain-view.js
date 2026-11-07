@@ -6,7 +6,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "./vendor/OrbitControls.js";
 
-const DEFAULT_EXAGGERATION = 10;
 const NODATA_COLOR = 0xd8d8d8;
 const COLOR_COVERED = 0xb44828;
 const COLOR_REACHABLE = 0xe9ad45;
@@ -30,6 +29,49 @@ export function populationColor(value) {
 
 function clamp(value, minimum, maximum) {
   return Math.max(minimum, Math.min(maximum, value));
+}
+
+// Área geodésica de un anillo WGS84 (exceso esférico; fórmula estándar tipo Turf.js).
+function geodesicArea(ring) {
+  const radius = 6378137;
+  let total = 0;
+  const count = ring.length;
+  for (let index = 0; index < count; index += 1) {
+    const [lon1, lat1] = ring[index];
+    const [lon2, lat2] = ring[(index + 1) % count];
+    total +=
+      ((lon2 * Math.PI) / 180 - (lon1 * Math.PI) / 180) *
+      (2 + Math.sin((lat1 * Math.PI) / 180) + Math.sin((lat2 * Math.PI) / 180));
+  }
+  return Math.abs((total * radius * radius) / 2);
+}
+
+// Coropletas por cuantiles (Brewer & Pickle 2002): robustas ante distribuciones
+// sesgadas de población. Devuelve clases y la función de clasificación.
+function densityClassification(densities, classCount = 5) {
+  const count = Math.min(classCount, Math.max(1, densities.length));
+  const sorted = [...densities].sort((a, b) => a - b);
+  const raw = [];
+  for (let index = 1; index < count; index += 1) {
+    const position = (sorted.length - 1) * (index / count);
+    const low = Math.floor(position);
+    const high = Math.ceil(position);
+    raw.push(sorted[low] + (sorted[high] - sorted[low]) * (position - low));
+  }
+  const breaks = [...new Set(raw.map((value) => Math.round(value * 100) / 100))];
+  const of = (density) => {
+    let index = 0;
+    while (index < breaks.length && density > breaks[index]) index += 1;
+    return index;
+  };
+  const levels = [Math.min(...densities, 0), ...breaks, Math.max(...densities, 0)];
+  const total = breaks.length + 1;
+  const classes = levels.slice(0, -1).map((min, index) => ({
+    min,
+    max: levels[index + 1],
+    color: populationColor((index + 0.5) / total),
+  }));
+  return { breaks, of, classes };
 }
 
 function ringsOf(geometry) {
@@ -99,7 +141,6 @@ export function createTerrainView(container) {
   const group = new THREE.Group();
   scene.add(group);
 
-  let exaggeration = DEFAULT_EXAGGERATION;
   let layers = null;
   let frame = null;
 
@@ -112,7 +153,7 @@ export function createTerrainView(container) {
       radius * Math.sin(pitch),
       radius * Math.cos(pitch) * Math.cos(yaw)
     );
-    controls.target.set(0, 0.15, 0);
+    controls.target.set(0, 0.05, 0);
     controls.update();
   }
 
@@ -227,34 +268,43 @@ export function createTerrainView(container) {
       const value = rows[row][col];
       return value == null ? terrain.elevation_min_m : value;
     };
-    const scale = (2 * exaggeration) / mapper.spanM;
+    // Escala real: la vertical usa la MISMA conversión metros→unidades que la
+    // horizontal (fidelidad con la realidad; sin exageración).
+    const scale = 2 / mapper.spanM;
     const elevationY = (elevation) => (elevation - terrain.elevation_min_m) * scale;
-    const populations = scenario.localityPolygons.map((locality) => locality.population);
-    const populationMin = populations.length ? Math.min(...populations) : 0;
-    const populationMax = populations.length ? Math.max(...populations) : 1;
 
     const next = { scenario, terrain };
     next.terrainMesh = buildTerrain(terrain, mapper, elevationY);
 
-    // Localidades: relleno por población + borde (verde si cubierta).
-    next.localities = scenario.localityPolygons.map((locality) => {
-      const intensity = clamp(
-        (locality.population - populationMin) /
-          Math.max(1, populationMax - populationMin),
-        0,
-        1
-      );
-      const [red, green, blue] = populationColor(intensity);
+    // Segunda dimensión: densidad de población (hab/km²) por cuantiles.
+    // La subdivisión es parte del terreno (una misma dimensión): rellenos
+    // iluminados como el relieve y a ras de superficie.
+    const densities = scenario.localityPolygons.map((locality) => {
+      const areaKm2 = ringsOf(locality.geometry).reduce(
+        (sum, ring) => sum + geodesicArea(ring),
+        0
+      ) / 1e6;
+      return areaKm2 > 0 ? locality.population / areaKm2 : 0;
+    });
+    const classification = densityClassification(densities);
+    next.densityClassification = classification;
+
+    // Localidades: coropletas de densidad integradas al terreno (ras de
+    // superficie, iluminadas como el relieve) + borde (verde si cubierta).
+    next.localities = scenario.localityPolygons.map((locality, index) => {
+      const [red, green, blue] = classification.classes[
+        classification.of(densities[index])
+      ].color;
       const fill = drapedFill(
         elevationY,
         ringsOf(locality.geometry),
         mapper,
         sampleElevation,
-        0.004,
-        new THREE.MeshBasicMaterial({
+        0.0002,
+        new THREE.MeshLambertMaterial({
           color: new THREE.Color(red / 255, green / 255, blue / 255),
           transparent: true,
-          opacity: 0.52,
+          opacity: 0.9,
           depthWrite: false,
           side: THREE.DoubleSide,
         })
@@ -267,7 +317,7 @@ export function createTerrainView(container) {
             ring,
             mapper,
             sampleElevation,
-            0.005,
+            0.0003,
             new THREE.LineBasicMaterial({ color: 0x233226, transparent: true, opacity: 0.6 })
           )
         )
@@ -286,7 +336,7 @@ export function createTerrainView(container) {
             line,
             mapper,
             sampleElevation,
-            0.008,
+            0.0004,
             new THREE.LineBasicMaterial({
               color: 0x403424,
               transparent: true,
@@ -307,7 +357,7 @@ export function createTerrainView(container) {
         ringsOf(feature.geometry),
         mapper,
         sampleElevation,
-        0.01,
+        0.0005,
         new THREE.MeshBasicMaterial({
           color: 0xa72f24,
           transparent: true,
@@ -324,7 +374,7 @@ export function createTerrainView(container) {
             ring,
             mapper,
             sampleElevation,
-            0.011,
+            0.0006,
             new THREE.LineBasicMaterial({ color: 0x80251e, transparent: true, opacity: 0.8 })
           )
         )
@@ -516,11 +566,8 @@ export function createTerrainView(container) {
     render,
     update,
     reset: resetCamera,
-    get exaggeration() {
-      return exaggeration;
-    },
-    setExaggeration(value) {
-      exaggeration = value;
+    get densityClasses() {
+      return layers?.densityClassification?.classes || [];
     },
   };
 }
