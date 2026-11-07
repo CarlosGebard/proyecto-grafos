@@ -23,18 +23,26 @@ const ZONE_LIFT = 0.00008;
 // (0.0006), por debajo de las exclusiones PRC (0.0012).
 const RANGE_FILL_LIFT = 0.0009;
 const RANGE_RIM_LIFT = 0.0011;
-// Torre de telecomunicaciones como marcador (ADR 0012): cuerpo en retícula
-// (dos patas convergentes con travesaños), crucetas para los paneles por
-// sector y mástil rematado en baliza. Esbelta como una torre real (relación
-// altura/base ≈ 14:1, una torre de 30 m con patas de 3,5 m); la altura del
-// símbolo está exagerada para seguir visible a escala regional — jamás un
-// volumen masivo. Los enlaces LOS parten de la punta del mástil.
-const ANTENNA_HEIGHT = 0.05;
-const ANTENNA_BASE_HALF = 0.0035;
-const ANTENNA_TOP_HALF = 0.0007;
-const ANTENNA_BODY_TOP = 0.8;
-const ANTENNA_CROSSARM = 0.0028;
-const ANTENNA_TIP = 0.0012;
+// Torre de telecomunicaciones como marcador (ADR 0012; altura a escala por
+// ADR 0013): cuerpo en retícula (dos patas convergentes con travesaños),
+// crucetas para los paneles por sector y mástil rematado en baliza. Todas
+// las dimensiones son las de una torre real de referencia de 30 m — el
+// umbral LGUC 116 bis F que exige recepción municipal — medidas con la
+// MISMA escala vertical del relieve: sin altura simbólica fija. Los enlaces
+// LOS parten de la punta del mástil.
+const TOWER_HEIGHT_M = 30;
+const TOWER_BASE_HALF_M = 2.1;
+const TOWER_TOP_HALF_M = 0.42;
+const TOWER_BODY_TOP = 0.8; // fracción de la altura donde van las crucetas
+const TOWER_CROSSARM_M = 1.68;
+const TOWER_TIP_M = 0.72;
+const TOWER_BEACON_M = 2.28;
+// Exageración vertical moderada (ADR 0013 revisa ADR 0009): ×2,5, la misma
+// convención del hillshade del mapa PNG (relief.py VERTICAL_EXAGGERATION).
+// A escala ×1 el desnivel de estas ventanas (≤3% del span) apenas se
+// percibe — en Yumbel la torre simbólica anterior (≈1,2 km) eclipsaba el
+// relieve; ×2,5 lo hace legible sin deformar la forma del terreno.
+const VERTICAL_EXAGGERATION = 2.5;
 
 const populationStops = [
   [0, [255, 238, 184]],
@@ -401,37 +409,41 @@ export function createTerrainView(container) {
     return new THREE.Mesh(geometry, material);
   }
 
-  // Marcador de antena (ADR 0012): torre de telecomunicaciones dibujada con
-  // segmentos de línea — cuerpo esbelto, crucetas y mástil rematado en una
-  // baliza (esfera pequeña: la cabeza de la antena, visible a escala
-  // regional sin volumen masivo). Devuelve un Group con material propio en
-  // cada parte; update() cambia color y opacidad de todos.
-  function antennaGlyph(elevationY, sampleElevation, mapper, longitude, latitude) {
+  // Marcador de antena (ADR 0012, altura a escala por ADR 0013): torre de
+  // telecomunicaciones dibujada con segmentos de línea — cuerpo esbelto,
+  // crucetas y mástil rematado en una baliza. Cada medida es metros reales
+  // convertidos con la escala vertical de la escena (scaleV, unidades por
+  // metro, ya incluye la exageración del relieve): a la vista regional la
+  // torre es un tic de píxel y pico; el zoom la revela completa. Devuelve un
+  // Group con material propio en cada parte; update() cambia color y
+  // opacidad de todos.
+  function antennaGlyph(scaleV, elevationY, sampleElevation, mapper, longitude, latitude) {
     const x = mapper.x2(longitude);
     const z = mapper.z2(latitude);
     const y0 = elevationY(sampleElevation(longitude, latitude));
-    const bodyY = y0 + ANTENNA_BODY_TOP * ANTENNA_HEIGHT;
-    const tipY = y0 + ANTENNA_HEIGHT;
+    const at = (meters) => y0 + meters * scaleV;
+    const bodyY = at(TOWER_BODY_TOP * TOWER_HEIGHT_M);
+    const tipY = at(TOWER_HEIGHT_M);
     const legWidthAt = (fraction) =>
-      ANTENNA_BASE_HALF +
-      ((ANTENNA_TOP_HALF - ANTENNA_BASE_HALF) * fraction) / ANTENNA_BODY_TOP;
+      TOWER_BASE_HALF_M +
+      ((TOWER_TOP_HALF_M - TOWER_BASE_HALF_M) * fraction) / TOWER_BODY_TOP;
     const segments = [
       // Patas convergentes de la retícula.
-      [x - ANTENNA_BASE_HALF, y0, z, x - ANTENNA_TOP_HALF, bodyY, z],
-      [x + ANTENNA_BASE_HALF, y0, z, x + ANTENNA_TOP_HALF, bodyY, z],
+      [x - TOWER_BASE_HALF_M * scaleV, y0, z, x - TOWER_TOP_HALF_M * scaleV, bodyY, z],
+      [x + TOWER_BASE_HALF_M * scaleV, y0, z, x + TOWER_TOP_HALF_M * scaleV, bodyY, z],
       // Travesaños horizontales del cuerpo.
       ...[0.3, 0.55, 0.78].map((fraction) => {
-        const half = legWidthAt(fraction);
-        const y = y0 + fraction * ANTENNA_HEIGHT;
+        const half = legWidthAt(fraction) * scaleV;
+        const y = at(fraction * TOWER_HEIGHT_M);
         return [x - half, y, z, x + half, y, z];
       }),
       // Crucetas donde montan los paneles sectoriales.
-      [x - ANTENNA_CROSSARM, bodyY, z, x + ANTENNA_CROSSARM, bodyY, z],
-      [x, bodyY, z - ANTENNA_CROSSARM, x, bodyY, z + ANTENNA_CROSSARM],
+      [x - TOWER_CROSSARM_M * scaleV, bodyY, z, x + TOWER_CROSSARM_M * scaleV, bodyY, z],
+      [x, bodyY, z - TOWER_CROSSARM_M * scaleV, x, bodyY, z + TOWER_CROSSARM_M * scaleV],
       // Mástil superior y baliza de punta.
       [x, bodyY, z, x, tipY, z],
-      [x - ANTENNA_TIP, tipY, z, x + ANTENNA_TIP, tipY, z],
-      [x, tipY, z - ANTENNA_TIP, x, tipY, z + ANTENNA_TIP],
+      [x - TOWER_TIP_M * scaleV, tipY, z, x + TOWER_TIP_M * scaleV, tipY, z],
+      [x, tipY, z - TOWER_TIP_M * scaleV, x, tipY, z + TOWER_TIP_M * scaleV],
     ];
     const positions = [];
     segments.forEach(([ax, ay, az, bx, by, bz]) => positions.push(ax, ay, az, bx, by, bz));
@@ -447,7 +459,7 @@ export function createTerrainView(container) {
       })
     );
     const beacon = new THREE.Mesh(
-      new THREE.SphereGeometry(0.0038, 10, 8),
+      new THREE.SphereGeometry(TOWER_BEACON_M * scaleV, 10, 8),
       new THREE.MeshBasicMaterial({
         color: COLOR_CANDIDATE,
         transparent: true,
@@ -530,9 +542,12 @@ export function createTerrainView(container) {
       const value = rows[row][col];
       return value == null ? terrain.elevation_min_m : value;
     };
-    // Escala real: la vertical usa la MISMA conversión metros→unidades que la
-    // horizontal (fidelidad con la realidad; sin exageración).
-    const scale = 2 / mapper.spanM;
+    // Exageración vertical moderada (ADR 0013 revisa ADR 0009): la vertical
+    // multiplica la conversión metros→unidades horizontal por
+    // VERTICAL_EXAGGERATION (×2,5, la convención del hillshade del PNG). La
+    // misma escala gobierna torres y enlaces: todo lo vertical queda
+    // coerente entre sí.
+    const scale = (2 / mapper.spanM) * VERTICAL_EXAGGERATION;
     const elevationY = (elevation) => (elevation - terrain.elevation_min_m) * scale;
 
     const next = { scenario, terrain };
@@ -735,9 +750,9 @@ export function createTerrainView(container) {
       return mesh;
     });
 
-    // Antenas candidatas y seleccionadas: torres esbeltas (ADR 0012).
+    // Antenas candidatas y seleccionadas: torres esbeltas a escala (ADR 0012/0013).
     next.candidates = scenario.candidates.map((candidate) =>
-      antennaGlyph(elevationY, sampleElevation, mapper, candidate.longitude, candidate.latitude)
+      antennaGlyph(scale, elevationY, sampleElevation, mapper, candidate.longitude, candidate.latitude)
     );
 
     // Enlaces LOS entre seleccionadas: tramos entre las puntas de las torres.
@@ -756,7 +771,7 @@ export function createTerrainView(container) {
         const path = densify([[source.longitude, source.latitude], [target.longitude, target.latitude]], terrain)
           .map(([longitude, latitude]) => [
             mapper.x2(longitude),
-            elevationY(sampleElevation(longitude, latitude)) + ANTENNA_HEIGHT,
+            elevationY(sampleElevation(longitude, latitude)) + TOWER_HEIGHT_M * scale,
             mapper.z2(latitude),
           ]);
         for (let point = 1; point < path.length; point += 1) {

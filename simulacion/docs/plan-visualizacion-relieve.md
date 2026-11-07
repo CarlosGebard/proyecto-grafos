@@ -19,7 +19,8 @@ enumeración de pares con LOS, la generación de candidatos ni la semántica PRC
    torres esbeltas con baliza; los segmentos de enlaces siguen genéricos.
 4. **Densidad de población: coropletas por cuantiles (hab/km²) integradas al
    terreno** (ADR 0009, con fundamento en Brewer & Pickle 2002 y Slocum et al.);
-   relieve 3D a escala real sin exageración.
+   relieve 3D con exageración vertical moderada ×2,5 — la convención del
+   hillshade 2D — y torres de antena a escala real (ADR 0013 revisa ADR 0009).
 
 ## 2. Estado actual (hecho verificado)
 

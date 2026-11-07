@@ -561,7 +561,7 @@ function updateTerrainLegend() {
     .join("");
   const [left, bottom, right, top] = terrain.bounds_metric_m || [0, 0, 0, 0];
   const km = (value) => new Intl.NumberFormat("es-CL", { maximumFractionDigits: 1 }).format(value / 1000);
-  const notes = [`Este: 0-${km(right - left)} km · Norte: 0-${km(top - bottom)} km · Relieve a escala real (sin exageración)`];
+  const notes = [`Este: 0-${km(right - left)} km · Norte: 0-${km(top - bottom)} km · Relieve ×2,5 (misma exageración del hillshade) · Torre 30 m a escala`];
   if (state.scenario.roads?.length) notes.push("© OpenStreetMap contributors");
   const exclusions = prcExclusions();
   if (exclusions.length) notes.push(`PRC: ${exclusions.length} exclusiones (screening, no permiso)`);
