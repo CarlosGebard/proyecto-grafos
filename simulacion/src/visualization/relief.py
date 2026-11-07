@@ -83,7 +83,12 @@ def paint_relief(ax, dem_path: Path, palette_name: str) -> dict:
     )
     if mask.any():
         red, green, blue = palettes.hex_to_rgb(NODATA_HEX)
-        shaded[mask] = (red, green, blue)
+        # LightSource.shade devuelve RGBA (H, W, 4) desde matplotlib 3.x;
+        # en versiones con retorno RGB, pintar sin alfa.
+        nodata = (
+            (red, green, blue, 1.0) if shaded.shape[-1] == 4 else (red, green, blue)
+        )
+        shaded[mask] = nodata
 
     ax.imshow(
         shaded,
