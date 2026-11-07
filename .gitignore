@@ -14,7 +14,8 @@ simulacion/outputs/*
 !simulacion/outputs/biobio
 !simulacion/outputs/metropolitana
 !simulacion/outputs/yumbel-criterio
-simulacion/data/*.rar
+# SHP.rar se versiona via Git LFS (ver .gitattributes); los .rar de staging
+# para Drive siguen fuera del repo
 simulacion/data/para-drive/*.rar
 
 # Archivos temporales de documentación
