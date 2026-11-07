@@ -348,7 +348,7 @@ async function loadOutput(directory, name) {
   try {
     const paths = ["demand.geojson", "demand_points.geojson", "candidates.geojson", "study_area.geojson", "graph.json", "metrics.json"];
     const responses = await Promise.all(paths.map(async (path) => {
-      const response = await fetch(`../outputs/${directory}/${path}`);
+      const response = await fetch(`../outputs/${directory}/${path}`, { cache: "no-cache" });
       if (!response.ok) throw new Error(path);
       return response.json();
     }));
@@ -358,22 +358,22 @@ async function loadOutput(directory, name) {
     let constraints = [];
     let manifestConfig = null;
     try {
-      const response = await fetch(`../outputs/${directory}/connectivity.json`);
+      const response = await fetch(`../outputs/${directory}/connectivity.json`, { cache: "no-cache" });
       if (response.ok) connectivity = await response.json();
     } catch (_) { /* La conectividad es opcional. */ }
     try {
-      const response = await fetch(`../outputs/${directory}/manifest.json`);
+      const response = await fetch(`../outputs/${directory}/manifest.json`, { cache: "no-cache" });
       if (response.ok) manifestConfig = (await response.json()).config || null;
     } catch (_) { /* El manifiesto es opcional. */ }
     try {
-      const response = await fetch(`../outputs/${directory}/roads.geojson`);
+      const response = await fetch(`../outputs/${directory}/roads.geojson`, { cache: "no-cache" });
       if (response.ok) {
         const mainRoads = new Set(["motorway", "trunk", "primary", "secondary", "tertiary"]);
         roads = (await response.json()).features.filter((road) => mainRoads.has(road.properties.highway));
       }
     } catch (_) { /* La capa OSM es opcional. */ }
     try {
-      const response = await fetch(`../outputs/${directory}/constraints.geojson`);
+      const response = await fetch(`../outputs/${directory}/constraints.geojson`, { cache: "no-cache" });
       if (response.ok) constraints = (await response.json()).features;
     } catch (_) { /* El filtro PRC es opcional. */ }
     const coordinates = demandPoints.features.map((feature) => feature.geometry.coordinates);
@@ -451,7 +451,7 @@ async function loadYumbel() {
 
 async function loadTerrain(directory) {
   try {
-    const response = await fetch(`../outputs/${directory}/terrain.json`);
+    const response = await fetch(`../outputs/${directory}/terrain.json`, { cache: "no-cache" });
     if (!response.ok) throw new Error("terrain.json");
     return response.json();
   } catch (_) {
