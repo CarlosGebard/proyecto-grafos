@@ -335,6 +335,7 @@ def run(config: PipelineConfig) -> dict:
         dem_path,
         config.hypsometric_palette,
         excluded_candidates,
+        default_radius_m=config.max_distance_m,
     )
     timings["visualization"] = perf_counter() - step
     step = perf_counter()

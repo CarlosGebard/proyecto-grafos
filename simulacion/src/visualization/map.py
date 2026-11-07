@@ -55,6 +55,7 @@ def export_map(
     dem_path: Path,
     hypsometric_palette: str,
     excluded_candidates=None,
+    default_radius_m: float | None = None,
 ) -> None:
     demand = gpd.GeoDataFrame(
         [
@@ -78,6 +79,9 @@ def export_map(
                 "latitude": a.latitude,
                 "longitude": a.longitude,
                 "selected": a.id in solution.selected,
+                # Rango efectivo ρ(a): radio por clase de potencia; None →
+                # max_distance_m (misma resolución que compute_coverage).
+                "radius_m": a.radius_m if a.radius_m is not None else default_radius_m,
                 "constraint_status": a.constraint_status,
                 "constraint_rule": a.constraint_rule,
                 "geometry": a.point,
