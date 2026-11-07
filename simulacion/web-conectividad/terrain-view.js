@@ -2,8 +2,9 @@
 // La malla se construye desde terrain.json (artefacto de comunicación; nunca
 // recalcula LOS). Tinta por vértice según la paleta hipsométrica exportada por
 // el pipeline, idéntica a la del mapa PNG. La cobertura se dibuja como el
-// rango nominal ρ(a) de cada antena (disco drapeado + domo 3D), no como
-// círculos por localidad.
+// rango nominal ρ(a) de cada antena (anillo + disco drapeados al relieve),
+// no como círculos por localidad; las antenas se marcan como torres esbeltas
+// (ADR 0012), no como volúmenes.
 
 import * as THREE from "three";
 import { OrbitControls } from "./vendor/OrbitControls.js";
@@ -22,6 +23,18 @@ const ZONE_LIFT = 0.00008;
 // (0.0006), por debajo de las exclusiones PRC (0.0012).
 const RANGE_FILL_LIFT = 0.0009;
 const RANGE_RIM_LIFT = 0.0011;
+// Torre de telecomunicaciones como marcador (ADR 0012): cuerpo en retícula
+// (dos patas convergentes con travesaños), crucetas para los paneles por
+// sector y mástil rematado en baliza. Esbelta como una torre real (relación
+// altura/base ≈ 14:1, una torre de 30 m con patas de 3,5 m); la altura del
+// símbolo está exagerada para seguir visible a escala regional — jamás un
+// volumen masivo. Los enlaces LOS parten de la punta del mástil.
+const ANTENNA_HEIGHT = 0.05;
+const ANTENNA_BASE_HALF = 0.0035;
+const ANTENNA_TOP_HALF = 0.0007;
+const ANTENNA_BODY_TOP = 0.8;
+const ANTENNA_CROSSARM = 0.0028;
+const ANTENNA_TIP = 0.0012;
 
 const populationStops = [
   [0, [255, 238, 184]],
@@ -388,6 +401,64 @@ export function createTerrainView(container) {
     return new THREE.Mesh(geometry, material);
   }
 
+  // Marcador de antena (ADR 0012): torre de telecomunicaciones dibujada con
+  // segmentos de línea — cuerpo esbelto, crucetas y mástil rematado en una
+  // baliza (esfera pequeña: la cabeza de la antena, visible a escala
+  // regional sin volumen masivo). Devuelve un Group con material propio en
+  // cada parte; update() cambia color y opacidad de todos.
+  function antennaGlyph(elevationY, sampleElevation, mapper, longitude, latitude) {
+    const x = mapper.x2(longitude);
+    const z = mapper.z2(latitude);
+    const y0 = elevationY(sampleElevation(longitude, latitude));
+    const bodyY = y0 + ANTENNA_BODY_TOP * ANTENNA_HEIGHT;
+    const tipY = y0 + ANTENNA_HEIGHT;
+    const legWidthAt = (fraction) =>
+      ANTENNA_BASE_HALF +
+      ((ANTENNA_TOP_HALF - ANTENNA_BASE_HALF) * fraction) / ANTENNA_BODY_TOP;
+    const segments = [
+      // Patas convergentes de la retícula.
+      [x - ANTENNA_BASE_HALF, y0, z, x - ANTENNA_TOP_HALF, bodyY, z],
+      [x + ANTENNA_BASE_HALF, y0, z, x + ANTENNA_TOP_HALF, bodyY, z],
+      // Travesaños horizontales del cuerpo.
+      ...[0.3, 0.55, 0.78].map((fraction) => {
+        const half = legWidthAt(fraction);
+        const y = y0 + fraction * ANTENNA_HEIGHT;
+        return [x - half, y, z, x + half, y, z];
+      }),
+      // Crucetas donde montan los paneles sectoriales.
+      [x - ANTENNA_CROSSARM, bodyY, z, x + ANTENNA_CROSSARM, bodyY, z],
+      [x, bodyY, z - ANTENNA_CROSSARM, x, bodyY, z + ANTENNA_CROSSARM],
+      // Mástil superior y baliza de punta.
+      [x, bodyY, z, x, tipY, z],
+      [x - ANTENNA_TIP, tipY, z, x + ANTENNA_TIP, tipY, z],
+      [x, tipY, z - ANTENNA_TIP, x, tipY, z + ANTENNA_TIP],
+    ];
+    const positions = [];
+    segments.forEach(([ax, ay, az, bx, by, bz]) => positions.push(ax, ay, az, bx, by, bz));
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    const tower = new THREE.Group();
+    const lines = new THREE.LineSegments(
+      geometry,
+      new THREE.LineBasicMaterial({
+        color: COLOR_CANDIDATE,
+        transparent: true,
+        opacity: 0.9,
+      })
+    );
+    const beacon = new THREE.Mesh(
+      new THREE.SphereGeometry(0.0038, 10, 8),
+      new THREE.MeshBasicMaterial({
+        color: COLOR_CANDIDATE,
+        transparent: true,
+        opacity: 0.9,
+      })
+    );
+    beacon.position.set(x, tipY, z);
+    tower.add(lines, beacon);
+    return tower;
+  }
+
   function drapedLine(elevationY, coordinates, mapper, sampleElevation, lift, material, terrain) {
     const positions = [];
     (terrain ? densify(coordinates, terrain) : coordinates).forEach(([longitude, latitude]) => {
@@ -592,11 +663,12 @@ export function createTerrainView(container) {
       return { fill, outlines };
     });
 
-    // Rango nominal ρ(a): disco drapeado al relieve + borde por antena, y en
-    // la solución un domo translúcido (representación volumétrica del
-    // alcance). El radio viene de candidates.geojson (radius_m; el pipeline
+    // Rango nominal ρ(a): anillo + disco drapeados al relieve por antena.
+    // El radio viene de candidates.geojson (radius_m; el pipeline
     // ya resolvió None → max_distance_m). Es el rango de la antena, no una
     // certificación de cobertura: el visor no recalcula LOS (ADR 0003).
+    // Sin volumen 3D (ADR 0012): un hemisferio de radio ρ(a) sugería una
+    // estructura masiva y un alcance vertical que la señal no tiene.
     const coverageProducing = new Set(
       Object.keys(scenario.coverage || {}).filter(
         (id) => (scenario.coverage[id] || []).length > 0
@@ -606,14 +678,14 @@ export function createTerrainView(container) {
       const hasCoverage = coverageProducing.has(candidate.id);
       const radiusM = candidate.radiusM || 0;
       if (!radiusM) {
-        return { id: candidate.id, hasCoverage, fill: null, rims: [], dome: null };
+        return { id: candidate.id, hasCoverage, fill: null, rims: [] };
       }
       const ring = clipRingToBounds(
         rangeRing(candidate.longitude, candidate.latitude, radiusM),
         [west, south, east, north]
       );
       if (ring.length < 3) {
-        return { id: candidate.id, hasCoverage, fill: null, rims: [], dome: null };
+        return { id: candidate.id, hasCoverage, fill: null, rims: [] };
       }
       const fill = drapedFill(
         elevationY,
@@ -645,32 +717,7 @@ export function createTerrainView(container) {
           terrain
         ),
       ].filter(Boolean);
-      // Domo = media esfera de radio ρ(a) a escala real, apoyada en el suelo
-      // de la antena; se muestra sólo para las antenas elegidas.
-      const dome = new THREE.Mesh(
-        new THREE.SphereGeometry(
-          radiusM * scale,
-          48,
-          24,
-          0,
-          Math.PI * 2,
-          0,
-          Math.PI / 2
-        ),
-        new THREE.MeshBasicMaterial({
-          color: COLOR_RANGE,
-          transparent: true,
-          opacity: 0.055,
-          depthWrite: false,
-          side: THREE.DoubleSide,
-        })
-      );
-      dome.position.set(
-        mapper.x2(candidate.longitude),
-        elevationY(sampleElevation(candidate.longitude, candidate.latitude)),
-        mapper.z2(candidate.latitude)
-      );
-      return { id: candidate.id, hasCoverage, fill, rims, dome };
+      return { id: candidate.id, hasCoverage, fill, rims };
     });
 
     // Localidades como puntos (marcador neutro ∝ √población; el estado de
@@ -688,19 +735,12 @@ export function createTerrainView(container) {
       return mesh;
     });
 
-    // Antenas candidatas y seleccionadas: marcadores cónicos placeholder.
-    const coneGeometry = new THREE.ConeGeometry(0.02, 0.06, 12);
-    next.candidates = scenario.candidates.map((candidate) => {
-      const mesh = new THREE.Mesh(coneGeometry, new THREE.MeshBasicMaterial({ color: COLOR_CANDIDATE }));
-      mesh.position.set(
-        mapper.x2(candidate.longitude),
-        elevationY(sampleElevation(candidate.longitude, candidate.latitude)) + 0.03,
-        mapper.z2(candidate.latitude)
-      );
-      return mesh;
-    });
+    // Antenas candidatas y seleccionadas: torres esbeltas (ADR 0012).
+    next.candidates = scenario.candidates.map((candidate) =>
+      antennaGlyph(elevationY, sampleElevation, mapper, candidate.longitude, candidate.latitude)
+    );
 
-    // Enlaces LOS entre seleccionadas: segmentos placeholder entre cimas.
+    // Enlaces LOS entre seleccionadas: tramos entre las puntas de las torres.
     const solutionSet = new Set(scenario.connectedSolution || []);
     const linkPositions = [];
     const emitted = new Set();
@@ -716,7 +756,7 @@ export function createTerrainView(container) {
         const path = densify([[source.longitude, source.latitude], [target.longitude, target.latitude]], terrain)
           .map(([longitude, latitude]) => [
             mapper.x2(longitude),
-            elevationY(sampleElevation(longitude, latitude)) + 0.07,
+            elevationY(sampleElevation(longitude, latitude)) + ANTENNA_HEIGHT,
             mapper.z2(latitude),
           ]);
         for (let point = 1; point < path.length; point += 1) {
@@ -785,10 +825,6 @@ export function createTerrainView(container) {
         rim.renderOrder = 7;
         group.add(rim);
       });
-      if (range.dome) {
-        range.dome.renderOrder = 8;
-        group.add(range.dome);
-      }
     });
     next.demands.forEach((mesh) => group.add(mesh));
     next.candidates.forEach((mesh) => group.add(mesh));
@@ -808,21 +844,24 @@ export function createTerrainView(container) {
       ? new Set(scenario.connectedSolution.flatMap((id) => scenario.coverage[id] || []))
       : new Set();
 
-    layers.candidates.forEach((mesh, index) => {
+    layers.candidates.forEach((tower, index) => {
       const candidate = scenario.candidates[index];
       const isSelected = selected.has(candidate.id);
       // En la solución sólo quedan las antenas elegidas: las candidatas
       // descartadas se remueven de la escena.
-      mesh.visible = showCandidates && (!showSolution || isSelected);
-      if (!mesh.visible) return;
-      mesh.material.color.set(isSelected ? COLOR_SELECTED : COLOR_CANDIDATE);
-      mesh.material.opacity = isSelected ? 1 : 0.9;
-      mesh.material.transparent = !isSelected;
+      tower.visible = showCandidates && (!showSolution || isSelected);
+      if (!tower.visible) return;
+      tower.traverse((part) => {
+        if (!part.material) return;
+        part.material.color.set(isSelected ? COLOR_SELECTED : COLOR_CANDIDATE);
+        part.material.opacity = isSelected ? 1 : 0.9;
+        part.material.transparent = !isSelected;
+      });
     });
     layers.ranges.forEach((range) => {
       // Paso cobertura: rango de cada candidata que alcanza al menos una
       // localidad (por distancia y LOS ya calculados). Paso solución: sólo
-      // las elegidas, con tinte más fuerte y su domo volumétrico.
+      // las elegidas, con tinte más fuerte.
       const active = showCoverage && (showSolution ? selected.has(range.id) : range.hasCoverage);
       if (range.fill) {
         range.fill.visible = active;
@@ -832,7 +871,6 @@ export function createTerrainView(container) {
         rim.visible = active;
         rim.material.opacity = showSolution ? 0.75 : 0.5;
       });
-      if (range.dome) range.dome.visible = active && showSolution;
     });
     layers.localities.forEach(({ outlines }, index) => {
       const locality = scenario.localityPolygons[index];

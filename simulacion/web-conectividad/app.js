@@ -69,7 +69,7 @@ const steps = [
   {
     title: "Solución conectada",
     copy: "Se eligen hasta k antenas que cubren la mayor población posible y forman una sola red.",
-    terrainCopy: "Las antenas elegidas muestran su rango ρ(a): el disco sigue el terreno y el domo translúcido representa el alcance en 3D. Juntas cubren la mayor población posible en una sola red.",
+    terrainCopy: "Las antenas elegidas muestran su rango ρ(a): el anillo y el disco drapeados siguen el terreno. Juntas cubren la mayor población posible en una sola red.",
   },
 ];
 
