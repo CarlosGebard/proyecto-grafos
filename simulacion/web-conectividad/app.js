@@ -6,10 +6,14 @@ const terrainStage = document.querySelector("#terrain-3d");
 const terrainReset = document.querySelector("#terrain-reset");
 const terrainOverlay = document.querySelector("#terrain-overlay");
 const elevationGradient = document.querySelector("#elev-gradient");
-const elevationRange = document.querySelector("#elev-range");
+const elevationTicks = document.querySelector("#elev-ticks");
 const populationClasses = document.querySelector("#pop-classes");
 const terrainNote = document.querySelector("#terrain-note");
 const prcLayerToggle = document.querySelector("#prc-layer-toggle");
+const zoomControls = document.querySelector("#zoom-controls");
+const zoomInButton = document.querySelector("#zoom-in");
+const zoomOutButton = document.querySelector("#zoom-out");
+const algorithmSteps = document.querySelector("#algorithm-steps");
 const mapLegend = document.querySelector(".legend");
 const previousButton = document.querySelector("#previous-button");
 const nextButton = document.querySelector("#next-button");
@@ -114,12 +118,14 @@ function addLine(group, className, left, right, source, target) {
 
 function render() {
   const isTerrain = state.view === "terrain";
+  renderAlgorithmSection();
   updatePrcLayerToggle();
   network.hidden = isTerrain;
   network.style.display = isTerrain ? "none" : "block";
   terrainStage.hidden = !isTerrain;
   terrainOverlay.hidden = !isTerrain;
   terrainReset.hidden = !isTerrain;
+  zoomControls.hidden = !isTerrain;
   mapLegend.hidden = isTerrain;
   mapLegend.style.display = isTerrain ? "none" : "flex";
   if (isTerrain) {
@@ -245,8 +251,11 @@ function update() {
     : new Set();
 
   state.elements.candidates.forEach(({ circle, label }, id) => {
-    circle.classList.toggle("show", showCandidates);
-    label.classList.toggle("show", showCandidates);
+    // En la solución sólo quedan las antenas elegidas; las candidatas
+    // descartadas se remueven (misma regla que la escena 3D).
+    const visible = showCandidates && (!showSolution || selected.has(id));
+    circle.classList.toggle("show", visible);
+    label.classList.toggle("show", visible);
     circle.classList.toggle("selected", selected.has(id));
   });
   state.elements.coverage.forEach(({ line }) => {
@@ -276,6 +285,9 @@ function update() {
   previousButton.disabled = state.step === 0;
   nextButton.disabled = state.step === steps.length - 1;
   playButton.textContent = state.timer ? "Pausar" : state.step === steps.length - 1 ? "Ver de nuevo" : "Reproducir";
+  document.querySelectorAll("#algorithm-steps .algorithm-card").forEach((card) => {
+    card.classList.toggle("active", Number(card.dataset.step) === state.step);
+  });
 }
 
 function stop() {
@@ -359,9 +371,28 @@ async function loadOutput(directory, name) {
     const bounds = coordinates.reduce((value, [x, y]) => [Math.min(value[0], x), Math.min(value[1], y), Math.max(value[2], x), Math.max(value[3], y)], [Infinity, Infinity, -Infinity, -Infinity]);
     const project = ([x, y]) => ({ x: 42 + ((x - bounds[0]) / (bounds[2] - bounds[0])) * 636, y: 45 + ((bounds[3] - y) / (bounds[3] - bounds[1])) * 365 });
     const connectedResult = metrics.results.find((result) => result.algorithm === "exact_connected");
+    const greedyResult = metrics.results.find((result) => result.algorithm === "greedy_connected");
+    const coverageValues = Object.values(graph.coverage).flat();
     return {
       name,
       k: metrics.results[0].k,
+      stats: {
+        candidates: candidates.features.length,
+        localities: demandPoints.features.length,
+        coveragePairs: coverageValues.length,
+        reachable: new Set(coverageValues).size,
+        evaluations: connectedResult?.evaluations ?? null,
+        runtimeSeconds: connectedResult?.runtime_seconds ?? null,
+        populationCovered: connectedResult?.population_covered ?? null,
+        populationTotal: connectedResult?.population_total ?? null,
+        greedy: greedyResult
+          ? {
+              populationCovered: greedyResult.population_covered,
+              evaluations: greedyResult.evaluations,
+              runtimeSeconds: greedyResult.runtime_seconds,
+            }
+          : null,
+      },
       demands: demandPoints.features.map((feature) => ({ id: feature.properties.id, label: feature.properties.id, population: feature.properties.population, longitude: feature.geometry.coordinates[0], latitude: feature.geometry.coordinates[1], ...project(feature.geometry.coordinates) })),
       candidates: candidates.features.map((feature) => ({ id: feature.properties.id, label: feature.properties.id, longitude: feature.geometry.coordinates[0], latitude: feature.geometry.coordinates[1], constraintStatus: feature.properties.constraint_status, ...project(feature.geometry.coordinates) })),
       coverage: graph.coverage,
@@ -487,14 +518,21 @@ function updateTerrainLegend() {
   elevationGradient.style.background = `linear-gradient(90deg, ${stops
     .map((stop, index) => `${stop.hex} ${((index / (stops.length - 1)) * 100).toFixed(1)}%`)
     .join(", ")})`;
-  elevationRange.textContent = `${Math.round(terrain.elevation_min_m)}–${Math.round(terrain.elevation_max_m)} m`;
-  const fmt = (value) => new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(value);
+  // Ticks con los cortes reales de la rampa hipsométrica (m s. n. m.).
+  elevationTicks.innerHTML = [0, 0.25, 0.5, 0.75, 1]
+    .map((fraction) => {
+      const stop = stops[Math.round(fraction * (stops.length - 1))];
+      return `<span>${number(stop.limit_m)}</span>`;
+    })
+    .join("");
+  // Rangos reales de cada clase de densidad (cuantiles hab/km²).
+  const compact = new Intl.NumberFormat("es-CL", { notation: "compact", maximumFractionDigits: 1 });
   const classes = terrainView.densityClasses;
   populationClasses.innerHTML = classes
     .map((klass) => {
       const color = `rgb(${klass.color.join(", ")})`;
-      const range = `${fmt(klass.min)}–${fmt(klass.max)}`;
-      return `<i class="legend-swatch" style="background: ${color}" title="${range} hab/km²"></i>`;
+      const range = `${compact.format(klass.min)}–${compact.format(klass.max)}`;
+      return `<span class="legend-class"><i class="legend-swatch" style="background: ${color}"></i><b>${range}</b></span>`;
     })
     .join("");
   const [left, bottom, right, top] = terrain.bounds_metric_m || [0, 0, 0, 0];
@@ -506,6 +544,65 @@ function updateTerrainLegend() {
   terrainNote.textContent = notes.join(" · ");
 }
 
+// Sección "Cómo se aplicó el algoritmo": cuatro fases con los números reales
+// del escenario cargado; cada tarjeta sincroniza el mapa con su fase.
+const algorithmCards = [
+  {
+    step: 1,
+    title: "1 · Candidatos",
+    detail: (stats) => stats
+      ? `${number(stats.candidates)} sitios del criterio territorial (anclas en localidades, intersecciones Murray–Tong y sitios altos) para ${number(stats.localities)} localidades.`
+      : "El criterio territorial propone sitios: anclas en localidades, intersecciones de cobertura y sitios altos del relieve.",
+  },
+  {
+    step: 2,
+    title: "2 · Cobertura posible",
+    detail: (stats) => stats
+      ? `${number(stats.coveragePairs)} pares localidad–antena factibles por distancia y línea de vista sobre el DEM; ${number(stats.reachable)} localidades alcanzables por al menos una candidata.`
+      : "Localidades alcanzables por al menos una candidata, filtradas por distancia y línea de vista.",
+  },
+  {
+    step: 3,
+    title: "3 · Selección exacta",
+    detail: (stats) => stats && stats.evaluations != null
+      ? `Motor conectado (ESU + unión incremental + cotas): ${number(stats.evaluations)} evaluaciones en ${fmtSeconds(stats.runtimeSeconds)} s. Máxima población única cubierta: ${number(stats.populationCovered)} hab.`
+      : "Enumeración canónica de subconjuntos conexos con cota de prefijos y unión incremental del objetivo.",
+  },
+  {
+    step: 3,
+    title: "4 · Red conectada",
+    detail: (stats) => {
+      const base = "Las antenas elegidas forman un único componente: gateway y enlaces LOS entre pares con visibilidad.";
+      if (!stats?.greedy) return `${base} El baseline goloso se registra al correr el pipeline.`;
+      const igual = stats.greedy.populationCovered === stats.populationCovered;
+      return `${base} Baseline goloso: ${number(stats.greedy.populationCovered)} hab en ${fmtSeconds(stats.greedy.runtimeSeconds)} s (${igual ? "coincide con el óptimo" : "bajo el óptimo"}).`;
+    },
+  },
+];
+
+function fmtSeconds(value) {
+  if (value == null) return "—";
+  return new Intl.NumberFormat("es-CL", { maximumFractionDigits: 1 }).format(value);
+}
+
+function renderAlgorithmSection() {
+  const stats = state.scenario.stats || null;
+  algorithmSteps.replaceChildren();
+  algorithmCards.forEach((card) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "algorithm-card";
+    button.dataset.step = String(card.step);
+    button.innerHTML = `<strong>${card.title}</strong><span>${card.detail(stats)}</span>`;
+    button.addEventListener("click", () => {
+      stop();
+      setStep(card.step);
+    });
+    algorithmSteps.append(button);
+  });
+  update();
+}
+
 previousButton.addEventListener("click", () => { stop(); setStep(state.step - 1); });
 nextButton.addEventListener("click", () => { stop(); setStep(state.step + 1); });
 playButton.addEventListener("click", play);
@@ -514,6 +611,8 @@ biobioTab.addEventListener("click", showBiobio);
 metroTab.addEventListener("click", showMetropolitana);
 yumbelTab.addEventListener("click", showYumbel);
 terrainReset.addEventListener("click", () => terrainView.reset());
+zoomInButton.addEventListener("click", () => terrainView.zoomIn());
+zoomOutButton.addEventListener("click", () => terrainView.zoomOut());
 prcLayerToggle.addEventListener("click", () => {
   state.showPrcConstraints = !state.showPrcConstraints;
   updatePrcLayerToggle();

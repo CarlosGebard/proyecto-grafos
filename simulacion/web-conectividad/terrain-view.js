@@ -13,6 +13,9 @@ const COLOR_UNCOVERED = 0xe9eee9;
 const COLOR_LINK = 0x6b3fa8;
 const COLOR_CANDIDATE = 0xecf1ec;
 const COLOR_SELECTED = 0x6b3fa8;
+// Despegue del relleno de zonas sobre la malla (evita z-fighting con el
+// terreno coplanar sin flotar a la vista; ~1 m a escala del piloto).
+const ZONE_LIFT = 0.00008;
 
 const populationStops = [
   [0, [255, 238, 184]],
@@ -77,6 +80,57 @@ function densityClassification(densities, classCount = 5) {
 function ringsOf(geometry) {
   if (geometry.type === "Polygon") return geometry.coordinates;
   return geometry.coordinates.map((polygon) => polygon[0]);
+}
+
+// Punto en polígono (par-impar sobre todos los anillos: agujeros incluidos).
+function pointInRings(longitude, latitude, rings) {
+  let inside = false;
+  for (const ring of rings) {
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i, i += 1) {
+      const [x1, y1] = ring[i];
+      const [x2, y2] = ring[j];
+      if ((y1 > latitude) !== (y2 > latitude) && longitude < ((x2 - x1) * (latitude - y1)) / (y2 - y1) + x1) {
+        inside = !inside;
+      }
+    }
+  }
+  return inside;
+}
+
+// Zonas SIN superposición: cada celda del DEM pertenece a lo sumo a una
+// localidad (centro de celda decide; primer polígono que la contiene gana).
+// El relleno resultante comparte los vértices exactos de la malla, de modo
+// que las divisiones se adaptan al relieve en lugar de flotar sobre él.
+function gridOwnership(terrain, polygonRings) {
+  const { width, height } = terrain;
+  const [west, south, east, north] = terrain.bounds_wgs84;
+  const owner = new Int16Array(width * height).fill(-1);
+  polygonRings.forEach((rings, zoneIndex) => {
+    let minLon = Infinity;
+    let maxLon = -Infinity;
+    let minLat = Infinity;
+    let maxLat = -Infinity;
+    rings.forEach((ring) => ring.forEach(([lon, lat]) => {
+      if (lon < minLon) minLon = lon;
+      if (lon > maxLon) maxLon = lon;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+    }));
+    const colStart = Math.max(0, Math.floor(((minLon - west) / (east - west)) * width) - 1);
+    const colEnd = Math.min(width - 1, Math.ceil(((maxLon - west) / (east - west)) * width));
+    const rowStart = Math.max(0, Math.floor(((north - maxLat) / (north - south)) * height) - 1);
+    const rowEnd = Math.min(height - 1, Math.ceil(((north - minLat) / (north - south)) * height));
+    for (let row = rowStart; row <= rowEnd; row += 1) {
+      for (let col = colStart; col <= colEnd; col += 1) {
+        const cell = row * width + col;
+        if (owner[cell] !== -1) continue;
+        const lon = west + ((col + 0.5) / width) * (east - west);
+        const lat = north - ((row + 0.5) / height) * (north - south);
+        if (pointInRings(lon, lat, rings)) owner[cell] = zoneIndex;
+      }
+    }
+  });
+  return owner;
 }
 
 function linesOf(geometry) {
@@ -165,7 +219,7 @@ export function createTerrainView(container) {
     });
   }
 
-  function buildTerrain(terrain, mapper, elevationY) {
+  function buildTerrain(terrain, mapper, elevationY, xs, zs) {
     const { width, height, elevations_m: rows, elevation_min_m: minimum } = terrain;
     const stops = terrain.palette?.stops || [];
     const count = width * height;
@@ -175,13 +229,11 @@ export function createTerrainView(container) {
     for (let row = 0; row < height; row += 1) {
       for (let col = 0; col < width; col += 1) {
         const index = row * width + col;
-        const longitude = terrain.bounds_wgs84[0] + (col / (width - 1)) * (terrain.bounds_wgs84[2] - terrain.bounds_wgs84[0]);
-        const latitude = terrain.bounds_wgs84[3] - (row / (height - 1)) * (terrain.bounds_wgs84[3] - terrain.bounds_wgs84[1]);
         const raw = rows[row][col];
         const elevation = raw == null ? minimum : raw;
-        positions[index * 3] = mapper.x2(longitude);
+        positions[index * 3] = xs[col];
         positions[index * 3 + 1] = elevationY(elevation);
-        positions[index * 3 + 2] = mapper.z2(latitude);
+        positions[index * 3 + 2] = zs[row];
         const color = raw == null
           ? new THREE.Color(NODATA_COLOR)
           : colorAtStops(stops, (elevation - minimum) / range);
@@ -210,11 +262,40 @@ export function createTerrainView(container) {
     return mesh;
   }
 
-  function drapedFill(elevationY, geometryRings, mapper, sampleElevation, lift, material) {
+  // Subdivide tramos largos a la celda del DEM: bordes, caminos y enlaces
+  // siguen el relieve muestreado en cada punto en vez de cortar los cerros.
+  function densify(coordinates, terrain) {
+    const [west, south, east, north] = terrain.bounds_wgs84;
+    const span = Math.max(terrain.width, terrain.height);
+    const dense = [];
+    coordinates.forEach(([longitude, latitude], index) => {
+      if (!index) {
+        dense.push([longitude, latitude]);
+        return;
+      }
+      const [previousLon, previousLat] = coordinates[index - 1];
+      const steps = Math.max(1, Math.ceil(
+        Math.max(
+          Math.abs(longitude - previousLon) / (east - west),
+          Math.abs(latitude - previousLat) / (north - south)
+        ) * span
+      ));
+      for (let step = 1; step <= steps; step += 1) {
+        dense.push([
+          previousLon + ((longitude - previousLon) * step) / steps,
+          previousLat + ((latitude - previousLat) * step) / steps,
+        ]);
+      }
+    });
+    return dense;
+  }
+
+  function drapedFill(elevationY, geometryRings, mapper, sampleElevation, lift, material, terrain) {
     const positions = [];
     geometryRings.forEach((ring) => {
       if (ring.length < 3) return;
-      const contour = ring.map(([longitude, latitude]) =>
+      const sampled = terrain ? densify(ring, terrain) : ring;
+      const contour = sampled.map(([longitude, latitude]) =>
         new THREE.Vector2(mapper.x2(longitude), mapper.z2(latitude))
       );
       let triangles;
@@ -225,7 +306,7 @@ export function createTerrainView(container) {
       }
       triangles.forEach(([a, b, c]) => {
         [a, b, c].forEach((index) => {
-          const [longitude, latitude] = ring[index];
+          const [longitude, latitude] = sampled[index];
           positions.push(
             contour[index].x,
             elevationY(sampleElevation(longitude, latitude)) + lift,
@@ -240,9 +321,9 @@ export function createTerrainView(container) {
     return new THREE.Mesh(geometry, material);
   }
 
-  function drapedLine(elevationY, coordinates, mapper, sampleElevation, lift, material) {
+  function drapedLine(elevationY, coordinates, mapper, sampleElevation, lift, material, terrain) {
     const positions = [];
-    coordinates.forEach(([longitude, latitude]) => {
+    (terrain ? densify(coordinates, terrain) : coordinates).forEach(([longitude, latitude]) => {
       positions.push(
         mapper.x2(longitude),
         elevationY(sampleElevation(longitude, latitude)) + lift,
@@ -253,6 +334,46 @@ export function createTerrainView(container) {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
     return new THREE.Line(geometry, material);
+  }
+
+  // Relleno de una zona como subconjunto de la propia grilla del DEM: vértices
+  // idénticos a la malla (+ZONE_LIFT) → sigue el relieve sin superponerse a
+  // ninguna otra zona (la propiedad de celdas es exclusiva).
+  function zoneFillMesh(terrain, owner, zoneIndex, xs, zs, elevationY, material) {
+    const { width, height, elevations_m: rows, elevation_min_m: minimum } = terrain;
+    const nodeIndex = new Map();
+    const positions = [];
+    const indices = [];
+    const heightAt = (row, col) => {
+      const value = rows[row] ? rows[row][col] : null;
+      return value == null ? minimum : value;
+    };
+    const nodeAt = (row, col) => {
+      const key = row * width + col;
+      let index = nodeIndex.get(key);
+      if (index === undefined) {
+        index = positions.length / 3;
+        nodeIndex.set(key, index);
+        positions.push(xs[col], elevationY(heightAt(row, col)) + ZONE_LIFT, zs[row]);
+      }
+      return index;
+    };
+    for (let row = 0; row < height - 1; row += 1) {
+      for (let col = 0; col < width - 1; col += 1) {
+        if (owner[row * width + col] !== zoneIndex) continue;
+        const a = nodeAt(row, col);
+        const b = nodeAt(row, col + 1);
+        const c = nodeAt(row + 1, col);
+        const d = nodeAt(row + 1, col + 1);
+        indices.push(a, c, b, b, c, d);
+      }
+    }
+    if (!indices.length) return null;
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    return new THREE.Mesh(geometry, material);
   }
 
   function build(terrain, scenario) {
@@ -274,7 +395,15 @@ export function createTerrainView(container) {
     const elevationY = (elevation) => (elevation - terrain.elevation_min_m) * scale;
 
     const next = { scenario, terrain };
-    next.terrainMesh = buildTerrain(terrain, mapper, elevationY);
+    const xs = [];
+    const zs = [];
+    for (let col = 0; col < terrain.width; col += 1) {
+      xs.push(mapper.x2(west + (col / (terrain.width - 1)) * (east - west)));
+    }
+    for (let row = 0; row < terrain.height; row += 1) {
+      zs.push(mapper.z2(north - (row / (terrain.height - 1)) * (north - south)));
+    }
+    next.terrainMesh = buildTerrain(terrain, mapper, elevationY, xs, zs);
 
     // Segunda dimensión: densidad de población (hab/km²) por cuantiles.
     // La subdivisión es parte del terreno (una misma dimensión): rellenos
@@ -289,18 +418,25 @@ export function createTerrainView(container) {
     const classification = densityClassification(densities);
     next.densityClassification = classification;
 
-    // Localidades: coropletas de densidad integradas al terreno (ras de
-    // superficie, iluminadas como el relieve) + borde (verde si cubierta).
+    // Localidades: coropletas de densidad integradas al terreno. El relleno
+    // es un subconjunto de la grilla del DEM (celdas exclusivas: nunca dos
+    // zonas se superponen) y sigue el relieve vértice a vértice; el borde se
+    // dibuja densificado sobre esa misma superficie.
+    const ownership = gridOwnership(
+      terrain,
+      scenario.localityPolygons.map((locality) => ringsOf(locality.geometry))
+    );
     next.localities = scenario.localityPolygons.map((locality, index) => {
       const [red, green, blue] = classification.classes[
         classification.of(densities[index])
       ].color;
-      const fill = drapedFill(
+      const fill = zoneFillMesh(
+        terrain,
+        ownership,
+        index,
+        xs,
+        zs,
         elevationY,
-        ringsOf(locality.geometry),
-        mapper,
-        sampleElevation,
-        0.0002,
         new THREE.MeshLambertMaterial({
           color: new THREE.Color(red / 255, green / 255, blue / 255),
           transparent: true,
@@ -317,8 +453,9 @@ export function createTerrainView(container) {
             ring,
             mapper,
             sampleElevation,
-            0.0003,
-            new THREE.LineBasicMaterial({ color: 0x233226, transparent: true, opacity: 0.6 })
+            0.0006,
+            new THREE.LineBasicMaterial({ color: 0x233226, transparent: true, opacity: 0.6 }),
+            terrain
           )
         )
         .filter(Boolean);
@@ -341,7 +478,8 @@ export function createTerrainView(container) {
               color: 0x403424,
               transparent: true,
               opacity: isWide ? 0.85 : 0.45,
-            })
+            }),
+            terrain
           )
         )
         .filter(Boolean);
@@ -357,14 +495,15 @@ export function createTerrainView(container) {
         ringsOf(feature.geometry),
         mapper,
         sampleElevation,
-        0.0005,
+        0.0012,
         new THREE.MeshBasicMaterial({
           color: 0xa72f24,
           transparent: true,
           opacity: 0.24,
           depthWrite: false,
           side: THREE.DoubleSide,
-        })
+        }),
+        terrain
       );
       const outlines = ringsOf(feature.geometry)
         .filter((ring) => ring.length >= 3)
@@ -374,8 +513,9 @@ export function createTerrainView(container) {
             ring,
             mapper,
             sampleElevation,
-            0.0006,
-            new THREE.LineBasicMaterial({ color: 0x80251e, transparent: true, opacity: 0.8 })
+            0.0014,
+            new THREE.LineBasicMaterial({ color: 0x80251e, transparent: true, opacity: 0.8 }),
+            terrain
           )
         )
         .filter(Boolean);
@@ -420,14 +560,16 @@ export function createTerrainView(container) {
         const source = scenario.candidates.find((candidate) => candidate.id === sourceId);
         const target = scenario.candidates.find((candidate) => candidate.id === targetId);
         if (!source || !target) return;
-        linkPositions.push(
-          mapper.x2(source.longitude),
-          elevationY(sampleElevation(source.longitude, source.latitude)) + 0.07,
-          mapper.z2(source.latitude),
-          mapper.x2(target.longitude),
-          elevationY(sampleElevation(target.longitude, target.latitude)) + 0.07,
-          mapper.z2(target.latitude)
-        );
+        // Ruta densificada sobre el relieve (pares consecutivos para LineSegments).
+        const path = densify([[source.longitude, source.latitude], [target.longitude, target.latitude]], terrain)
+          .map(([longitude, latitude]) => [
+            mapper.x2(longitude),
+            elevationY(sampleElevation(longitude, latitude)) + 0.07,
+            mapper.z2(latitude),
+          ]);
+        for (let point = 1; point < path.length; point += 1) {
+          linkPositions.push(...path[point - 1], ...path[point]);
+        }
       });
     });
     const linkGeometry = new THREE.BufferGeometry();
@@ -505,10 +647,14 @@ export function createTerrainView(container) {
 
     layers.candidates.forEach((mesh, index) => {
       const candidate = scenario.candidates[index];
-      mesh.visible = showCandidates;
-      mesh.material.color.set(selected.has(candidate.id) ? COLOR_SELECTED : COLOR_CANDIDATE);
-      mesh.material.opacity = selected.has(candidate.id) ? 1 : 0.9;
-      mesh.material.transparent = !selected.has(candidate.id);
+      const isSelected = selected.has(candidate.id);
+      // En la solución sólo quedan las antenas elegidas: las candidatas
+      // descartadas se remueven de la escena.
+      mesh.visible = showCandidates && (!showSolution || isSelected);
+      if (!mesh.visible) return;
+      mesh.material.color.set(isSelected ? COLOR_SELECTED : COLOR_CANDIDATE);
+      mesh.material.opacity = isSelected ? 1 : 0.9;
+      mesh.material.transparent = !isSelected;
     });
     layers.demands.forEach((mesh, index) => {
       const demand = scenario.demands[index];
@@ -538,8 +684,22 @@ export function createTerrainView(container) {
   }
 
   function render(state) {
-    build(state.terrain, state.scenario);
+    // La construcción es determinista por (terrain, scenario): sólo se
+    // reconstruye al cambiar de piloto, no en cada paso del recorrido.
+    if (!layers || layers.terrain !== state.terrain || layers.scenario !== state.scenario) {
+      build(state.terrain, state.scenario);
+    }
     update(state);
+  }
+
+  // Zoom con botones (complementa la rueda de OrbitControls): acerca o aleja
+  // la cámara sobre la línea de vista, respetando los topes de OrbitControls.
+  function zoomBy(factor) {
+    const offset = camera.position.clone().sub(controls.target);
+    const distance = clamp(offset.length() * factor, controls.minDistance, controls.maxDistance);
+    offset.setLength(distance);
+    camera.position.copy(controls.target).add(offset);
+    controls.update();
   }
 
   function animate() {
@@ -566,6 +726,8 @@ export function createTerrainView(container) {
     render,
     update,
     reset: resetCamera,
+    zoomIn: () => zoomBy(0.75),
+    zoomOut: () => zoomBy(1.33),
     get densityClasses() {
       return layers?.densityClassification?.classes || [];
     },
