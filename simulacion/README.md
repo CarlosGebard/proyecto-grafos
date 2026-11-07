@@ -8,7 +8,7 @@ Requiere Python 3.12+, `uv` y `7z` para extraer los RAR existentes en `data/`. C
 
 ```bash
 uv sync --locked
-uv run python -m src.pipeline --region biobio --k 5 --candidate-spacing 5000 --max-distance 30000 --output outputs/mi-prueba
+uv run python -m src.pipeline --region biobio --k 5 --max-distance 30000 --output outputs/mi-prueba
 ```
 
 El primer piloto usa una ventana pequeña de Biobío y los archivos locales de SUBDERE y ALOS PALSAR. El comando extrae los datos cuando hace falta y exporta grafo, soluciones, métricas, capas GeoJSON, DEM GeoTIFF y `map.png`. Usar un directorio de salida nuevo para cada ejecución.
@@ -39,14 +39,11 @@ uv run ruff format --check .
 
 ## Documentación
 
-- [Anexo visual de la simulación exacta (PDF)](output/pdf/figuras-simulacion-exacta.pdf) y sus [fuentes LaTeX](output/pdf/figuras-simulacion-exacta.tex).
-- [Documento explicativo: problema, datos y solución](docs/documento-explicativo.md) y su [PDF](output/pdf/documento-explicativo.pdf).
+- [Documento explicativo: problema, datos y solución](docs/documento-explicativo.md).
 - [Relación con el PDF y formulación científica](docs/propuesta.md).
 - [Operación, fuentes, configuración y resultados](docs/runbooks/pipeline.md).
 - [Decisión de arquitectura V1](docs/adr/0001-pipeline-geoespacial.md).
 - [Decisión sobre filtro territorial PRC](docs/adr/0005-prc-screening-territorial.md).
-- [Plan y validación realizada](PLANS.md).
-- [Piloto web interactivo de Biobío](web/README.md): visor local animado de las cinco ubicaciones seleccionadas.
 - [Visor didáctico de conectividad](web-conectividad/README.md): explica candidatos, aristas y red conectada mediante animación SVG.
 
 El resultado estima cobertura geométrica en un punto interior de cada localidad; no certifica cobertura radioeléctrica ni factibilidad de instalar infraestructura.

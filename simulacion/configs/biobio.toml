@@ -2,10 +2,13 @@
 region = "biobio"
 bbox = [-72.65, -37.30, -72.45, -37.10]
 k = 5
-candidate_spacing_m = 5000.0
 max_distance_m = 30000.0
 antenna_height_m = 30.0
 receiver_height_m = 1.5
+
+# Generación por criterio (ADR 0007). El tope mantiene el grafo dentro del
+# presupuesto de pares LOS; el puntaje prioriza población alcanzable.
+max_candidates = 40
+max_evaluations = 2000000
 dem_source = "alos"
-max_combinations = 100000
 output = "outputs/biobio"

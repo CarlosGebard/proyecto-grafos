@@ -31,9 +31,11 @@ def compute_coverage(
     coverage = {}
     checked = 0
     for antenna in candidates:
+        # Radio efectivo por clase de potencia; None → max_distance_m (retrocompatible).
+        radius = antenna.radius_m if antenna.radius_m is not None else max_distance_m
         start = (antenna.point.x, antenna.point.y)
         distances = np.linalg.norm(xy - start, axis=1)
-        neighbors = np.flatnonzero(distances <= max_distance_m)
+        neighbors = np.flatnonzero(distances <= radius)
         checked += len(neighbors)
         coverage[antenna.id] = {
             demands[j].id
@@ -73,10 +75,17 @@ def compute_connectivity(
         )
     links = {candidate.id: set() for candidate in candidates}
     checked = 0
-    for left, right in combinations(candidates, 2):
+    radii = [
+        candidate.radius_m if candidate.radius_m is not None else max_distance_m
+        for candidate in candidates
+    ]
+    for i, j in combinations(range(len(candidates)), 2):
+        left, right = candidates[i], candidates[j]
         start = (left.point.x, left.point.y)
         end = (right.point.x, right.point.y)
-        if float(np.linalg.norm(np.subtract(end, start))) > max_distance_m:
+        distance = float(np.linalg.norm(np.subtract(end, start)))
+        # Un enlace exige que ambas antenas alcancen la distancia: min(ρu, ρv).
+        if distance > min(radii[i], radii[j]):
             continue
         checked += 1
         if visibility(

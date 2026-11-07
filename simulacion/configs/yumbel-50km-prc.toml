@@ -3,8 +3,11 @@ region = "biobio"
 center = [-72.556409, -37.127679]
 study_size_m = 50000.0
 k = 5
-# 25 candidatos aproximados: permite la enumeración exacta en esta extensión.
-candidate_spacing_m = 10000.0
+# Conjunto acotado por criterio (ADR 0007): la enumeración exacta exige
+# pocos candidatos en esta ventana de 50 km. La separación reproduce el
+# esfuerzo de muestreo de la retícula original de 10 km: sqrt(área/n).
+max_candidates = 25
+candidate_separation_m = 4000.0
 max_distance_m = 30000.0
 antenna_height_m = 30.0
 receiver_height_m = 1.5
@@ -14,6 +17,23 @@ prc_directory = "../prc-mapas/prc_biobio"
 # Excluye agua, áreas verdes, drenajes y zonas de riesgo inequívocas.
 # El resto queda como "sin clasificación", no como permiso de construcción.
 prc_mode = "screening"
-osm_roads = "data/prepared/osm/chile.gpkg"
-max_combinations = 100000
-output = "outputs/yumbel-50km-prc-screening"
+max_evaluations = 100000
+output = "outputs/yumbel-criterio"
+# Clases de potencia (docs/referencias-potencia-antenas.md) y umbral t de la
+# corrida didáctica del visor web.
+min_population = 5000.0
+
+[[antenna_class]]
+name = "macro-baja-banda"
+radius_m = 30000.0
+count = 8
+
+[[antenna_class]]
+name = "wisp-tvws"
+radius_m = 12000.0
+count = 12
+
+[[antenna_class]]
+name = "wifi-5-8"
+radius_m = 6000.0
+count = 3

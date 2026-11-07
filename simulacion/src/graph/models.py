@@ -26,6 +26,7 @@ class AntennaCandidate:
     point: Point
     constraint_status: str = "not_evaluated"
     constraint_rule: str | None = None
+    radius_m: float | None = None  # radio efectivo por clase de potencia; None → config
 
 
 @dataclass
@@ -51,3 +52,6 @@ class Solution:
     covered: frozenset[str]
     population_covered: float
     runtime_seconds: float
+    evaluations: int = (
+        0  # subconjuntos visitados (exacto) o márgenes evaluados (goloso)
+    )

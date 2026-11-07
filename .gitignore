@@ -14,10 +14,10 @@ simulacion/data/para-drive/*.rar
 
 # Archivos temporales de documentación
 propuesta-primera-entrega/tmp/pdfs/
-simulacion/output/pdf/build/
 
 # Archivos auxiliares generados por LaTeX
 *.aux
 *.log
 *.out
 *.toc
+informe/informe-final.pdf

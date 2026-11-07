@@ -1,19 +1,43 @@
-# Estado breve
+# Estado del proyecto
+
+Última verificación: 6 de noviembre de 2026.
 
 ## Fase actual
 
-Simulación V1 terminada. Pilotos acotados, no red real.
+Motor exacto conectado implementado en `feat/algoritmo` (cutover de la fuerza bruta). Pilotos revalidados. Informe final (fase 3) redactado y compilado.
 
 ## Resuelto
 
 - Grafo: candidatos ↔ localidades.
 - Arista: distancia válida + LOS sobre relieve.
-- Objetivo: hasta `k` antenas, máxima población única cubierta.
-- Solución exacta: fuerza bruta; óptima en instancia piloto.
-- Pilotos: Biobío 80,44 %; Metropolitana 88,64 % (`k=5`).
+- Conectividad/LOS entre antenas: grafo `G_conn` ya construido por `src/geo/coverage.py:compute_connectivity` (enlace usa `min(ρu, ρv)` con radios por clase de potencia).
+- Objetivo: hasta `k` antenas, máxima población única cubierta (unión incremental, no suma por antena).
+- Solución exacta: enumeración ESU de subconjuntos conexos (`src/algorithms/connected.py`), con cota, desempate lexicográfico, gateway opcional y umbral `t`; baseline goloso para contraste. Fuerza bruta eliminada; ver [ADR 0006](simulacion/docs/adr/0006-motor-esu-gateway-potencia-umbral.md).
+- Candidatos por criterio (ADR 0007): anclas en localidades + intersecciones Murray–Tong + sitios altos del DEM; filtros de pendiente, proximidad y establecimientos sensibles (OGUC 116 bis E / Ley 20.599). La retícula regular quedó eliminada.
+- Pilotos con criterio (ADR 0007, `k=5`); los tres superan a la retícula: Biobío 85,35 % (4.467/5.234, +4,91 p.p.), Metropolitana 92,65 % (26.254/28.337, +4,01 p.p.), Yumbel con clases 39,01 % conectado (12.063/30.923, +10,07 p.p.; separación de 4 km ≈ √(área/n)).
+- Informe final (fase 3): [fuente](informe/informe-final.tex) y [PDF](informe/entregables/informe-final.pdf) — mapeo a PartialConRBDS, techo teórico documentado (Teoremas 1, 2 y 4 del paper ITCS), datos concretos de fase 0 y tabla greedy-vs-exacto (razón 1,000 en los tres pilotos, con 17–78× menos evaluaciones).
+
+## Pilotos disponibles
+
+| Piloto | Resultado exacto reproducido tras el cutover |
+| --- | --- |
+| Biobío | 5 ubicaciones cubren 4.210 de 5.234 habitantes (80,44 %); conectado 9.922 evaluaciones vs 21.700 combinaciones. |
+| Metropolitana | 5 ubicaciones cubren 25.119 de 28.337 habitantes (88,64 %); conectado 4.394 evaluaciones vs 11.672 combinaciones. |
+
+Las corridas de regresión del cutover están en `simulacion/outputs/biobio-regresion-esu/` y `simulacion/outputs/metropolitana-regresion-esu/`; la corrida de validación con clases de potencia, gateway y umbral en `simulacion/outputs/yumbel-clases-2/` y `simulacion/outputs/yumbel-gateways/`.
 
 ## Pendiente
 
-- Conectividad/LOS entre antenas.
-- PRC y Censo 2024.
+- Censo 2024.
 - Modelo radioeléctrico, permisos, costos y factibilidad real.
+
+## Límites declarados
+
+- Los presets regionales son ventanas piloto, no regiones administrativas completas.
+- El modelo representa cada localidad mediante un punto interior; no certifica cobertura radioeléctrica ni la factibilidad de instalación. Ver [documento explicativo](simulacion/docs/documento-explicativo.md).
+
+## Para continuar
+
+1. Ejecutar el piloto Biobío siguiendo el [README principal](README.md).
+2. Consultar parámetros, datos y salidas en el [runbook](simulacion/docs/runbooks/pipeline.md).
+3. Usar un directorio nuevo dentro de `simulacion/outputs/` para cada simulación.

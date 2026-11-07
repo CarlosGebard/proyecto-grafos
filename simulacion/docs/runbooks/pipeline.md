@@ -25,7 +25,7 @@ uv run python -m src.pipeline --config configs/biobio.toml --output outputs/biob
 Metropolitana con Copernicus:
 
 ```bash
-uv run python -m src.pipeline --region metropolitana --dem-source copernicus --k 5 --candidate-spacing 5000 --max-distance 30000 --output outputs/rm-nuevo
+uv run python -m src.pipeline --region metropolitana --dem-source copernicus --k 5 --max-distance 30000 --output outputs/rm-nuevo
 ```
 
 Bbox arbitrario en orden oeste, sur, este, norte; coordenadas WGS84:
@@ -42,7 +42,7 @@ uv run python -m src.pipeline --polygon mi-area.geojson --population localidades
 
 El archivo de área debe declarar CRS y contener polígonos válidos. Se estima UTM local; grilla, distancias y perfiles usan metros. `--bbox` y `--polygon` son excluyentes. Los presets regionales son ventanas experimentales de unos 20 km por lado. Para procesar límites administrativos propios, pasarlos por `--polygon` y respetar los límites de recursos.
 
-Cuadrado métrico de 50 km con filtro territorial PRC:
+Cuadrado métrico de 50 km con criterio de candidatos, PRC y clases de potencia:
 
 ```bash
 uv run python -m src.pipeline --config configs/yumbel-50km-prc.toml
@@ -50,27 +50,37 @@ uv run python -m src.pipeline --config configs/yumbel-50km-prc.toml
 
 `center = [longitud, latitud]` y `study_size_m` crean el cuadrado en UTM, por lo que un valor de `50000` mide exactamente 50 km por lado. `prc_directory` apunta a GeoJSON municipales. En modo `screening` se excluyen sólo agua, áreas verdes, drenajes e inundación/riesgo reconocibles; las zonas restantes se marcan `unknown`. El modo `strict` excluye también las zonas sin regla explícita y requiere una matriz normativa aprobada de zonas permitidas.
 
+Establecimientos sensibles (`sensitive_directory`, OGUC 116 bis E / Ley 20.599): si se declara la capa, se excluye cada establecimiento (educacional, salas cuna, hospital, hogar de ancianos) y su entorno de `max(4 × antenna_height_m, 50)` metros. Sin capa declarada, la auditoría del manifiesto registra la restricción como limitación de datos; su ausencia nunca se interpreta como permiso.
+
 ## Configuración
 
 La CLI prevalece sobre los valores TOML. Rutas relativas a la raíz desde la que se ejecuta el comando. Consultar `uv run python -m src.pipeline --help`.
 
 | TOML | CLI | Valor predeterminado |
 | --- | --- | ---: |
-| `candidate_spacing_m` | `--candidate-spacing` | 5000 |
 | `max_distance_m` | `--max-distance` | 30000 |
 | `antenna_height_m` | `--antenna-height` | 30 |
 | `receiver_height_m` | `--receiver-height` | 1.5 |
+| `max_slope_deg` | `--max-slope-deg` | 30 |
+| `highsite_window_m` | `--highsite-window` | 1000 |
+| `candidate_separation_m` | `--candidate-separation` | 1000 |
 | `sample_step_m` | `--sample-step` | medio píxel DEM |
 | `dem_resolution_m` | `--dem-resolution` | resolución local si coincide el CRS; 30 m al reproyectar otro CRS |
-| `max_combinations` | `--max-combinations` | 100000 |
+| `max_evaluations` | `--max-evaluations` | 100000 |
+| `gateways` | `--gateways ID...` | — |
+| `min_population` | `--min-population` | — |
+| `antenna_class` (tablas `[[antenna_class]]`) | sólo TOML | — |
 | `max_candidates` | `--max-candidates` | 10000 |
 | `max_pairs` | `--max-pairs` | 2000000 |
 | `max_dem_pixels` | `--max-dem-pixels` | 10000000 |
 | `center` + `study_size_m` | `--center LON LAT` + `--study-size-m` | — |
 | `prc_directory` | `--prc-directory` | — |
 | `prc_mode` | `--prc-mode` | `screening` |
+| `sensitive_directory` | `--sensitive-directory` | — |
 
-El paso LOS no puede exceder medio píxel DEM. Alterar la resolución modifica el modelo y puede cambiar aristas. El límite de grilla se aplica antes de filtrar por polígono/NoData. El pipeline calcula cobertura y conectividad entre candidatos con la misma distancia máxima; un enlace entre antenas usa `antenna_height_m` en ambos extremos. La solución exacta es obligatoria: si excede el límite de combinaciones, la ejecución termina con error y solicita reducir el área o el conjunto de candidatos. Las descargas Copernicus están limitadas a cuatro tiles por estudio.
+El paso LOS no puede exceder medio píxel DEM. Alterar la resolución modifica el modelo y puede cambiar aristas. La generación por criterio (ADR 0007) crea anclas en las localidades, intersecciones Murray–Tong de circunferencias de radio ρ y sitios altos del DEM; luego filtra por polígono, NoData y pendiente, aplica el filtro de proximidad (`candidate_separation_m`, evita duplicados de un mismo clúster; en ventanas amplias escalar como √(área/n)) y recién entonces aplica el tope `max_candidates` priorizando población alcanzable a distancia. El pipeline calcula cobertura y conectividad entre candidatos; un enlace entre antenas usa `antenna_height_m` en ambos extremos y el mínimo de los radios efectivos (`min(ρu, ρv)`, ADR 0006). La solución exacta es obligatoria: si el motor ESU supera `max_evaluations`, la ejecución termina con error y solicita reducir el área o el conjunto de candidatos. Las descargas Copernicus están limitadas a cuatro tiles por estudio.
+
+Las clases de potencia (`[[antenna_class]]` con `name`, `radius_m`, `count`) asignan radios efectivos por candidato en orden determinista (ids ordenados, clases en orden de declaración); los excedentes usan `max_distance_m`. `gateways` exige que la red seleccionada contenga un punto de acceso; `min_population` agrega la variante de decisión (mínimo `m ≤ k` antenas para cubrir `t` habitantes, o certificado de inalcanzabilidad). El reporte incluye el baseline goloso (`greedy_connected`) para el contraste rápido-vs-óptimo.
 
 ## Resultados
 
@@ -82,7 +92,7 @@ El paso LOS no puede exceder medio píxel DEM. Alterar la resolución modifica e
 | `roads.geojson` | Caminos OpenStreetMap, si se usa `--osm-roads <chile.gpkg>` o `--download-osm-roads` |
 | `constraints.geojson` | Polígonos PRC clasificados, sólo si se usa `prc_directory` |
 | `excluded_candidates.geojson` | Candidatos retirados por el filtro PRC, si existen |
-| `metrics.json` | Resultados libre y conectado, k, tamaños, población total/cubierta, porcentaje, tiempo, seleccionadas y cubiertas |
+| `metrics.json` | Resultados libre, conectado y goloso, k, tamaños, población total/cubierta, porcentaje, tiempo, evaluaciones, seleccionadas y cubiertas; decisión de umbral si se configura `min_population` |
 | `manifest.json` | Parámetros efectivos, bbox, CRS, resolución, versiones, hashes SHA-256 de insumos, exclusiones y tiempos por fase |
 | `dem.tif` | Recorte reproyectado, float32, NoData NaN |
 | `demand.geojson` | Geometrías originales completas, peso y cobertura exacta |
@@ -103,7 +113,7 @@ uv run ruff check .
 uv run ruff format --check .
 ```
 
-Los tests usan datos controlados en directorios temporales; nunca sustituyen las fuentes reales del piloto. Cubren pesos únicos, comparación exacta con un oráculo independiente, límites, grilla, CRS, lomas, alturas, NoData, recorte, carga poblacional y exportación end-to-end.
+Los tests usan datos controlados en directorios temporales; nunca sustituyen las fuentes reales del piloto. Cubren pesos únicos, comparación exacta con un oráculo independiente, límites, criterio de candidatos (anclas, intersecciones, sitios altos, pendiente, tope), CRS, lomas, alturas, NoData, recorte, carga poblacional y exportación end-to-end.
 
 La salida PRC es una herramienta de *screening* territorial. No equivale a permiso municipal ni a una autorización sectorial de telecomunicaciones; conservar `manifest.json`, `constraints.geojson` y la configuración usada para revisar cada decisión.
 

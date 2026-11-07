@@ -6,9 +6,9 @@ El modelo V1 selecciona hasta `k` candidatos que cubren máxima población, pero
 
 ## Decisión
 
-Se construirá un segundo grafo no dirigido cuyos nodos son candidatos. Una arista existe si ambos candidatos están dentro de `max_distance_m` y tienen LOS sobre el DEM, usando `antenna_height_m` en ambos extremos. Se conservará el grafo bipartito de cobertura.
+Se construyó un segundo grafo no dirigido cuyos nodos son candidatos. Una arista existe si ambos candidatos están dentro de `max_distance_m` —o del mínimo de los radios efectivos por clase de potencia— y tienen LOS sobre el DEM, usando `antenna_height_m` en ambos extremos. Se conservará el grafo bipartito de cobertura.
 
-La solución conectada enumerará todos los subconjuntos de tamaño uno a `k`, descartará los desconectados y maximizará población única cubierta. Se exportarán `graph.json`, `connectivity.json` y métricas separadas para cobertura libre y conectada.
+La solución conectada ya no descarta combinaciones con BFS: la enumera canónicamente con **ESU** (subconjuntos conexos ≤ k, cada uno exactamente una vez; ADR 0006) y maximiza población única cubierta con el mismo motor exacto de la variante libre. Se exportarán `graph.json`, `connectivity.json` y métricas separadas para cobertura libre, conectada y baseline goloso.
 
 ## Consecuencias
 
