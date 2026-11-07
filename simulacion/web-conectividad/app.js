@@ -64,10 +64,12 @@ const steps = [
   {
     title: "Aristas de cobertura",
     copy: "Los puntos naranjas son localidades que al menos una antena candidata puede cubrir por distancia y línea de vista.",
+    terrainCopy: "Cada disco es el rango nominal ρ(a) de una antena candidata, drapeado sobre el relieve. Los bordes de localidad iluminados marcan las alcanzables por distancia y línea de vista.",
   },
   {
     title: "Solución conectada",
     copy: "Se eligen hasta k antenas que cubren la mayor población posible y forman una sola red.",
+    terrainCopy: "Las antenas elegidas muestran su rango ρ(a): el disco sigue el terreno y el domo translúcido representa el alcance en 3D. Juntas cubren la mayor población posible en una sola red.",
   },
 ];
 
@@ -276,7 +278,9 @@ function update() {
   document.querySelector("#step-title").textContent = noConnectivity ? "Cobertura del piloto" : step.title;
   document.querySelector("#step-copy").textContent = noConnectivity
     ? "Este resultado existente muestra cobertura. Regenera el piloto con el pipeline actualizado para añadir enlaces entre antenas."
-    : step.copy;
+    : state.view === "terrain" && step.terrainCopy
+      ? step.terrainCopy
+      : step.copy;
   document.querySelector("#covered-value").textContent = showSolution ? number(population(covered)) : "0";
   document.querySelector("#selected-value").textContent = showSolution ? `${selected.size} de ${state.scenario.k}` : `0 de ${state.scenario.k}`;
   document.querySelector("#connected-value").textContent = noConnectivity
@@ -414,7 +418,7 @@ async function loadOutput(directory, name) {
           : null,
       },
       demands: demandPoints.features.map((feature) => ({ id: feature.properties.id, label: feature.properties.id, population: feature.properties.population, longitude: feature.geometry.coordinates[0], latitude: feature.geometry.coordinates[1], ...project(feature.geometry.coordinates) })),
-      candidates: candidates.features.map((feature) => ({ id: feature.properties.id, label: feature.properties.id, longitude: feature.geometry.coordinates[0], latitude: feature.geometry.coordinates[1], constraintStatus: feature.properties.constraint_status, ...project(feature.geometry.coordinates) })),
+      candidates: candidates.features.map((feature) => ({ id: feature.properties.id, label: feature.properties.id, longitude: feature.geometry.coordinates[0], latitude: feature.geometry.coordinates[1], radiusM: feature.properties.radius_m ?? null, constraintStatus: feature.properties.constraint_status, ...project(feature.geometry.coordinates) })),
       coverage: graph.coverage,
       connectivity: Object.fromEntries(candidates.features.map((feature) => [feature.properties.id, connectivity?.[feature.properties.id] || []])),
       connectedSolution: (connectedResult || metrics.results[0]).selected,

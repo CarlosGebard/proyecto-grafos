@@ -1,21 +1,27 @@
 // Escena 3D del relieve regional (ADR 0008): three.js vendido, sin build ni red.
 // La malla se construye desde terrain.json (artefacto de comunicación; nunca
 // recalcula LOS). Tinta por vértice según la paleta hipsométrica exportada por
-// el pipeline, idéntica a la del mapa PNG. Antenas y enlaces: placeholders.
+// el pipeline, idéntica a la del mapa PNG. La cobertura se dibuja como el
+// rango nominal ρ(a) de cada antena (disco drapeado + domo 3D), no como
+// círculos por localidad.
 
 import * as THREE from "three";
 import { OrbitControls } from "./vendor/OrbitControls.js";
 
 const NODATA_COLOR = 0xd8d8d8;
-const COLOR_COVERED = 0xb44828;
-const COLOR_REACHABLE = 0xe9ad45;
-const COLOR_UNCOVERED = 0xe9eee9;
+const COLOR_LOCALITY = 0x39463e;
+const COLOR_RANGE = 0xe9ad45;
+const COLOR_RANGE_RIM = 0x8a5c14;
 const COLOR_LINK = 0x6b3fa8;
 const COLOR_CANDIDATE = 0xecf1ec;
 const COLOR_SELECTED = 0x6b3fa8;
 // Despegue del relleno de zonas sobre la malla (evita z-fighting con el
 // terreno coplanar sin flotar a la vista; ~1 m a escala del piloto).
 const ZONE_LIFT = 0.00008;
+// El rango se dibuja sobre el relleno de zonas (ZONE_LIFT) y sus bordes
+// (0.0006), por debajo de las exclusiones PRC (0.0012).
+const RANGE_FILL_LIFT = 0.0009;
+const RANGE_RIM_LIFT = 0.0011;
 
 const populationStops = [
   [0, [255, 238, 184]],
@@ -135,6 +141,67 @@ function gridOwnership(terrain, polygonRings) {
 
 function linesOf(geometry) {
   return geometry.type === "LineString" ? [geometry.coordinates] : geometry.coordinates;
+}
+
+// Círculo geodésico local de radio ρ en metros (misma aproximación que
+// Turf.js circle): Δlat constante y Δlon corregido por cos(latitud). Para
+// ρ ≤ 30 km a latitudes de Chile central el error es despreciable.
+function rangeRing(longitude, latitude, radiusM, segments = 96) {
+  const deltaLat = radiusM / 111320;
+  const deltaLon = radiusM / (111320 * Math.cos((latitude * Math.PI) / 180));
+  const ring = [];
+  for (let index = 0; index < segments; index += 1) {
+    const angle = (index / segments) * Math.PI * 2;
+    ring.push([
+      longitude + Math.cos(angle) * deltaLon,
+      latitude + Math.sin(angle) * deltaLat,
+    ]);
+  }
+  return ring;
+}
+
+// Recorte del anillo (polígono convexo) a la ventana del DEM
+// (Sutherland–Hodgman): el rango no se dibuja fuera del área modelada.
+function clipRingToBounds(ring, bounds) {
+  const [west, south, east, north] = bounds;
+  const clipEdge = (points, inside, crossing) => {
+    const result = [];
+    for (let index = 0; index < points.length; index += 1) {
+      const current = points[index];
+      const previous = points[(index + points.length - 1) % points.length];
+      const currentInside = inside(current);
+      const previousInside = inside(previous);
+      if (currentInside) {
+        if (!previousInside) result.push(crossing(previous, current));
+        result.push(current);
+      } else if (previousInside) {
+        result.push(crossing(previous, current));
+      }
+    }
+    return result;
+  };
+  let clipped = ring;
+  clipped = clipEdge(
+    clipped,
+    (point) => point[0] >= west,
+    (a, b) => [west, a[1] + ((b[1] - a[1]) * (west - a[0])) / (b[0] - a[0])]
+  );
+  clipped = clipEdge(
+    clipped,
+    (point) => point[0] <= east,
+    (a, b) => [east, a[1] + ((b[1] - a[1]) * (east - a[0])) / (b[0] - a[0])]
+  );
+  clipped = clipEdge(
+    clipped,
+    (point) => point[1] >= south,
+    (a, b) => [a[0] + ((b[0] - a[0]) * (south - a[1])) / (b[1] - a[1]), south]
+  );
+  clipped = clipEdge(
+    clipped,
+    (point) => point[1] <= north,
+    (a, b) => [a[0] + ((b[0] - a[0]) * (north - a[1])) / (b[1] - a[1]), north]
+  );
+  return clipped;
 }
 
 function makeMapper(terrain) {
@@ -380,6 +447,9 @@ export function createTerrainView(container) {
     if (!terrain.palette) {
       throw new Error("terrain.json sin paleta: regenera el piloto con el pipeline actual");
     }
+    if (scenario.candidates.some((candidate) => candidate.radiusM == null)) {
+      throw new Error("candidates.geojson sin radius_m: regenera el piloto con el pipeline actual");
+    }
     const mapper = makeMapper(terrain);
     const [west, south, east, north] = terrain.bounds_wgs84;
     const sampleElevation = (longitude, latitude) => {
@@ -522,12 +592,94 @@ export function createTerrainView(container) {
       return { fill, outlines };
     });
 
-    // Localidades como puntos (estado de cobertura en la solución).
+    // Rango nominal ρ(a): disco drapeado al relieve + borde por antena, y en
+    // la solución un domo translúcido (representación volumétrica del
+    // alcance). El radio viene de candidates.geojson (radius_m; el pipeline
+    // ya resolvió None → max_distance_m). Es el rango de la antena, no una
+    // certificación de cobertura: el visor no recalcula LOS (ADR 0003).
+    const coverageProducing = new Set(
+      Object.keys(scenario.coverage || {}).filter(
+        (id) => (scenario.coverage[id] || []).length > 0
+      )
+    );
+    next.ranges = scenario.candidates.map((candidate) => {
+      const hasCoverage = coverageProducing.has(candidate.id);
+      const radiusM = candidate.radiusM || 0;
+      if (!radiusM) {
+        return { id: candidate.id, hasCoverage, fill: null, rims: [], dome: null };
+      }
+      const ring = clipRingToBounds(
+        rangeRing(candidate.longitude, candidate.latitude, radiusM),
+        [west, south, east, north]
+      );
+      if (ring.length < 3) {
+        return { id: candidate.id, hasCoverage, fill: null, rims: [], dome: null };
+      }
+      const fill = drapedFill(
+        elevationY,
+        [ring],
+        mapper,
+        sampleElevation,
+        RANGE_FILL_LIFT,
+        new THREE.MeshLambertMaterial({
+          color: COLOR_RANGE,
+          transparent: true,
+          opacity: 0.06,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+        }),
+        terrain
+      );
+      const rims = [
+        drapedLine(
+          elevationY,
+          [...ring, ring[0]],
+          mapper,
+          sampleElevation,
+          RANGE_RIM_LIFT,
+          new THREE.LineBasicMaterial({
+            color: COLOR_RANGE_RIM,
+            transparent: true,
+            opacity: 0.5,
+          }),
+          terrain
+        ),
+      ].filter(Boolean);
+      // Domo = media esfera de radio ρ(a) a escala real, apoyada en el suelo
+      // de la antena; se muestra sólo para las antenas elegidas.
+      const dome = new THREE.Mesh(
+        new THREE.SphereGeometry(
+          radiusM * scale,
+          48,
+          24,
+          0,
+          Math.PI * 2,
+          0,
+          Math.PI / 2
+        ),
+        new THREE.MeshBasicMaterial({
+          color: COLOR_RANGE,
+          transparent: true,
+          opacity: 0.055,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+        })
+      );
+      dome.position.set(
+        mapper.x2(candidate.longitude),
+        elevationY(sampleElevation(candidate.longitude, candidate.latitude)),
+        mapper.z2(candidate.latitude)
+      );
+      return { id: candidate.id, hasCoverage, fill, rims, dome };
+    });
+
+    // Localidades como puntos (marcador neutro ∝ √población; el estado de
+    // cobertura lo transmiten los rangos de antena, no el color del punto).
     const demandRadius = (population) => 0.014 + 0.05 * Math.min(1, Math.sqrt(population) / 170);
     next.demands = scenario.demands.map((demand) => {
       const radius = demandRadius(demand.population);
       const geometry = new THREE.SphereGeometry(radius, 12, 8);
-      const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: COLOR_UNCOVERED }));
+      const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: COLOR_LOCALITY }));
       mesh.position.set(
         mapper.x2(demand.longitude),
         elevationY(sampleElevation(demand.longitude, demand.latitude)) + radius * 1.2,
@@ -624,6 +776,20 @@ export function createTerrainView(container) {
         group.add(outline);
       });
     });
+    next.ranges.forEach((range) => {
+      if (range.fill) {
+        range.fill.renderOrder = 6;
+        group.add(range.fill);
+      }
+      range.rims.forEach((rim) => {
+        rim.renderOrder = 7;
+        group.add(rim);
+      });
+      if (range.dome) {
+        range.dome.renderOrder = 8;
+        group.add(range.dome);
+      }
+    });
     next.demands.forEach((mesh) => group.add(mesh));
     next.candidates.forEach((mesh) => group.add(mesh));
     group.add(next.links);
@@ -641,9 +807,6 @@ export function createTerrainView(container) {
     const covered = showSolution
       ? new Set(scenario.connectedSolution.flatMap((id) => scenario.coverage[id] || []))
       : new Set();
-    const reachable = showCoverage
-      ? new Set(Object.values(scenario.coverage).flat())
-      : new Set();
 
     layers.candidates.forEach((mesh, index) => {
       const candidate = scenario.candidates[index];
@@ -656,15 +819,20 @@ export function createTerrainView(container) {
       mesh.material.opacity = isSelected ? 1 : 0.9;
       mesh.material.transparent = !isSelected;
     });
-    layers.demands.forEach((mesh, index) => {
-      const demand = scenario.demands[index];
-      mesh.material.color.set(
-        covered.has(demand.id)
-          ? COLOR_COVERED
-          : reachable.has(demand.id)
-            ? COLOR_REACHABLE
-            : COLOR_UNCOVERED
-      );
+    layers.ranges.forEach((range) => {
+      // Paso cobertura: rango de cada candidata que alcanza al menos una
+      // localidad (por distancia y LOS ya calculados). Paso solución: sólo
+      // las elegidas, con tinte más fuerte y su domo volumétrico.
+      const active = showCoverage && (showSolution ? selected.has(range.id) : range.hasCoverage);
+      if (range.fill) {
+        range.fill.visible = active;
+        range.fill.material.opacity = showSolution ? 0.18 : 0.06;
+      }
+      range.rims.forEach((rim) => {
+        rim.visible = active;
+        rim.material.opacity = showSolution ? 0.75 : 0.5;
+      });
+      if (range.dome) range.dome.visible = active && showSolution;
     });
     layers.localities.forEach(({ outlines }, index) => {
       const locality = scenario.localityPolygons[index];

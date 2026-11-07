@@ -12,8 +12,10 @@ enumeración de pares con LOS, la generación de candidatos ni la semántica PRC
    elevación) + sombreado del relieve, reemplazando el fondo plano actual de
    `map.png`.
 2. **Visor web con mapa 3D** de la región modelada (relieve navegable).
-3. **Antenas y enlaces en el 3D: placeholders.** Posiciones reales del escenario,
-   geometría genérica; la integración con la solución se decide después.
+3. **Antenas y enlaces en el 3D: cobertura como rango ρ(a) (ADR 0011).**
+   Posiciones reales del escenario; el rango de cada antena se dibuja como
+   anillo/disco drapeado al relieve y, en la solución, domo translúcido 3D.
+   Los marcadores cónicos y segmentos de enlaces siguen genéricos.
 4. **Densidad de población: coropletas por cuantiles (hab/km²) integradas al
    terreno** (ADR 0009, con fundamento en Brewer & Pickle 2002 y Slocum et al.);
    relieve 3D a escala real sin exageración.
