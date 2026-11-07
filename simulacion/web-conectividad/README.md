@@ -26,6 +26,11 @@ La subdivisión territorial es parte del terreno (una misma dimensión): cada lo
 
 Debajo de la simulación, **"Cómo se aplicó el algoritmo"** muestra cuatro fases (candidatos del criterio, cobertura distancia+LOS, selección exacta del motor, red conectada) con los números reales del escenario cargado (evaluaciones, tiempos, población; contraste con el baseline goloso). Cada tarjeta sincroniza el mapa con su fase. El recorrido de pasos del mapa vive como overlay flotante sobre el lienzo (título, readout y controles Anterior/Siguiente/Reproducir).
 
+Bajo las tarjetas, dos paneles complementan la sección:
+
+- **"Formulación matemática"**: el modelo exacto — objetivo como unión de coberturas `f(S) = Σ w(d)`, restricciones de presupuesto/conectividad/gateway, aristas por distancia + LOS (`ρ(a)` y `min(ρu, ρv)`), desempate lexicográfico — y los cinco pasos del motor (enumeración canónica ESU, unión incremental, cota de prefijos estricta, desempate, gateway + presupuesto `max_evaluations`). Fiel a `docs/algoritmo-conectado.md`.
+- **"Elementos del modelo → datos reales"**: cada objeto del modelo anclado en el archivo que lo produce (`demand.geojson` SUBDERE, `candidates.geojson` del criterio ADR 0007, clases de potencia, `dem.tif`, `connectivity.json`, configs TOML, `metrics.json`), con chips de valores vivos del escenario cargado (localidades, sitios, clases de radio, pares factibles, enlaces, k/t/G, resultado exacto vs goloso). Cada fila es clicable y sincroniza el mapa con su fase. Sin datos de escenario (ejemplo didáctico) los chips se ocultan y queda la descripción de las fuentes.
+
 El ejemplo didáctico conserva el diagrama SVG paso a paso.
 
 `terrain.json` es un artefacto de comunicación (ADR 0003): nunca se recalcula LOS desde él. Si el piloto no tiene `terrain.json` o carece de paleta, el visor muestra el mapa 2D o un aviso: regenerar con el pipeline actual.

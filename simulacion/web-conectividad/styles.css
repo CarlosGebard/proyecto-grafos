@@ -74,7 +74,35 @@ h3 { letter-spacing: -.035em; line-height: 1.08; }
 .algorithm-card strong { display: block; margin-bottom: 8px; font-size: .92rem; }
 .algorithm-card span { display: block; color: var(--muted); font-size: .82rem; line-height: 1.35; }
 
+/* Formulación matemática y su anclaje en los datos reales. */
+.algorithm-model { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 12px; margin-top: 12px; }
+.model-panel { min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.model-panel h3 { margin: 0 0 6px; font-size: 1.05rem; }
+.model-panel h4 { margin: 14px 0 8px; font-size: .84rem; letter-spacing: .02em; }
+.model-lead { margin: 0 0 10px; color: var(--muted); font-size: .8rem; line-height: 1.45; }
+.math-block { margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; background: color-mix(in srgb, var(--page) 55%, var(--surface)); font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: .8rem; line-height: 1.8; }
+.math-line { white-space: nowrap; overflow-x: auto; font-variant-numeric: tabular-nums; }
+.math-line sub { font-size: .68em; line-height: 0; }
+.math-op { color: var(--accent); font-weight: 800; margin-right: .4em; }
+.math-comment { color: var(--muted); }
+.model-ol { margin: 0; padding-left: 1.15rem; display: grid; gap: 7px; color: var(--muted); font-size: .8rem; line-height: 1.45; }
+.model-ol b { color: var(--ink); }
+.model-ol code { font-size: .72rem; }
+.model-rows { display: grid; gap: 8px; }
+.model-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--ink); cursor: pointer; text-align: left; transition: border-color .2s ease, background .2s ease; }
+.model-row:hover { border-color: var(--accent); }
+.model-row:focus-visible { outline: 3px solid #db9c3d; outline-offset: 3px; }
+.model-row.active { border-color: var(--accent); background: var(--accent-soft); }
+.model-row > code { color: var(--accent); font-size: .8rem; font-weight: 700; overflow-wrap: anywhere; }
+.model-row > code sub { font-size: .68em; }
+.model-body { display: grid; gap: 3px; min-width: 0; }
+.model-body strong { font-size: .84rem; }
+.model-body > span { color: var(--muted); font-size: .76rem; line-height: 1.4; }
+.model-body code { font-size: .72rem; }
+.model-live { color: var(--accent); font-size: .74rem; font-weight: 750; font-variant-numeric: tabular-nums; }
+.model-live[hidden] { display: none; }
+
 @media (prefers-color-scheme: dark) { :root { --page: #14201c; --surface: #1b2a23; --ink: #e4ece6; --muted: #b5c2b9; --line: #405146; --accent: #e27a59; --accent-soft: #4f2b21; --link: #b99ae8; --candidate: #b7c3bb; --map: #20332a; }.demand-node { stroke: #1b2a23; }.candidate-node { stroke: #1b2a23; }.node-label { stroke: #1b2a23; }.terrain { stroke: #3c5145; }.study-area { fill: #294236; stroke: #668071; }.locality-area { fill: #365144; stroke: #506a5b; }.primary { color: #14201c; }.primary:hover { background: #f09a7f; }.legend-swatch { border-color: rgba(255, 255, 255, .25); } }
-@media (max-width: 900px) { .canvas-panel, #network, #terrain-3d { min-height: 560px; }.algorithm-steps { grid-template-columns: repeat(2, 1fr); }.step-overlay { max-width: min(400px, calc(100% - 32px)); }.terrain-legend { max-width: min(360px, 60vw); } }
-@media (max-width: 620px) { .page-shell { padding: 0 14px 24px; }.masthead { padding: 22px 0 18px; }.canvas-panel, #network, #terrain-3d { min-height: 470px; }.step-overlay { left: 10px; right: 10px; bottom: 10px; max-width: none; }.legend { top: 54px; right: 10px; bottom: auto; }.terrain-legend { left: 10px; right: 10px; bottom: auto; top: 56px; max-width: none; }.canvas-actions { top: 10px; right: 10px; }.algorithm-steps { grid-template-columns: 1fr; }.algorithm-card { min-height: auto; } }
+@media (max-width: 900px) { .canvas-panel, #network, #terrain-3d { min-height: 560px; }.algorithm-steps { grid-template-columns: repeat(2, 1fr); }.step-overlay { max-width: min(400px, calc(100% - 32px)); }.terrain-legend { max-width: min(360px, 60vw); }.algorithm-model { grid-template-columns: 1fr; } }
+@media (max-width: 620px) { .page-shell { padding: 0 14px 24px; }.masthead { padding: 22px 0 18px; }.canvas-panel, #network, #terrain-3d { min-height: 470px; }.step-overlay { left: 10px; right: 10px; bottom: 10px; max-width: none; }.legend { top: 54px; right: 10px; bottom: auto; }.terrain-legend { left: 10px; right: 10px; bottom: auto; top: 56px; max-width: none; }.canvas-actions { top: 10px; right: 10px; }.algorithm-steps { grid-template-columns: 1fr; }.algorithm-card { min-height: auto; }.model-row { grid-template-columns: 1fr; gap: 6px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }

@@ -285,7 +285,7 @@ function update() {
   previousButton.disabled = state.step === 0;
   nextButton.disabled = state.step === steps.length - 1;
   playButton.textContent = state.timer ? "Pausar" : state.step === steps.length - 1 ? "Ver de nuevo" : "Reproducir";
-  document.querySelectorAll("#algorithm-steps .algorithm-card").forEach((card) => {
+  document.querySelectorAll("#algorithm-steps .algorithm-card, #algorithm-model .model-row").forEach((card) => {
     card.classList.toggle("active", Number(card.dataset.step) === state.step);
   });
 }
@@ -352,10 +352,15 @@ async function loadOutput(directory, name) {
     let connectivity = null;
     let roads = [];
     let constraints = [];
+    let manifestConfig = null;
     try {
       const response = await fetch(`../outputs/${directory}/connectivity.json`);
       if (response.ok) connectivity = await response.json();
     } catch (_) { /* La conectividad es opcional. */ }
+    try {
+      const response = await fetch(`../outputs/${directory}/manifest.json`);
+      if (response.ok) manifestConfig = (await response.json()).config || null;
+    } catch (_) { /* El manifiesto es opcional. */ }
     try {
       const response = await fetch(`../outputs/${directory}/roads.geojson`);
       if (response.ok) {
@@ -385,6 +390,21 @@ async function loadOutput(directory, name) {
         runtimeSeconds: connectedResult?.runtime_seconds ?? null,
         populationCovered: connectedResult?.population_covered ?? null,
         populationTotal: connectedResult?.population_total ?? null,
+        linkPairs: connectivity ? Object.values(connectivity).reduce((sum, ids) => sum + ids.length, 0) / 2 : null,
+        classes: manifestConfig?.antenna_classes?.length ? manifestConfig.antenna_classes : [],
+        maxDistanceM: manifestConfig?.max_distance_m ?? null,
+        thresholdPopulation: manifestConfig?.min_population ?? null,
+        gateways: manifestConfig?.gateways ?? null,
+        candidateSeparationM: manifestConfig?.candidate_separation_m ?? null,
+        maxSlopeDeg: manifestConfig?.max_slope_deg ?? null,
+        dem: manifestConfig
+          ? {
+              source: manifestConfig.dem_source ?? null,
+              resolutionM: manifestConfig.dem_resolution_m ?? null,
+              antennaHeightM: manifestConfig.antenna_height_m ?? null,
+              receiverHeightM: manifestConfig.receiver_height_m ?? null,
+            }
+          : null,
         greedy: greedyResult
           ? {
               populationCovered: greedyResult.population_covered,
@@ -585,6 +605,60 @@ function fmtSeconds(value) {
   return new Intl.NumberFormat("es-CL", { maximumFractionDigits: 1 }).format(value);
 }
 
+// Valores vivos del panel "Elementos del modelo → datos reales": cada chip
+// toma los números del escenario cargado; sin datos, el chip se oculta.
+const liveChips = {
+  localities: (stats) =>
+    stats && `${number(stats.localities)} localidades · ${number(stats.populationTotal)} hab`,
+  candidates: (stats) => stats && `${number(stats.candidates)} sitios`,
+  filters: (stats) => {
+    if (!stats) return null;
+    const parts = [];
+    if (stats.candidateSeparationM != null) parts.push(`separación ≥ ${km(stats.candidateSeparationM)}`);
+    if (stats.maxSlopeDeg != null) parts.push(`pendiente ≤ ${fmtSeconds(stats.maxSlopeDeg)}°`);
+    return parts.join(" · ") || null;
+  },
+  rho: (stats) => {
+    if (!stats) return null;
+    if (stats.classes.length) {
+      return stats.classes.map((klass) => `${klass.count} × ${km(klass.radius_m)} (${klass.name})`).join(" · ");
+    }
+    return stats.maxDistanceM != null ? `uniforme: ${km(stats.maxDistanceM)} (max_distance_m)` : null;
+  },
+  los: (stats) => {
+    if (!stats?.dem) return null;
+    const { source, resolutionM, antennaHeightM, receiverHeightM } = stats.dem;
+    const parts = [`DEM ${source || "—"}`];
+    if (resolutionM != null) parts.push(`celda ${fmtSeconds(resolutionM)} m`);
+    if (antennaHeightM != null) parts.push(`h antena ${fmtSeconds(antennaHeightM)} m`);
+    if (receiverHeightM != null) parts.push(`h receptor ${fmtSeconds(receiverHeightM)} m`);
+    return parts.join(" · ");
+  },
+  coverage: (stats) =>
+    stats && `${number(stats.coveragePairs)} pares factibles · ${number(stats.reachable)} localidades alcanzables`,
+  links: (stats) => stats?.linkPairs != null && `${number(stats.linkPairs)} enlaces factibles`,
+  params: (stats, scenario) => {
+    const parts = [`k = ${scenario.k}`];
+    if (stats?.thresholdPopulation != null) parts.push(`t = ${number(stats.thresholdPopulation)} hab`);
+    parts.push(`G = ${stats?.gateways?.length ? stats.gateways.join(", ") : "∅"}`);
+    return parts.join(" · ");
+  },
+  result: (stats) => {
+    if (!stats || stats.evaluations == null) return null;
+    const pct = stats.populationTotal
+      ? ` (${new Intl.NumberFormat("es-CL", { style: "percent", maximumFractionDigits: 1 }).format(stats.populationCovered / stats.populationTotal)})`
+      : "";
+    const greedy = stats.greedy
+      ? ` · goloso: ${number(stats.greedy.evaluations)} eval en ${fmtSeconds(stats.greedy.runtimeSeconds)} s`
+      : "";
+    return `f(S) = ${number(stats.populationCovered)} hab${pct} · ${number(stats.evaluations)} eval · ${fmtSeconds(stats.runtimeSeconds)} s${greedy}`;
+  },
+};
+
+function km(meters) {
+  return `${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 1 }).format(meters / 1000)} km`;
+}
+
 function renderAlgorithmSection() {
   const stats = state.scenario.stats || null;
   algorithmSteps.replaceChildren();
@@ -599,6 +673,18 @@ function renderAlgorithmSection() {
       setStep(card.step);
     });
     algorithmSteps.append(button);
+  });
+  document.querySelectorAll("#algorithm-model .model-row").forEach((row) => {
+    row.addEventListener("click", () => {
+      stop();
+      setStep(Number(row.dataset.step));
+    });
+  });
+  document.querySelectorAll("#algorithm-model [data-live]").forEach((chip) => {
+    const fill = liveChips[chip.dataset.live];
+    const value = fill ? fill(stats, state.scenario) : null;
+    chip.hidden = !value;
+    chip.textContent = value || "";
   });
   update();
 }

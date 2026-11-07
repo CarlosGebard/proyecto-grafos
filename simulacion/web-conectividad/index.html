@@ -84,9 +84,107 @@
       <section class="algorithm-walkthrough" aria-labelledby="algorithm-title">
         <h2 id="algorithm-title">Cómo se aplicó el algoritmo</h2>
         <p class="algorithm-intro" id="algorithm-intro">
-          Cuatro fases sobre los datos reales del escenario cargado. Toca una fase para verla en el mapa.
+          Cuatro fases sobre los datos reales del escenario cargado. Toca una fase para verla en el mapa;
+          debajo, el modelo matemático y el archivo real que produce cada uno de sus elementos.
         </p>
         <div class="algorithm-steps" id="algorithm-steps"></div>
+
+        <div class="algorithm-model" id="algorithm-model">
+          <article class="model-panel" aria-labelledby="model-math-title">
+            <h3 id="model-math-title">Formulación matemática</h3>
+            <p class="model-lead">
+              Cobertura máxima ponderada con red conectada: la variante ponderada (i) de PartialConRBDS,
+              resuelta de forma exacta bajo el régimen Δ(G<sub>conn</sub>) acotado. El goloso es sólo baseline de contraste.
+            </p>
+            <div class="math-block" role="img" aria-label="Modelo: maximizar f(S), con S de a lo más k antenas, conexo, con gateway si se exige, y desempate lexicográfico">
+              <div class="math-line"><span class="math-op">max</span> f(S) = Σ<sub>d ∈ U(S)</sub> w(d) <span class="math-comment">con U(S) = ∪<sub>a ∈ S</sub> C(a)</span></div>
+              <div class="math-line"><span class="math-op">s.a.</span> |S| ≤ k</div>
+              <div class="math-line"><span class="math-op"></span> G<sub>conn</sub>[S] conexo <span class="math-comment">(una sola red)</span></div>
+              <div class="math-line"><span class="math-op"></span> S ∩ G ≠ ∅ <span class="math-comment">(sólo si se exigen gateways)</span></div>
+              <div class="math-line"><span class="math-op"></span> empate ⇒ S lexicográficamente menor <span class="math-comment">(reproducible)</span></div>
+            </div>
+            <div class="math-block" role="img" aria-label="Aristas: cobertura por distancia y línea de vista, enlaces entre antenas por el mínimo de radios y línea de vista">
+              <div class="math-line">C(a): (a,d) ∈ E<sub>cov</sub> ⇔ dist(a,d) ≤ ρ(a) ∧ LOS(a,d)</div>
+              <div class="math-line">E<sub>conn</sub>: (u,v) ∈ E<sub>conn</sub> ⇔ dist(u,v) ≤ min(ρ<sub>u</sub>, ρ<sub>v</sub>) ∧ LOS(u,v)</div>
+            </div>
+            <h4>Cómo lo resuelve el motor exacto</h4>
+            <ol class="model-ol">
+              <li><b>Enumeración canónica (ESU, Wernicke 2006).</b> Cada subconjunto conexo de tamaño ≤ k se genera exactamente una vez, anclado en su vértice mínimo; las extensiones usan el vecindario exclusivo N(a) ∖ N(S) con id mayor que la raíz.</li>
+              <li><b>Unión incremental del objetivo.</b> Contadores <code>cover[d]</code> por localidad: al entrar una antena, f suma sólo la población que «estrena», así la unión nunca cuenta dos veces la misma localidad.</li>
+              <li><b>Cota de prefijos.</b> Una rama se poda sólo si su mayoración queda estrictamente bajo el mejor f hallado; podar por empate rompería el desempate lexicográfico.</li>
+              <li><b>Desempate lexicográfico.</b> Ante empate en f gana la tupla de identificadores menor: el mismo resultado en cualquier máquina.</li>
+              <li><b>Requisitos duros.</b> Gateway exigido (S ∩ G ≠ ∅) y presupuesto <code>max_evaluations</code>: si el peor caso excede el presupuesto, el motor aborta con <code>ExactLimitExceeded</code> en vez de devolver una solución no óptima.</li>
+            </ol>
+          </article>
+
+          <article class="model-panel" aria-labelledby="model-data-title">
+            <h3 id="model-data-title">Elementos del modelo → datos reales</h3>
+            <p class="model-lead">
+              Cada objeto de la formulación sale de un archivo concreto del pipeline. Los valores son los del escenario cargado;
+              toca una fila para verla en el mapa.
+            </p>
+            <div class="model-rows">
+              <button class="model-row" type="button" data-step="0">
+                <code>D, w(d)</code>
+                <span class="model-body">
+                  <strong>Localidades demandas y su peso</strong>
+                  <span>Polígonos de localidades con población SUBDERE/Censo — <code>demand.geojson</code> (campos <code>ID</code>, <code>HABITANTES</code>).</span>
+                  <span class="model-live" data-live="localities"></span>
+                </span>
+              </button>
+              <button class="model-row" type="button" data-step="1">
+                <code>R</code>
+                <span class="model-body">
+                  <strong>Antenas candidatas</strong>
+                  <span>Criterio territorial (ADR 0007): anclas en localidades, intersecciones Murray–Tong y sitios altos del DEM, con filtros de pendiente y separación mínima; el PRC opera como screening, no como permiso — <code>candidates.geojson</code>.</span>
+                  <span class="model-live" data-live="candidates"></span>
+                  <span class="model-live" data-live="filters"></span>
+                </span>
+              </button>
+              <button class="model-row" type="button" data-step="1">
+                <code>ρ(a)</code>
+                <span class="model-body">
+                  <strong>Radio efectivo por clase de potencia</strong>
+                  <span>Clases verificadas contra fuentes primarias (<code>docs/referencias-potencia-antenas.md</code>); sin clases declaradas, radio uniforme <code>max_distance_m</code>.</span>
+                  <span class="model-live" data-live="rho"></span>
+                </span>
+              </button>
+              <button class="model-row" type="button" data-step="2">
+                <code>C(a)</code>
+                <span class="model-body">
+                  <strong>Cobertura: distancia + línea de vista</strong>
+                  <span>Perfil del DEM muestreado a paso ≤ medio píxel entre <code>ground + h_antena</code> y <code>ground + 1,5 m</code>; celda NoData ⇒ sin arista — <code>dem.tif</code> y <code>graph.json</code>.</span>
+                  <span class="model-live" data-live="los"></span>
+                  <span class="model-live" data-live="coverage"></span>
+                </span>
+              </button>
+              <button class="model-row" type="button" data-step="3">
+                <code>E<sub>conn</sub></code>
+                <span class="model-body">
+                  <strong>Enlaces entre antenas</strong>
+                  <span>Par factible si dist(u,v) ≤ min(ρ<sub>u</sub>, ρ<sub>v</sub>) y hay visibilidad entre torres — <code>connectivity.json</code>.</span>
+                  <span class="model-live" data-live="links"></span>
+                </span>
+              </button>
+              <button class="model-row" type="button" data-step="1">
+                <code>k, t, G</code>
+                <span class="model-body">
+                  <strong>Presupuesto, umbral y gateways</strong>
+                  <span>k antenas como máximo; t umbral de población para la variante de decisión; G gateways con salida a Internet — <code>configs/*.toml</code> del escenario.</span>
+                  <span class="model-live" data-live="params"></span>
+                </span>
+              </button>
+              <button class="model-row" type="button" data-step="3">
+                <code>f(S)</code>
+                <span class="model-body">
+                  <strong>Objetivo: población única cubierta</strong>
+                  <span>Óptimo del motor exacto <code>exact_connected</code> contra el baseline goloso <code>greedy_connected</code> — <code>metrics.json</code>.</span>
+                  <span class="model-live" data-live="result"></span>
+                </span>
+              </button>
+            </div>
+          </article>
+        </div>
       </section>
     </main>
     <script type="importmap">
