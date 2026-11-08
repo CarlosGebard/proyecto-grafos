@@ -56,7 +56,17 @@ de cobertura no puede usar ese mismo canal sin romperla.
   para cubierta), porque allí no hay coropleta con la que se confunda.
 - Metropolitana (re-corrida del 8 de noviembre de 2026): 26.254 hab
   cubiertos (92,65 %, idéntico), 30 alcanzables no cubiertos, 2.053 sin
-  alcance (17 localidades). Casi todo lo no cubierto es límite geográfico,
-  no costo de `k` ni de la conectividad.
+  alcance (17 localidades). Biobío: 3.752 cubiertos (idéntico), 74
+  alcanzables, 1.408 sin alcance (16 localidades). En ambos pilotos casi
+  todo lo no cubierto es límite geográfico, no costo de `k` ni de la
+  conectividad. Las dos corridas reprodujeron candidatas, grafo y selección
+  idénticos; en git sólo se actualizaron `map.png`, `metrics.json` y
+  `demand*.geojson`.
+- `outputs/yumbel-criterio` **no se regeneró**: en Windows la re-corrida
+  produce 5 intersecciones Murray–Tong desplazadas 30–100 m (diferencia
+  numérica entre plataformas en la generación de candidatas, ajena a esta
+  rama) y el óptimo pasa de 9.399 a 9.442 hab. El visor clasifica igual sus
+  localidades porque calcula el estado en el cliente; el PNG y el
+  `metrics.json` versionados de Yumbel quedan sin los tres estados.
 - Fuera de alcance: el refinamiento dasimétrico de la densidad (ADR 0009)
   sigue pendiente.

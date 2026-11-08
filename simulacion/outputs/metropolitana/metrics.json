@@ -8,7 +8,14 @@
       "population_total": 28337.0,
       "population_covered": 26254.0,
       "coverage_percentage": 92.64918657585488,
-      "runtime_seconds": 55.53627537700049,
+      "population_uncovered_reachable": 30.0,
+      "population_unreachable": 2053.0,
+      "localities_by_status": {
+        "covered": 291,
+        "reachable": 2,
+        "unreachable": 17
+      },
+      "runtime_seconds": 32.09631689999878,
       "evaluations": 760098,
       "selected": [
         "d_7243",
@@ -319,7 +326,14 @@
       "population_total": 28337.0,
       "population_covered": 26254.0,
       "coverage_percentage": 92.64918657585488,
-      "runtime_seconds": 22.63795294100055,
+      "population_uncovered_reachable": 30.0,
+      "population_unreachable": 2053.0,
+      "localities_by_status": {
+        "covered": 291,
+        "reachable": 2,
+        "unreachable": 17
+      },
+      "runtime_seconds": 14.059994799998094,
       "evaluations": 360107,
       "selected": [
         "d_7243",
@@ -630,7 +644,14 @@
       "population_total": 28337.0,
       "population_covered": 26254.0,
       "coverage_percentage": 92.64918657585488,
-      "runtime_seconds": 0.0917429089995494,
+      "population_uncovered_reachable": 30.0,
+      "population_unreachable": 2053.0,
+      "localities_by_status": {
+        "covered": 291,
+        "reachable": 2,
+        "unreachable": 17
+      },
+      "runtime_seconds": 0.04812160000074073,
       "evaluations": 5058,
       "selected": [
         "d_7243",
