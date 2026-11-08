@@ -20,6 +20,16 @@ from src.visualization.relief import paint_relief
 # Rampa secuencial de densidad, idéntica a populationColor en terrain-view.js.
 DENSITY_STOPS = [(255, 238, 184), (239, 167, 82), (184, 72, 40)]
 
+# Estados de cobertura (ADR 0014); colores compartidos con el visor.
+COVERED = "#168354"
+REACHABLE = "#c9771c"
+UNREACHABLE = "#5f6660"
+STATE_LABELS = {
+    "covered": "Cubierta",
+    "reachable": "Alcanzable, no cubierta",
+    "unreachable": "Sin alcance de candidatos",
+}
+
 
 def _density_colors(count: int) -> list[tuple[float, float, float]]:
     stops = [tuple(value / 255 for value in stop) for stop in DENSITY_STOPS]
@@ -56,7 +66,15 @@ def export_map(
     hypsometric_palette: str,
     excluded_candidates=None,
     default_radius_m: float | None = None,
+    status: dict[str, str] | None = None,
 ) -> None:
+    # Estado por localidad (cubierta / alcanzable / sin alcance, ADR 0014).
+    # Sin clasificación explícita sólo se distingue cubierta de no cubierta.
+    if status is None:
+        status = {
+            d.id: "covered" if d.id in solution.covered else "reachable"
+            for d in demands
+        }
     demand = gpd.GeoDataFrame(
         [
             {
@@ -65,6 +83,7 @@ def export_map(
                 "latitude": d.latitude,
                 "longitude": d.longitude,
                 "covered": d.id in solution.covered,
+                "status": status.get(d.id, "unreachable"),
                 "geometry": d.geometry,
             }
             for d in demands
@@ -96,6 +115,7 @@ def export_map(
                 "id": d.id,
                 "population": d.population,
                 "covered": d.id in solution.covered,
+                "status": status.get(d.id, "unreachable"),
                 "geometry": d.point,
             }
             for d in demands
@@ -161,12 +181,38 @@ def export_map(
             linewidth=0.3,
             alpha=0.55,
         )
-    covered = demand.loc[demand.covered]
+    # Estado de cobertura (ADR 0014): encima de la coropleta, con borde,
+    # trama y relleno del punto; nunca con el tono, que es la densidad.
+    is_polygon = demand.geom_type.isin(["Polygon", "MultiPolygon"])
+    unreachable = demand.loc[is_polygon & (demand.status == "unreachable")]
+    if not unreachable.empty:
+        with plt.rc_context({"hatch.linewidth": 0.6, "hatch.color": UNREACHABLE}):
+            unreachable.plot(
+                ax=ax,
+                facecolor="none",
+                edgecolor=UNREACHABLE,
+                linewidth=0,
+                hatch="////",
+            )
+    reachable = demand.loc[is_polygon & (demand.status == "reachable")]
+    if not reachable.empty:
+        reachable.boundary.plot(
+            ax=ax, color=REACHABLE, linewidth=1.1, linestyle=(0, (3, 2))
+        )
+    covered = demand.loc[is_polygon & (demand.status == "covered")]
     if not covered.empty:
-        polygons = covered[covered.geom_type.isin(["Polygon", "MultiPolygon"])]
-        if not polygons.empty:
-            polygons.boundary.plot(ax=ax, color="#168354", linewidth=1.4)
-        points.loc[points.covered].plot(ax=ax, color="#168354", markersize=12)
+        covered.boundary.plot(ax=ax, color=COVERED, linewidth=1.4)
+    for state, color in (("reachable", REACHABLE), ("unreachable", UNREACHABLE)):
+        hollow = points.loc[points.status == state]
+        if not hollow.empty:
+            hollow.plot(
+                ax=ax, facecolor="white", edgecolor=color, linewidth=0.9, markersize=14
+            )
+    filled = points.loc[points.status == "covered"]
+    if not filled.empty:
+        filled.plot(
+            ax=ax, color=COVERED, edgecolor="white", linewidth=0.4, markersize=14
+        )
     antennas.plot(ax=ax, marker="x", color="#6d78a0", markersize=25)
     selected = antennas.loc[antennas.selected]
     if not selected.empty:
@@ -181,8 +227,29 @@ def export_map(
         ylim=(bottom - pad, top + pad),
         xlabel=f"Este (m) · {crs.to_string()}",
         ylabel="Norte (m)",
-        title=f"Cobertura geométrica · {solution.algorithm} · {len(solution.selected)} antenas\n"
-        f"{solution.population_covered:,.0f} habitantes en localidades cubiertas",
+        title=f"Cobertura geométrica conectada · {solution.algorithm} · "
+        f"{len(solution.selected)} antenas\n"
+        f"{_format_miles(solution.population_covered)} habitantes en localidades cubiertas",
+    )
+    # Resumen de población por estado: cuánto queda fuera y por qué.
+    total = float(demand["population"].sum())
+    summary = []
+    for state, label in STATE_LABELS.items():
+        rows = demand.loc[demand.status == state]
+        people = float(rows["population"].sum())
+        share = f" ({100 * people / total:.1f} %)".replace(".", ",") if total else ""
+        summary.append(
+            f"{label}: {_format_miles(people)} hab{share} · {len(rows)} loc."
+        )
+    ax.text(
+        0.99,
+        0.01,
+        "\n".join(summary),
+        transform=ax.transAxes,
+        ha="right",
+        va="bottom",
+        fontsize=8,
+        bbox={"facecolor": "white", "edgecolor": "#999999", "alpha": 0.9},
     )
     ax.ticklabel_format(style="plain", useOffset=False)
     fig.colorbar(
@@ -212,8 +279,31 @@ def export_map(
         [
             Patch(
                 facecolor="none",
-                edgecolor="#168354",
-                label="Localidad cubierta (punto interior)",
+                edgecolor=COVERED,
+                linewidth=1.4,
+                label=STATE_LABELS["covered"],
+            ),
+            Patch(
+                facecolor="none",
+                edgecolor=REACHABLE,
+                linestyle=(0, (3, 2)),
+                label=STATE_LABELS["reachable"],
+            ),
+            Patch(
+                facecolor="none",
+                edgecolor=UNREACHABLE,
+                hatch="////",
+                linewidth=0,
+                label=STATE_LABELS["unreachable"],
+            ),
+            Line2D(
+                [],
+                [],
+                marker="o",
+                linestyle="none",
+                markerfacecolor="white",
+                markeredgecolor="#555555",
+                label="Punto interior (lleno = cubierta)",
             ),
             Line2D(
                 [], [], marker="x", linestyle="none", color="#6d78a0", label="Candidato"

@@ -22,7 +22,7 @@ from src.data.dem import copernicus_tiles, prepare_dem
 from src.data.osm import OSM_ATTRIBUTION, roads_from_geopackage, roads_geojson
 from src.data.population import load_population
 from src.data.prepare import SUBDERE_PAGE, fingerprint, prepare_alos, prepare_population
-from src.evaluation.metrics import metrics
+from src.evaluation.metrics import coverage_status, metrics
 from src.geo.area import project_geometry, study_area
 from src.geo.candidates import generate_candidates
 from src.geo.constraints import (
@@ -325,10 +325,11 @@ def run(config: PipelineConfig) -> dict:
         }
         LOG.info("9. Caminos OSM exportados: %s", osm_audit["num_features"])
     step = perf_counter()
+    # El mapa muestra la solución conectada, la misma del visor (ADR 0014).
     export_map(
         demands,
         all_candidates,
-        exact_solution,
+        connected_solution,
         crs,
         metric_area,
         output,
@@ -336,6 +337,7 @@ def run(config: PipelineConfig) -> dict:
         config.hypsometric_palette,
         excluded_candidates,
         default_radius_m=config.max_distance_m,
+        status=coverage_status(graph, connected_solution),
     )
     timings["visualization"] = perf_counter() - step
     step = perf_counter()
