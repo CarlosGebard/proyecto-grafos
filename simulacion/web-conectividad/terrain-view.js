@@ -22,6 +22,9 @@ const ZONE_LIFT = 0.00008;
 // El rango se dibuja sobre el relleno de zonas (ZONE_LIFT) y sus bordes
 // (0.0006), por debajo de las exclusiones PRC (0.0012).
 const RANGE_FILL_LIFT = 0.0009;
+// Resolución de la grilla del disco de rango (celdas por lado, máx.): con la
+// grilla del DEM de 320 queda paso 2, ~25 mil vértices por disco.
+const RANGE_FILL_GRID = 160;
 const RANGE_RIM_LIFT = 0.0011;
 // Torre de telecomunicaciones como marcador (ADR 0012; altura a escala por
 // ADR 0013): cuerpo en retícula (dos patas convergentes con travesaños),
@@ -55,6 +58,24 @@ export function populationColor(value) {
   const end = populationStops.find(([position]) => position >= value) || populationStops.at(-1);
   const mix = (value - start[0]) / Math.max(0.0001, end[0] - start[0]);
   return start[1].map((channel, index) => Math.round(channel + (end[1][index] - channel) * mix));
+}
+
+// Estado de cada localidad frente a la solución (ADR 0014), la misma regla
+// que coverage_status en src/evaluation/metrics.py: cubierta si la cubre
+// una elegida; alcanzable si la cubre alguna candidata; si no, sin alcance.
+export const COVERAGE_STATES = ["covered", "reachable", "unreachable"];
+export const COVERAGE_STATE_COLORS = {
+  covered: "#168354",
+  // Naranjo oscuro, el mismo del PNG: el amarillo #e9ad45 es el del disco
+  // de rango ρ(a) y se confundía con él.
+  reachable: "#c9771c",
+  unreachable: "#9aa39d",
+};
+
+export function coverageStatus(scenario, solution) {
+  const covered = new Set((solution || []).flatMap((id) => scenario.coverage?.[id] || []));
+  const reachable = new Set(Object.values(scenario.coverage || {}).flat());
+  return (id) => (covered.has(id) ? "covered" : reachable.has(id) ? "reachable" : "unreachable");
 }
 
 function clamp(value, minimum, maximum) {
@@ -526,6 +547,65 @@ export function createTerrainView(container) {
     return new THREE.Mesh(geometry, material);
   }
 
+  // Disco del rango ρ(a) sobre la grilla del DEM (como zoneFillMesh). Antes
+  // se triangulaba sólo con vértices del borde: con ρ mayor que la ventana,
+  // los triángulos cruzaban todo el mapa uniendo bordes a distinta altura y
+  // se veían como paredes inclinadas sobre los cerros. Aquí cada vértice es
+  // un punto de la grilla (paso `stride` para acotar memoria con 40 discos).
+  function rangeFillMesh(terrain, candidate, radiusM, xs, zs, elevationY, lift, material) {
+    const { width, height, elevations_m: rows, elevation_min_m: minimum } = terrain;
+    const [west, south, east, north] = terrain.bounds_wgs84;
+    const stride = Math.max(1, Math.ceil(Math.max(width, height) / RANGE_FILL_GRID));
+    const deltaLat = radiusM / 111320;
+    const deltaLon = radiusM / (111320 * Math.cos((candidate.latitude * Math.PI) / 180));
+    const lonAt = (col) => west + (col / (width - 1)) * (east - west);
+    const latAt = (row) => north - (row / (height - 1)) * (north - south);
+    const inside = (row, col) => {
+      const dx = (lonAt(col) - candidate.longitude) / deltaLon;
+      const dy = (latAt(row) - candidate.latitude) / deltaLat;
+      return dx * dx + dy * dy <= 1;
+    };
+    const rowsAt = [];
+    for (let row = 0; row < height - 1; row += stride) rowsAt.push(row);
+    rowsAt.push(height - 1);
+    const colsAt = [];
+    for (let col = 0; col < width - 1; col += stride) colsAt.push(col);
+    colsAt.push(width - 1);
+    const nodeIndex = new Map();
+    const positions = [];
+    const indices = [];
+    const nodeAt = (row, col) => {
+      const key = row * width + col;
+      let index = nodeIndex.get(key);
+      if (index === undefined) {
+        index = positions.length / 3;
+        nodeIndex.set(key, index);
+        const value = rows[row] ? rows[row][col] : null;
+        positions.push(xs[col], elevationY(value == null ? minimum : value) + lift, zs[row]);
+      }
+      return index;
+    };
+    for (let i = 0; i < rowsAt.length - 1; i += 1) {
+      for (let j = 0; j < colsAt.length - 1; j += 1) {
+        const [r0, r1, c0, c1] = [rowsAt[i], rowsAt[i + 1], colsAt[j], colsAt[j + 1]];
+        if (!inside((r0 + r1) / 2, (c0 + c1) / 2)) continue;
+        const a = nodeAt(r0, c0);
+        const b = nodeAt(r0, c1);
+        const c = nodeAt(r1, c0);
+        const d = nodeAt(r1, c1);
+        indices.push(a, c, b, b, c, d);
+      }
+    }
+    if (!indices.length) return null;
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setIndex(indices);
+    // Sin normales a propósito: igual que el disco anterior, sólo recibe la
+    // luz ambiente y conserva el tono de la leyenda (con normales el sol lo
+    // aclaraba y 40 discos superpuestos saturaban el paso de cobertura).
+    return new THREE.Mesh(geometry, material);
+  }
+
   function build(terrain, scenario) {
     if (!terrain.palette) {
       throw new Error("terrain.json sin paleta: regenera el piloto con el pipeline actual");
@@ -702,11 +782,13 @@ export function createTerrainView(container) {
       if (ring.length < 3) {
         return { id: candidate.id, hasCoverage, fill: null, rims: [] };
       }
-      const fill = drapedFill(
+      const fill = rangeFillMesh(
+        terrain,
+        candidate,
+        radiusM,
+        xs,
+        zs,
         elevationY,
-        [ring],
-        mapper,
-        sampleElevation,
         RANGE_FILL_LIFT,
         new THREE.MeshLambertMaterial({
           color: COLOR_RANGE,
@@ -714,8 +796,7 @@ export function createTerrainView(container) {
           opacity: 0.06,
           depthWrite: false,
           side: THREE.DoubleSide,
-        }),
-        terrain
+        })
       );
       const rims = [
         drapedLine(
@@ -735,8 +816,8 @@ export function createTerrainView(container) {
       return { id: candidate.id, hasCoverage, fill, rims };
     });
 
-    // Localidades como puntos (marcador neutro ∝ √población; el estado de
-    // cobertura lo transmiten los rangos de antena, no el color del punto).
+    // Localidades como puntos (∝ √población). Neutros hasta el paso
+    // solución; ahí toman el color de su estado de cobertura (ADR 0014).
     const demandRadius = (population) => 0.014 + 0.05 * Math.min(1, Math.sqrt(population) / 170);
     next.demands = scenario.demands.map((demand) => {
       const radius = demandRadius(demand.population);
@@ -855,9 +936,7 @@ export function createTerrainView(container) {
     const showCoverage = state.step >= 2;
     const showSolution = state.step === 3;
     const selected = showSolution ? new Set(scenario.connectedSolution) : new Set();
-    const covered = showSolution
-      ? new Set(scenario.connectedSolution.flatMap((id) => scenario.coverage[id] || []))
-      : new Set();
+    const statusOf = coverageStatus(scenario, showSolution ? scenario.connectedSolution : []);
 
     layers.candidates.forEach((tower, index) => {
       const candidate = scenario.candidates[index];
@@ -887,14 +966,24 @@ export function createTerrainView(container) {
         rim.material.opacity = showSolution ? 0.75 : 0.5;
       });
     });
-    layers.localities.forEach(({ outlines }, index) => {
+    // Población afectada vs no afectada (ADR 0014): el tono de la coropleta
+    // sigue siendo la densidad (ADR 0009); en el paso solución las no
+    // cubiertas sólo se atenúan y dejan ver el relieve.
+    layers.localities.forEach(({ fill, outlines }, index) => {
       const locality = scenario.localityPolygons[index];
-      const isCovered = covered.has(locality.id);
+      const isCovered = showSolution && statusOf(locality.id) === "covered";
+      if (fill) fill.material.opacity = showSolution && !isCovered ? 0.3 : 0.9;
       outlines.forEach((outline) => {
         outline.material.color.set(isCovered ? 0xf7f4df : 0x233226);
         outline.material.opacity = isCovered ? 0.95 : 0.6;
         outline.material.linewidth = isCovered ? 2 : 1;
       });
+    });
+    layers.demands.forEach((mesh, index) => {
+      const id = scenario.demands[index].id;
+      mesh.material.color.set(
+        showSolution ? COVERAGE_STATE_COLORS[statusOf(id)] : COLOR_LOCALITY
+      );
     });
     layers.constraints.forEach(({ fill, outlines }) => {
       const visible = state.showPrcConstraints;

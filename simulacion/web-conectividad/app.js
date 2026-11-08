@@ -1,4 +1,4 @@
-import { createTerrainView } from "./terrain-view.js";
+import { COVERAGE_STATES, COVERAGE_STATE_COLORS, coverageStatus, createTerrainView } from "./terrain-view.js";
 
 const svgNs = "http://www.w3.org/2000/svg";
 const network = document.querySelector("#network");
@@ -8,6 +8,8 @@ const terrainOverlay = document.querySelector("#terrain-overlay");
 const elevationGradient = document.querySelector("#elev-gradient");
 const elevationTicks = document.querySelector("#elev-ticks");
 const populationClasses = document.querySelector("#pop-classes");
+const populationStates = document.querySelector("#pop-states");
+const populationStatesBar = document.querySelector("#pop-states-bar");
 const terrainNote = document.querySelector("#terrain-note");
 const prcLayerToggle = document.querySelector("#prc-layer-toggle");
 const zoomControls = document.querySelector("#zoom-controls");
@@ -270,7 +272,17 @@ function update() {
   state.elements.demands.forEach((circle, id) => {
     circle.classList.toggle("covered", covered.has(id));
     circle.classList.toggle("reachable", !covered.has(id) && reachable.has(id));
+    // Sin alcance sólo se distingue en la solución: antes de ella no hay
+    // nada que afirmar sobre la población no cubierta (ADR 0014).
+    circle.classList.toggle("unreachable", showSolution && !reachable.has(id));
   });
+  const totals = populationByState();
+  document.querySelector("#uncovered-value").textContent = showSolution
+    ? number(totals.reachable + totals.unreachable)
+    : "—";
+  document.querySelector("#uncovered-detail").textContent = showSolution
+    ? `${number(totals.reachable)} alcanzable · ${number(totals.unreachable)} sin alcance`
+    : "";
 
   const step = steps[state.step];
   document.querySelector("#step-index").textContent = `${state.step + 1} de ${steps.length}`;
@@ -292,6 +304,16 @@ function update() {
   document.querySelectorAll("#algorithm-steps .algorithm-card, #algorithm-model .model-row").forEach((card) => {
     card.classList.toggle("active", Number(card.dataset.step) === state.step);
   });
+}
+
+// Habitantes por estado de cobertura de la solución conectada (ADR 0014).
+function populationByState() {
+  const statusOf = coverageStatus(state.scenario, state.scenario.connectedSolution);
+  const totals = Object.fromEntries(COVERAGE_STATES.map((key) => [key, 0]));
+  state.scenario.demands.forEach((demand) => {
+    totals[statusOf(demand.id)] += demand.population;
+  });
+  return totals;
 }
 
 function stop() {
@@ -559,6 +581,21 @@ function updateTerrainLegend() {
       return `<span class="legend-class"><i class="legend-swatch" style="background: ${color}"></i><b>${range}</b></span>`;
     })
     .join("");
+  // Población afectada vs no afectada: tres estados y barra apilada en
+  // proporción a habitantes (ADR 0014). Mismos colores que las esferas 3D.
+  const totals = populationByState();
+  const total = COVERAGE_STATES.reduce((sum, key) => sum + totals[key], 0);
+  const labels = { covered: "Cubierta", reachable: "Alcanzable", unreachable: "Sin alcance" };
+  const percent = new Intl.NumberFormat("es-CL", { style: "percent", maximumFractionDigits: 1 });
+  populationStates.innerHTML = COVERAGE_STATES.map((key) => {
+    const share = total ? percent.format(totals[key] / total) : "—";
+    return `<span class="legend-class" title="${number(totals[key])} hab"><i class="legend-swatch" style="background: ${COVERAGE_STATE_COLORS[key]}"></i><b>${labels[key]}</b><b>${share}</b></span>`;
+  }).join("");
+  populationStatesBar.innerHTML = total
+    ? COVERAGE_STATES.filter((key) => totals[key] > 0)
+        .map((key) => `<i style="flex-grow: ${totals[key]}; background: ${COVERAGE_STATE_COLORS[key]}"></i>`)
+        .join("")
+    : "";
   const [left, bottom, right, top] = terrain.bounds_metric_m || [0, 0, 0, 0];
   const km = (value) => new Intl.NumberFormat("es-CL", { maximumFractionDigits: 1 }).format(value / 1000);
   const notes = [`Este: 0-${km(right - left)} km · Norte: 0-${km(top - bottom)} km · Relieve ×2,5 (misma exageración del hillshade) · Torre 30 m a escala`];

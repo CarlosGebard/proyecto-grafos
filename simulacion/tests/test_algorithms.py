@@ -9,7 +9,7 @@ from src.algorithms.connected import (
     min_antenas_para_objetivo,
     resolver,
 )
-from src.evaluation.metrics import metrics
+from src.evaluation.metrics import coverage_status, metrics
 from src.graph.models import CoverageGraph
 
 
@@ -292,3 +292,35 @@ def test_zero_denominator_metrics():
     resultado = resolver(graph, None, 0)
     assert metrics(graph, resultado, 0)["coverage_percentage"] == 0
     assert metrics(graph, resultado, 0)["evaluations"] == 0
+    assert metrics(graph, resultado, 0)["localities_by_status"] == {
+        "covered": 0,
+        "reachable": 0,
+        "unreachable": 0,
+    }
+
+
+def test_coverage_status_tres_estados():
+    # x la cubre la elegida; y sólo una candidata no elegida (k=1); z ninguna.
+    graph = CoverageGraph({"a": {"x"}, "b": {"y"}}, {"x": 10, "y": 3, "z": 7})
+    resultado = resolver(graph, None, 1)
+    assert resultado.selected == ("a",)
+    assert coverage_status(graph, resultado) == {
+        "x": "covered",
+        "y": "reachable",
+        "z": "unreachable",
+    }
+    m = metrics(graph, resultado, 1)
+    assert m["population_covered"] == 10
+    assert m["population_uncovered_reachable"] == 3
+    assert m["population_unreachable"] == 7
+    assert (
+        m["population_covered"]
+        + m["population_uncovered_reachable"]
+        + m["population_unreachable"]
+        == m["population_total"]
+    )
+    assert m["localities_by_status"] == {
+        "covered": 1,
+        "reachable": 1,
+        "unreachable": 1,
+    }

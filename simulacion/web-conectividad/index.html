@@ -49,6 +49,7 @@
             </p>
             <dl class="readout">
               <div><dt>Población cubierta</dt><dd id="covered-value">0</dd></div>
+              <div><dt>Sin cubrir</dt><dd id="uncovered-value">—</dd><dd class="readout-detail" id="uncovered-detail"></dd></div>
               <div><dt>Antenas elegidas</dt><dd id="selected-value">0 de 3</dd></div>
               <div><dt>Red conectada</dt><dd id="connected-value">Aún no aplica</dd></div>
             </dl>
@@ -74,13 +75,23 @@
               <div class="range-legend">
                 <span class="legend-class"><i class="legend-swatch range-swatch-fill"></i><b>Rango ρ(a)</b></span>
                 <span class="legend-class"><i class="legend-swatch range-swatch-rim"></i><b>Borde drapeado</b></span>
+                <span class="legend-class"><i class="legend-swatch antenna-swatch-selected"></i><b>Antena elegida</b></span>
+                <span class="legend-class"><i class="legend-swatch link-swatch"></i><b>Enlace LOS</b></span>
               </div>
+            </div>
+            <div class="legend-block">
+              <p class="legend-caption">Población <span>(paso solución; no cubierta atenuada)</span></p>
+              <div class="state-bar" id="pop-states-bar" aria-hidden="true"></div>
+              <div class="legend-classes" id="pop-states"></div>
             </div>
             <p class="legend-note" id="terrain-note"></p>
           </div>
 
           <div class="legend" aria-label="Leyenda">
             <span><i class="legend-demand"></i> Localidad</span>
+            <span><i class="legend-covered"></i> Cubierta</span>
+            <span><i class="legend-reachable"></i> Alcanzable</span>
+            <span><i class="legend-unreachable"></i> Sin alcance</span>
             <span><i class="legend-candidate"></i> Antena candidata</span>
             <span><i class="legend-coverage"></i> Cobertura</span>
             <span><i class="legend-link"></i> Enlace LOS</span>
