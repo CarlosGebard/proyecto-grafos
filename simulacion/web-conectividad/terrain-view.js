@@ -22,6 +22,9 @@ const ZONE_LIFT = 0.00008;
 // El rango se dibuja sobre el relleno de zonas (ZONE_LIFT) y sus bordes
 // (0.0006), por debajo de las exclusiones PRC (0.0012).
 const RANGE_FILL_LIFT = 0.0009;
+// Resolución de la grilla del disco de rango (celdas por lado, máx.): con la
+// grilla del DEM de 320 queda paso 2, ~25 mil vértices por disco.
+const RANGE_FILL_GRID = 160;
 const RANGE_RIM_LIFT = 0.0011;
 // Torre de telecomunicaciones como marcador (ADR 0012; altura a escala por
 // ADR 0013): cuerpo en retícula (dos patas convergentes con travesaños),
@@ -544,6 +547,65 @@ export function createTerrainView(container) {
     return new THREE.Mesh(geometry, material);
   }
 
+  // Disco del rango ρ(a) sobre la grilla del DEM (como zoneFillMesh). Antes
+  // se triangulaba sólo con vértices del borde: con ρ mayor que la ventana,
+  // los triángulos cruzaban todo el mapa uniendo bordes a distinta altura y
+  // se veían como paredes inclinadas sobre los cerros. Aquí cada vértice es
+  // un punto de la grilla (paso `stride` para acotar memoria con 40 discos).
+  function rangeFillMesh(terrain, candidate, radiusM, xs, zs, elevationY, lift, material) {
+    const { width, height, elevations_m: rows, elevation_min_m: minimum } = terrain;
+    const [west, south, east, north] = terrain.bounds_wgs84;
+    const stride = Math.max(1, Math.ceil(Math.max(width, height) / RANGE_FILL_GRID));
+    const deltaLat = radiusM / 111320;
+    const deltaLon = radiusM / (111320 * Math.cos((candidate.latitude * Math.PI) / 180));
+    const lonAt = (col) => west + (col / (width - 1)) * (east - west);
+    const latAt = (row) => north - (row / (height - 1)) * (north - south);
+    const inside = (row, col) => {
+      const dx = (lonAt(col) - candidate.longitude) / deltaLon;
+      const dy = (latAt(row) - candidate.latitude) / deltaLat;
+      return dx * dx + dy * dy <= 1;
+    };
+    const rowsAt = [];
+    for (let row = 0; row < height - 1; row += stride) rowsAt.push(row);
+    rowsAt.push(height - 1);
+    const colsAt = [];
+    for (let col = 0; col < width - 1; col += stride) colsAt.push(col);
+    colsAt.push(width - 1);
+    const nodeIndex = new Map();
+    const positions = [];
+    const indices = [];
+    const nodeAt = (row, col) => {
+      const key = row * width + col;
+      let index = nodeIndex.get(key);
+      if (index === undefined) {
+        index = positions.length / 3;
+        nodeIndex.set(key, index);
+        const value = rows[row] ? rows[row][col] : null;
+        positions.push(xs[col], elevationY(value == null ? minimum : value) + lift, zs[row]);
+      }
+      return index;
+    };
+    for (let i = 0; i < rowsAt.length - 1; i += 1) {
+      for (let j = 0; j < colsAt.length - 1; j += 1) {
+        const [r0, r1, c0, c1] = [rowsAt[i], rowsAt[i + 1], colsAt[j], colsAt[j + 1]];
+        if (!inside((r0 + r1) / 2, (c0 + c1) / 2)) continue;
+        const a = nodeAt(r0, c0);
+        const b = nodeAt(r0, c1);
+        const c = nodeAt(r1, c0);
+        const d = nodeAt(r1, c1);
+        indices.push(a, c, b, b, c, d);
+      }
+    }
+    if (!indices.length) return null;
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setIndex(indices);
+    // Sin normales a propósito: igual que el disco anterior, sólo recibe la
+    // luz ambiente y conserva el tono de la leyenda (con normales el sol lo
+    // aclaraba y 40 discos superpuestos saturaban el paso de cobertura).
+    return new THREE.Mesh(geometry, material);
+  }
+
   function build(terrain, scenario) {
     if (!terrain.palette) {
       throw new Error("terrain.json sin paleta: regenera el piloto con el pipeline actual");
@@ -720,11 +782,13 @@ export function createTerrainView(container) {
       if (ring.length < 3) {
         return { id: candidate.id, hasCoverage, fill: null, rims: [] };
       }
-      const fill = drapedFill(
+      const fill = rangeFillMesh(
+        terrain,
+        candidate,
+        radiusM,
+        xs,
+        zs,
         elevationY,
-        [ring],
-        mapper,
-        sampleElevation,
         RANGE_FILL_LIFT,
         new THREE.MeshLambertMaterial({
           color: COLOR_RANGE,
@@ -732,8 +796,7 @@ export function createTerrainView(container) {
           opacity: 0.06,
           depthWrite: false,
           side: THREE.DoubleSide,
-        }),
-        terrain
+        })
       );
       const rims = [
         drapedLine(
