@@ -57,6 +57,22 @@ export function populationColor(value) {
   return start[1].map((channel, index) => Math.round(channel + (end[1][index] - channel) * mix));
 }
 
+// Estado de cada localidad frente a la solución (ADR 0014), la misma regla
+// que coverage_status en src/evaluation/metrics.py: cubierta si la cubre
+// una elegida; alcanzable si la cubre alguna candidata; si no, sin alcance.
+export const COVERAGE_STATES = ["covered", "reachable", "unreachable"];
+export const COVERAGE_STATE_COLORS = {
+  covered: "#168354",
+  reachable: "#e9ad45",
+  unreachable: "#9aa39d",
+};
+
+export function coverageStatus(scenario, solution) {
+  const covered = new Set((solution || []).flatMap((id) => scenario.coverage?.[id] || []));
+  const reachable = new Set(Object.values(scenario.coverage || {}).flat());
+  return (id) => (covered.has(id) ? "covered" : reachable.has(id) ? "reachable" : "unreachable");
+}
+
 function clamp(value, minimum, maximum) {
   return Math.max(minimum, Math.min(maximum, value));
 }
@@ -735,8 +751,8 @@ export function createTerrainView(container) {
       return { id: candidate.id, hasCoverage, fill, rims };
     });
 
-    // Localidades como puntos (marcador neutro ∝ √población; el estado de
-    // cobertura lo transmiten los rangos de antena, no el color del punto).
+    // Localidades como puntos (∝ √población). Neutros hasta el paso
+    // solución; ahí toman el color de su estado de cobertura (ADR 0014).
     const demandRadius = (population) => 0.014 + 0.05 * Math.min(1, Math.sqrt(population) / 170);
     next.demands = scenario.demands.map((demand) => {
       const radius = demandRadius(demand.population);
@@ -855,9 +871,7 @@ export function createTerrainView(container) {
     const showCoverage = state.step >= 2;
     const showSolution = state.step === 3;
     const selected = showSolution ? new Set(scenario.connectedSolution) : new Set();
-    const covered = showSolution
-      ? new Set(scenario.connectedSolution.flatMap((id) => scenario.coverage[id] || []))
-      : new Set();
+    const statusOf = coverageStatus(scenario, showSolution ? scenario.connectedSolution : []);
 
     layers.candidates.forEach((tower, index) => {
       const candidate = scenario.candidates[index];
@@ -887,14 +901,24 @@ export function createTerrainView(container) {
         rim.material.opacity = showSolution ? 0.75 : 0.5;
       });
     });
-    layers.localities.forEach(({ outlines }, index) => {
+    // Población afectada vs no afectada (ADR 0014): el tono de la coropleta
+    // sigue siendo la densidad (ADR 0009); en el paso solución las no
+    // cubiertas sólo se atenúan y dejan ver el relieve.
+    layers.localities.forEach(({ fill, outlines }, index) => {
       const locality = scenario.localityPolygons[index];
-      const isCovered = covered.has(locality.id);
+      const isCovered = showSolution && statusOf(locality.id) === "covered";
+      if (fill) fill.material.opacity = showSolution && !isCovered ? 0.3 : 0.9;
       outlines.forEach((outline) => {
         outline.material.color.set(isCovered ? 0xf7f4df : 0x233226);
         outline.material.opacity = isCovered ? 0.95 : 0.6;
         outline.material.linewidth = isCovered ? 2 : 1;
       });
+    });
+    layers.demands.forEach((mesh, index) => {
+      const id = scenario.demands[index].id;
+      mesh.material.color.set(
+        showSolution ? COVERAGE_STATE_COLORS[statusOf(id)] : COLOR_LOCALITY
+      );
     });
     layers.constraints.forEach(({ fill, outlines }) => {
       const visible = state.showPrcConstraints;

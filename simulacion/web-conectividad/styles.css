@@ -109,3 +109,10 @@ h3 { letter-spacing: -.035em; line-height: 1.08; }
 @media (max-width: 900px) { .canvas-panel, #network, #terrain-3d { min-height: 560px; }.algorithm-steps { grid-template-columns: repeat(2, 1fr); }.step-overlay { max-width: min(400px, calc(100% - 32px)); }.terrain-legend { max-width: min(360px, 60vw); }.algorithm-model { grid-template-columns: 1fr; } }
 @media (max-width: 620px) { .page-shell { padding: 0 14px 24px; }.masthead { padding: 22px 0 18px; }.canvas-panel, #network, #terrain-3d { min-height: 470px; }.step-overlay { left: 10px; right: 10px; bottom: 10px; max-width: none; }.legend { top: 54px; right: 10px; bottom: auto; }.terrain-legend { left: 10px; right: 10px; bottom: auto; top: 56px; max-width: none; }.canvas-actions { top: 10px; right: 10px; }.algorithm-steps { grid-template-columns: 1fr; }.algorithm-card { min-height: auto; }.model-row { grid-template-columns: 1fr; gap: 6px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+
+/* Población afectada vs no afectada (ADR 0014). */
+.demand-node.unreachable { fill: transparent; stroke: #7d8780; stroke-width: 1.6; stroke-dasharray: 3 2; }
+.legend-covered { background: var(--accent); }.legend-reachable { background: #e9ad45; }.legend-unreachable { border: 1.5px dashed #7d8780; background: transparent; }
+.readout { flex-wrap: wrap; row-gap: 6px; }.readout .readout-detail { margin: 0; color: var(--muted); font-size: .64rem; font-weight: 600; letter-spacing: 0; }
+.state-bar { display: flex; height: 8px; overflow: hidden; border: 1px solid rgba(0, 0, 0, .2); border-radius: 2px; }.state-bar i { display: block; min-width: 2px; }
+@media (prefers-color-scheme: dark) { .demand-node.unreachable { stroke: #8e9a92; }.state-bar { border-color: rgba(255, 255, 255, .25); } }
