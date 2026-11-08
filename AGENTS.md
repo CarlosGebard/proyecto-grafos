@@ -6,13 +6,14 @@ Archivo de orientación para cualquier IA (o persona) que trabaje en este reposi
 
 Proyecto universitario (Grafos y Algoritmos, prof. Karol Suchan): **optimización de cobertura territorial mediante grafos**. Herramienta de prefactibilidad para conectividad rural en Chile: dado un área, localidades con población (SUBDERE/Censo) y un DEM real (ALOS/Copernicus), selecciona hasta `k` sitios de antena maximizando la **población única cubierta**, con cobertura definida por distancia + línea de vista (LOS) sobre el relieve. Los Planes Reguladores Comunales (PRC) filtran candidatos como *screening territorial* — nunca como permiso de construcción.
 
-Pilotos ya ejecutados: Biobío 4.210/5.234 hab (80,44 %), Metropolitana 25.119/28.337 hab (88,64 %), `k=5`. Evidencia local en `simulacion/outputs/` (no versionada).
+Pilotos ya ejecutados: Biobío 4.210/5.234 hab (80,44 %), Metropolitana 25.119/28.337 hab (88,64 %), `k=5`. Evidencia en `simulacion/outputs/` — las tres corridas de verificación (`biobio`, `metropolitana`, `yumbel-criterio`) están versionadas en git; toda corrida nueva sigue ignorada.
 
 ## 2. Estado actual (noviembre 2026)
 
 - **Motor exacto conectado implementado** (cutover completo, `exact.py` eliminado): `simulacion/src/algorithms/connected.py` con ESU + unión incremental + cota de prefijos + desempate lexicográfico, gateway, clases de potencia (`radius_m` por candidato, `min(ρu, ρv)` en enlaces), umbral `t` y baseline goloso. Pilotos reproducidos idénticos: Biobío 4.210 hab (80,44 %), Metropolitana 25.119 hab (88,64 %); ver ADR 0006.
 - **Candidatos por criterio (ADR 0007)**: la retícula regular fue reemplazada por anclas en localidades + intersecciones Murray–Tong + sitios altos del DEM, con filtros de pendiente, proximidad y establecimientos sensibles (OGUC 116 bis E / Ley 20.599; sin capa declarada queda como limitación de datos, nunca como permiso). Pilotos re-corridos con `k=5`; los tres superan a la retícula: Biobío 85,35 % (4.467/5.234, +4,91), Metropolitana 92,65 % (26.254/28.337, +4,01), Yumbel con clases 39,01 % conectado (12.063/30.923, +10,07).
 - **Rama activa: `feat/algoritmo`**. Push funcionando como colaborador de `CarlosGebard/proyecto-grafos` (antes la clave autenticaba como `not-narleeek`, sin acceso: resuelto el 6 de noviembre de 2026).
+- **Presentación visual (rama `presentacion-web`)**: mapa PNG con tintas hipsométricas cross-blended (Patterson & Jenny 2011; rampas verificadas en `src/visualization/palettes.py`) + hillshade (`src/visualization/relief.py`); visor web con relieve 3D ×2,5 (three.js vendido, sin build ni red — ADR 0008, que revisa ADR 0003; exageración moderada ×2,5, la convención del hillshade, ADR 0013 que revisa ADR 0009); `terrain.json` exporta la paleta para que PNG y 3D compartan tinta; **cobertura como rango nominal ρ(a) de antena** (ADR 0011, revisado en ADR 0012: anillo + disco drapeados al relieve por candidata; sin domo — el volumen sugería un alcance vertical inexistente; `candidates.geojson` exporta `radius_m`). Las antenas se marcan como torres esbeltas con baliza a escala real (30 m con la misma escala vertical del relieve; ADR 0012/0013); los enlaces siguen genéricos. Plan: `simulacion/docs/plan-visualizacion…
 - **Informe final (fase 3) hecho**: `informe/informe-final.tex` (+ PDF compilado en `informe/entregables/`) — mapeo a PartialConRBDS, techo teórico documentado (Thm 1/2/4 de [1]), datos concretos de fase 0 y tabla greedy-vs-exacto. Fase 0 re-medida sobre el criterio (`simulacion/docs/report/fase0-medicion.md`, sección criterio).
 
 ## 3. Mandato de la rama (estado)
@@ -64,7 +65,7 @@ uv run ruff format --check .
 - Los tests comparan el motor contra un **oracle independiente** (combinaciones + filtro); deben seguir pasando y extenderse a conectividad + gateways.
 - **Regresión obligatoria**: Biobío 80,44 % y Metropolitana 88,64 % deben reproducirse idénticos tras el cutover (mismo valor óptimo; deben bastar menos evaluaciones).
 - Los datos GIS pesados (`simulacion/data/*.rar`) no están en git; si no existen localmente, valida con instancias sintéticas y NO inventes resultados de pilotos.
-- Cada corrida real va a un directorio nuevo bajo `simulacion/outputs/`; `outputs/` no se commitea.
+- Cada corrida real va a un directorio nuevo bajo `simulacion/outputs/`; sólo las corridas de verificación de los pilotos (`biobio`, `metropolitana`, `yumbel-criterio`) están versionadas — el resto de `outputs/` sigue en `.gitignore`.
 
 ### Trampas conocidas
 
@@ -88,10 +89,10 @@ simulacion/
     graph/               CoverageGraph/Solution (models.py), builder
     algorithms/          connected.py (motor exacto conectado: ESU + unión incremental)
     evaluation/          metrics.py
-    visualization/       mapa PNG y payload de terreno para web
+    visualization/       mapa PNG con tintas hipsométricas + hillshade (relief.py, palettes.py), payload de terreno con paleta
   tests/                 test_algorithms.py (oracle), test_geo.py, test_data_pipeline.py
   configs/               biobio.toml, metropolitana.toml, yumbel-50km-prc.toml
-  web-conectividad/        visor estático (consume outputs; no tocar el motor por él)
+  web-conectividad/        visor estático con relieve 3D (three.js vendido, ADR 0008; no tocar el motor por él)
 prc-mapas/               GeoJSON PRC Biobío + descargador
 ```
 

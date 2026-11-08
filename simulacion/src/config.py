@@ -3,6 +3,8 @@
 import math
 from dataclasses import dataclass
 
+from src.visualization.palettes import PALETTES
+
 
 @dataclass(frozen=True)
 class AntennaClass:
@@ -38,6 +40,7 @@ class PipelineConfig:
     sample_step_m: float | None = None
     dem_resolution_m: float | None = None
     dem_source: str = "alos"
+    hypsometric_palette: str = "warm_humid"
     dem: str | None = None
     population: str | None = None
     population_field: str = "HABITANTES"
@@ -100,6 +103,11 @@ class PipelineConfig:
             )
         if self.dem_source not in {"alos", "copernicus"}:
             raise ValueError("dem_source debe ser alos o copernicus")
+        if self.hypsometric_palette not in PALETTES:
+            raise ValueError(
+                f"hypsometric_palette debe ser una de {sorted(PALETTES)}; "
+                f"recibió {self.hypsometric_palette!r}"
+            )
         if (self.center is None) != (self.study_size_m is None):
             raise ValueError("center y study_size_m deben usarse juntos")
         if self.center is not None:

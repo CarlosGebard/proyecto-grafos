@@ -3,6 +3,7 @@
 region = "metropolitana"
 bbox = [-70.95, -33.85, -70.75, -33.65]
 dem_source = "copernicus"
+hypsometric_palette = "arid"
 k = 5
 max_distance_m = 30000.0
 antenna_height_m = 30.0

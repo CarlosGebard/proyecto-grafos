@@ -9,12 +9,53 @@ import matplotlib
 matplotlib.use("Agg")
 import geopandas as gpd
 import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import ListedColormap
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
+from src.visualization.relief import paint_relief
+
+# Rampa secuencial de densidad, idéntica a populationColor en terrain-view.js.
+DENSITY_STOPS = [(255, 238, 184), (239, 167, 82), (184, 72, 40)]
+
+
+def _density_colors(count: int) -> list[tuple[float, float, float]]:
+    stops = [tuple(value / 255 for value in stop) for stop in DENSITY_STOPS]
+
+    def sample(fraction: float) -> tuple[float, float, float]:
+        if fraction <= 0:
+            return stops[0]
+        if fraction >= 1:
+            return stops[-1]
+        scaled = fraction * (len(stops) - 1)
+        index = min(int(scaled), len(stops) - 2)
+        mix = scaled - index
+        return tuple(
+            stops[index][channel]
+            + (stops[index + 1][channel] - stops[index][channel]) * mix
+            for channel in range(3)
+        )
+
+    return [sample((index + 0.5) / count) for index in range(count)]
+
+
+def _format_miles(value: float) -> str:
+    return f"{value:,.0f}".replace(",", ".")
+
 
 def export_map(
-    demands, candidates, solution, crs, area, output: Path, excluded_candidates=None
+    demands,
+    candidates,
+    solution,
+    crs,
+    area,
+    output: Path,
+    dem_path: Path,
+    hypsometric_palette: str,
+    excluded_candidates=None,
+    default_radius_m: float | None = None,
 ) -> None:
     demand = gpd.GeoDataFrame(
         [
@@ -38,6 +79,9 @@ def export_map(
                 "latitude": a.latitude,
                 "longitude": a.longitude,
                 "selected": a.id in solution.selected,
+                # Rango efectivo ρ(a): radio por clase de potencia; None →
+                # max_distance_m (misma resolución que compute_coverage).
+                "radius_m": a.radius_m if a.radius_m is not None else default_radius_m,
                 "constraint_status": a.constraint_status,
                 "constraint_rule": a.constraint_rule,
                 "geometry": a.point,
@@ -70,15 +114,53 @@ def export_map(
     )
 
     fig, ax = plt.subplots(figsize=(11, 9), layout="constrained")
-    demand.plot(
-        ax=ax,
-        column="population",
-        cmap="YlOrBr",
-        edgecolor="#999999",
-        linewidth=0.3,
-        legend=True,
-        legend_kwds={"label": "Población censal de la localidad"},
+    relief_info = paint_relief(ax, dem_path, hypsometric_palette)
+    # Segunda dimensión: densidad de población (hab/km²) por cuantiles.
+    # Coropletas para la tasa normalizada (Slocum et al.); el conteo bruto
+    # queda en los puntos cubiertos, no en el relleno.
+    areas_km2 = demand.geometry.area / 1e6
+    densities = demand["population"] / areas_km2.where(areas_km2 > 0)
+    valid = densities.dropna()
+    class_count = min(5, max(1, len(valid)))
+    inner = (
+        np.unique(
+            np.round(
+                np.quantile(
+                    valid.to_numpy(), [i / class_count for i in range(1, class_count)]
+                ),
+                2,
+            )
+        )
+        if class_count > 1
+        else np.array([])
     )
+    demand["densidad_idx"] = densities.apply(
+        lambda value: (
+            np.searchsorted(inner, value, side="right")
+            if np.isfinite(value)
+            else np.nan
+        )
+    )
+    class_colors = _density_colors(len(inner) + 1)
+    if len(valid):
+        demand.plot(
+            ax=ax,
+            column="densidad_idx",
+            cmap=ListedColormap(class_colors),
+            edgecolor="#999999",
+            linewidth=0.3,
+            alpha=0.55,
+            missing_kwds={"color": "#e9eee9"},
+        )
+    else:
+        # Sin polígonos con área: puntos sin densidad, relleno neutro.
+        demand.plot(
+            ax=ax,
+            color="#e9eee9",
+            edgecolor="#999999",
+            linewidth=0.3,
+            alpha=0.55,
+        )
     covered = demand.loc[demand.covered]
     if not covered.empty:
         polygons = covered[covered.geom_type.isin(["Polygon", "MultiPolygon"])]
@@ -103,8 +185,31 @@ def export_map(
         f"{solution.population_covered:,.0f} habitantes en localidades cubiertas",
     )
     ax.ticklabel_format(style="plain", useOffset=False)
-    ax.legend(
-        handles=[
+    fig.colorbar(
+        ScalarMappable(norm=relief_info["norm"], cmap=relief_info["cmap"]),
+        ax=ax,
+        boundaries=relief_info["breaks"],
+        spacing="proportional",
+        shrink=0.6,
+        pad=0.02,
+        label="Elevación (m)",
+    )
+    legend_handles = []
+    if len(valid):
+        edges = [valid.min(), *inner.tolist(), valid.max()]
+        for index in range(len(edges) - 1):
+            legend_handles.append(
+                Patch(
+                    facecolor=class_colors[index],
+                    edgecolor="#999999",
+                    label=(
+                        f"{_format_miles(edges[index])}–{_format_miles(edges[index + 1])}"
+                        " hab/km²"
+                    ),
+                )
+            )
+    legend_handles.extend(
+        [
             Patch(
                 facecolor="none",
                 edgecolor="#168354",
@@ -122,9 +227,12 @@ def export_map(
                 markersize=12,
                 label="Seleccionada",
             ),
-        ],
-        loc="upper left",
-        fontsize=8,
+        ]
     )
+    if relief_info["has_nodata"]:
+        legend_handles.append(
+            Patch(facecolor="#D8D8D8", edgecolor="none", label="Sin datos del DEM")
+        )
+    ax.legend(handles=legend_handles, loc="upper left", fontsize=8)
     fig.savefig(output / "map.png", dpi=160)
     plt.close(fig)

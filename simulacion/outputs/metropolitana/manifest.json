@@ -1,0 +1,205 @@
+{
+  "created_utc": "2026-11-07T15:20:50.045212+00:00",
+  "config": {
+    "region": "metropolitana",
+    "bbox": [
+      -70.95,
+      -33.85,
+      -70.75,
+      -33.65
+    ],
+    "polygon": null,
+    "center": null,
+    "study_size_m": null,
+    "k": 5,
+    "max_distance_m": 30000.0,
+    "antenna_height_m": 30.0,
+    "receiver_height_m": 1.5,
+    "max_slope_deg": 30.0,
+    "highsite_window_m": 1000.0,
+    "candidate_separation_m": 1000.0,
+    "sample_step_m": null,
+    "dem_resolution_m": null,
+    "dem_source": "copernicus",
+    "hypsometric_palette": "arid",
+    "dem": null,
+    "population": null,
+    "population_field": "HABITANTES",
+    "id_field": "ID",
+    "layer": null,
+    "data_dir": "data",
+    "output": "outputs/metropolitana-r2",
+    "download_population": false,
+    "download_osm_roads": false,
+    "osm_roads": null,
+    "prc_directory": null,
+    "prc_mode": "screening",
+    "sensitive_directory": null,
+    "max_evaluations": 2000000,
+    "gateways": null,
+    "min_population": null,
+    "antenna_classes": [],
+    "max_candidates": 40,
+    "max_pairs": 2000000,
+    "max_dem_pixels": 10000000
+  },
+  "study_bounds_wgs84": [
+    -70.95,
+    -33.85,
+    -70.75,
+    -33.65
+  ],
+  "metric_crs": "EPSG:32719",
+  "timings_seconds": {
+    "population": 3.4993366979997518,
+    "dem": 0.19809652799995092,
+    "candidates": 5.515831937000257,
+    "coverage_graph": 3.2211320200003684,
+    "connectivity_graph": 0.2404594139998153,
+    "visualization": 5.860298716000216,
+    "terrain_export": 0.04981327199948282
+  },
+  "population": {
+    "source": "https://proactiva.subdere.gov.cl/handle/123456789/523",
+    "records_in_area": 320,
+    "excluded_unknown_population": 10,
+    "excluded_ids": [
+      "634",
+      "620",
+      "322",
+      "149",
+      "321",
+      "622",
+      "193",
+      "621",
+      "624",
+      "623"
+    ],
+    "population_field": "HABITANTES",
+    "id_field": "ID",
+    "source_crs": "EPSG:5360",
+    "selection_rule": "representative_point_inside_area; full original population",
+    "files": [
+      {
+        "path": "data/prepared/subdere/SHP/LCA_2021.cpg",
+        "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824",
+        "bytes": 5
+      },
+      {
+        "path": "data/prepared/subdere/SHP/LCA_2021.dbf",
+        "sha256": "34ccb7cafb7c87602d120976f1bfa1dbb7f24a947abe9c20853e287c4f3a4ffa",
+        "bytes": 35928290
+      },
+      {
+        "path": "data/prepared/subdere/SHP/LCA_2021.prj",
+        "sha256": "675c79030238af3b14c4b31c674f4057049ae81badd6726c7a0a234c4c498d86",
+        "bytes": 153
+      },
+      {
+        "path": "data/prepared/subdere/SHP/LCA_2021.shp",
+        "sha256": "e28e432084eb7a91bbbf63ced46332bfe1de46d071495233c9a0493e045874db",
+        "bytes": 199139000
+      },
+      {
+        "path": "data/prepared/subdere/SHP/LCA_2021.shx",
+        "sha256": "df620a931e094a8e8f8f5caac364a83755f83a3d099c7b3faaba4452bfb6d741",
+        "bytes": 234148
+      }
+    ]
+  },
+  "dem": {
+    "dataset": "Copernicus GLO-30 public 2021",
+    "sources": [
+      "data/downloads/copernicus/Copernicus_DSM_COG_10_S34_00_W071_00_DEM.tif"
+    ],
+    "source_crs": [
+      "EPSG:4326"
+    ],
+    "source_resolution": [
+      [
+        0.0002777777777777778,
+        0.0002777777777777778
+      ]
+    ],
+    "source_nodata": [
+      "None"
+    ],
+    "output_crs": "PROJCRS[\"WGS 84 / UTM zone 19S\",BASEGEOGCRS[\"WGS 84\",ENSEMBLE[\"World Geodetic System 1984 ensemble\",MEMBER[\"World Geodetic System 1984 (Transit)\"],MEMBER[\"World Geodetic System 1984 (G730)\"],MEMBER[\"World Geodetic System 1984 (G873)\"],MEMBER[\"World Geodetic System 1984 (G1150)\"],MEMBER[\"World Geodetic System 1984 (G1674)\"],MEMBER[\"World Geodetic System 1984 (G1762)\"],MEMBER[\"World Geodetic System 1984 (G2139)\"],MEMBER[\"World Geodetic System 1984 (G2296)\"],ELLIPSOID[\"WGS 84\",6378137,298.257223563,LENGTHUNIT[\"metre\",1]],ENSEMBLEACCURACY[2.0]],PRIMEM[\"Greenwich\",0,ANGLEUNIT[\"degree\",0.0174532925199433]],ID[\"EPSG\",4326]],CONVERSION[\"UTM zone 19S\",METHOD[\"Transverse Mercator\",ID[\"EPSG\",9807]],PARAMETER[\"Latitude of natural origin\",0,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8801]],PARAMETER[\"Longitude of natural origin\",-69,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8802]],PARAMETER[\"Scale factor at natural origin\",0.9996,SCALEUNIT[\"unity\",1],ID[\"EPSG\",8805]],PARAMETER[\"False easting\",500000,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8806]],PARAMETER[\"False northing\",10000000,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8807]]],CS[Cartesian,2],AXIS[\"(E)\",east,ORDER[1],LENGTHUNIT[\"metre\",1]],AXIS[\"(N)\",north,ORDER[2],LENGTHUNIT[\"metre\",1]],USAGE[SCOPE[\"Navigation and medium accuracy spatial referencing.\"],AREA[\"Between 72°W and 66°W, southern hemisphere between 80°S and equator, onshore and offshore. Argentina. Bolivia. Brazil. Chile. Colombia. Peru.\"],BBOX[-80,-72,0,-66]],ID[\"EPSG\",32719]]",
+    "resolution_m": 30.0,
+    "shape": [
+      755,
+      635
+    ],
+    "resampling": "nearest",
+    "valid_pixel_fraction": 1.0,
+    "inputs": [
+      {
+        "files": [
+          {
+            "path": "data/downloads/copernicus/Copernicus_DSM_COG_10_S34_00_W071_00_DEM.tif",
+            "sha256": "a27fc1c1b4ef86047f3d7523c222fdbb322a3e3aff09bb6a7d5d30b6fe2c91c1",
+            "bytes": 41680780
+          }
+        ]
+      }
+    ]
+  },
+  "candidates": {
+    "method": "demand_anchors_circle_intersections_highsites",
+    "reference": "Murray & Tong 2007 (IJGIS 21(7)); ADR 0007",
+    "radii_m": [
+      30000.0
+    ],
+    "raw_points": 95878,
+    "demand_anchors": 310,
+    "circle_intersections": 95790,
+    "highsites": 130,
+    "excluded_outside_area": 95457,
+    "excluded_nodata": 0,
+    "excluded_slope": 2,
+    "max_slope_deg": 30.0,
+    "highsite_window_m": 1000.0,
+    "separation_m": 1000.0,
+    "excluded_proximity": 249,
+    "max_candidates": 40,
+    "capped": true,
+    "kept": 40
+  },
+  "antenna_classes": null,
+  "prc_constraints": null,
+  "sensitive_sites": null,
+  "coverage": {
+    "num_pairs": 12400,
+    "los_checks": 12400,
+    "num_edges": 4737,
+    "demand_nodata_ids": []
+  },
+  "connectivity": {
+    "num_pairs": 780,
+    "los_checks": 780,
+    "num_edges": 450
+  },
+  "osm_roads": null,
+  "model": {
+    "name": "distance_and_sampled_los",
+    "sample_step_m": 15.0,
+    "nodata_policy": "no_coverage",
+    "map_algorithm": "exact",
+    "limitations": [
+      "One interior point represents each full locality",
+      "No curvature, Fresnel, diffraction or radio link budget",
+      "Connected antennas do not imply Internet access or network capacity",
+      "Unknown population excluded, not estimated"
+    ]
+  },
+  "versions": {
+    "numpy": "2.5.3",
+    "geopandas": "1.1.4",
+    "rasterio": "1.5.1",
+    "shapely": "2.1.2",
+    "pyproj": "3.8.0",
+    "matplotlib": "3.11.1"
+  },
+  "python": "3.14.9",
+  "pipeline_runtime_seconds": 98.43680795799992
+}

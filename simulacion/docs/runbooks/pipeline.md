@@ -97,7 +97,7 @@ Las clases de potencia (`[[antenna_class]]` con `name`, `radius_m`, `count`) asi
 | `dem.tif` | Recorte reproyectado, float32, NoData NaN |
 | `demand.geojson` | Geometrías originales completas, peso y cobertura exacta |
 | `demand_points.geojson` | Puntos interiores usados en LOS |
-| `candidates.geojson` | Todos los candidatos válidos, elevación y selección exacta |
+| `candidates.geojson` | Todos los candidatos válidos, elevación, radio efectivo `radius_m` (clase de potencia; sin clases, `max_distance_m`) y selección exacta |
 | `study_area.geojson` | Área efectiva en WGS84 |
 | `map.png` | Intensidad poblacional, cobertura y antenas de la solución exacta |
 

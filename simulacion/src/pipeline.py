@@ -71,7 +71,16 @@ def asignar_radios(candidates, classes, default_radius_m: float):
     ], audit
 
 
-def write_json(path: Path, value) -> None:
+def write_json(path: Path, value, *, compact: bool = False) -> None:
+    if compact:
+        path.write_text(
+            json.dumps(
+                value, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return
     path.write_text(
         json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
         encoding="utf-8",
@@ -323,11 +332,18 @@ def run(config: PipelineConfig) -> dict:
         crs,
         metric_area,
         output,
+        dem_path,
+        config.hypsometric_palette,
         excluded_candidates,
+        default_radius_m=config.max_distance_m,
     )
     timings["visualization"] = perf_counter() - step
     step = perf_counter()
-    write_json(output / "terrain.json", terrain_payload(dem_path))
+    write_json(
+        output / "terrain.json",
+        terrain_payload(dem_path, config.hypsometric_palette),
+        compact=True,
+    )
     timings["terrain_export"] = perf_counter() - step
     manifest = {
         "created_utc": datetime.now(timezone.utc).isoformat(),
