@@ -63,7 +63,9 @@ export function populationColor(value) {
 export const COVERAGE_STATES = ["covered", "reachable", "unreachable"];
 export const COVERAGE_STATE_COLORS = {
   covered: "#168354",
-  reachable: "#e9ad45",
+  // Naranjo oscuro, el mismo del PNG: el amarillo #e9ad45 es el del disco
+  // de rango ρ(a) y se confundía con él.
+  reachable: "#c9771c",
   unreachable: "#9aa39d",
 };
 

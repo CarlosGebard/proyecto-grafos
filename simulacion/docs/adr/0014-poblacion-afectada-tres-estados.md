@@ -52,7 +52,8 @@ de cobertura no puede usar ese mismo canal sin romperla.
 - `DENSITY_STOPS` y `populationColor` no cambian; la regla de ADR 0009
   (cambiar una exige cambiar la otra) sigue vigente.
 - Los colores de estado del PNG y del visor 3D son los mismos para
-  «cubierta» (`#168354`). El 2D didáctico conserva su lenguaje (acento
+  «cubierta» (`#168354`) y «alcanzable» (`#c9771c`, naranjo oscuro: el
+  amarillo `#e9ad45` se confundía con el disco de rango ρ(a)). El 2D didáctico conserva su lenguaje (acento
   para cubierta), porque allí no hay coropleta con la que se confunda.
 - Metropolitana (re-corrida del 8 de noviembre de 2026): 26.254 hab
   cubiertos (92,65 %, idéntico), 30 alcanzables no cubiertos, 2.053 sin
