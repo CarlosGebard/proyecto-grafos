@@ -53,7 +53,7 @@ h3 { letter-spacing: -.035em; line-height: 1.08; }
 .legend-class { flex: 1; display: grid; gap: 3px; justify-items: center; text-align: center; font-size: .64rem; line-height: 1.1; }
 .legend-class b { font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .legend-swatch { display: block; width: 100%; height: 11px; border: 1px solid rgba(0, 0, 0, .2); border-radius: 2px; }
-.range-legend { display: flex; gap: 14px; min-width: 130px; }.range-legend .legend-class { flex: 0 1 auto; min-width: 56px; }
+.range-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; min-width: 130px; }.range-legend .legend-class { flex: 0 1 auto; min-width: 56px; }
 .range-swatch-fill { background: rgba(233, 173, 69, .38); border-color: rgba(138, 92, 20, .8); }
 .range-swatch-rim { height: 2px; background: rgba(138, 92, 20, .75); border-color: transparent; border-radius: 0; }
 .legend-note { margin: 2px 0 0; line-height: 1.45; }
@@ -116,3 +116,6 @@ h3 { letter-spacing: -.035em; line-height: 1.08; }
 .readout { flex-wrap: wrap; row-gap: 6px; }.readout .readout-detail { margin: 0; color: var(--muted); font-size: .64rem; font-weight: 600; letter-spacing: 0; }
 .state-bar { display: flex; height: 8px; overflow: hidden; border: 1px solid rgba(0, 0, 0, .2); border-radius: 2px; }.state-bar i { display: block; min-width: 2px; }
 @media (prefers-color-scheme: dark) { .demand-node.unreachable { stroke: #8e9a92; }.state-bar { border-color: rgba(255, 255, 255, .25); } }
+/* Antena elegida y enlace LOS en la leyenda 3D: mismo morado de la escena (COLOR_SELECTED / COLOR_LINK). */
+.antenna-swatch-selected { width: 4px; height: 13px; justify-self: center; background: #6b3fa8; border-color: transparent; border-radius: 1px; }
+.link-swatch { height: 2px; background: #6b3fa8; border-color: transparent; border-radius: 0; }
