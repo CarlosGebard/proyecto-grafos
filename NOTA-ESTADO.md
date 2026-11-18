@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Última verificación: 7 de noviembre de 2026.
+Última verificación: 18 de noviembre de 2026.
 
 ## Fase actual
 

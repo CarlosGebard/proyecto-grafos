@@ -1,15 +1,19 @@
+// Visor de cobertura territorial conectada. Flujo: inicio (problema +
+// solución) → mapa de Chile con las localidades de los tres pilotos →
+// simulación 3D de la zona (three.js vendido, sin build ni red: ADR 0008).
+// La enumeración del motor no vive aquí; el visor sólo comunica los
+// artefactos versionados de simulacion/outputs/ (ADR 0003).
+
 import {
   COVERAGE_STATES,
   COVERAGE_STATE_COLORS,
   coverageStatus,
   createTerrainView,
-  rangeRing,
 } from "./terrain-view.js";
+import { ZONES, NACIONAL } from "./zones.js";
+import { createChileMap } from "./map.js";
 
-const svgNs = "http://www.w3.org/2000/svg";
-const network = document.querySelector("#network");
 const terrainStage = document.querySelector("#terrain-3d");
-const terrainReset = document.querySelector("#terrain-reset");
 const terrainOverlay = document.querySelector("#terrain-overlay");
 const elevationGradient = document.querySelector("#elev-gradient");
 const elevationTicks = document.querySelector("#elev-ticks");
@@ -17,61 +21,37 @@ const populationClasses = document.querySelector("#pop-classes");
 const populationStates = document.querySelector("#pop-states");
 const populationStatesBar = document.querySelector("#pop-states-bar");
 const terrainNote = document.querySelector("#terrain-note");
-const prcLayerToggle = document.querySelector("#prc-layer-toggle");
 const constraintToggle = document.querySelector("#constraint-toggle");
 const constraintDrawer = document.querySelector("#constraint-drawer");
 const constraintClose = document.querySelector("#constraint-close");
 const constraintList = document.querySelector("#constraint-list");
-const zoomControls = document.querySelector("#zoom-controls");
 const zoomInButton = document.querySelector("#zoom-in");
 const zoomOutButton = document.querySelector("#zoom-out");
 const algorithmSteps = document.querySelector("#algorithm-steps");
-const mapLegend = document.querySelector(".legend");
 const previousButton = document.querySelector("#previous-button");
 const nextButton = document.querySelector("#next-button");
 const playButton = document.querySelector("#play-button");
+const resetButton = document.querySelector("#reset-button");
 const sceneStatus = document.querySelector("#scene-status");
-const demoTab = document.querySelector("#demo-tab");
-const biobioTab = document.querySelector("#biobio-tab");
-const metroTab = document.querySelector("#metro-tab");
-const yumbelTab = document.querySelector("#yumbel-tab");
+const simName = document.querySelector("#sim-name");
+const viewInicio = document.querySelector("#view-inicio");
+const viewMapa = document.querySelector("#view-mapa");
+const viewSim = document.querySelector("#view-sim");
+const viewFade = document.querySelector("#view-fade");
+const zoneCard = document.querySelector("#zone-card");
+const zoneCta = document.querySelector("#zone-cta");
 const terrainView = createTerrainView(terrainStage);
-
-const demo = {
-  name: "Ejemplo didáctico",
-  k: 3,
-  demands: [
-    { id: "L1", label: "L1", x: 86, y: 110, population: 60 },
-    { id: "L2", label: "L2", x: 215, y: 72, population: 60 },
-    { id: "L3", label: "L3", x: 336, y: 148, population: 70 },
-    { id: "L4", label: "L4", x: 452, y: 74, population: 100 },
-    { id: "L5", label: "L5", x: 555, y: 178, population: 40 },
-    { id: "L6", label: "L6", x: 640, y: 95, population: 80 },
-  ],
-  candidates: [
-    { id: "A", label: "A", x: 126, y: 332 },
-    { id: "B", label: "B", x: 305, y: 294 },
-    { id: "C", label: "C", x: 470, y: 355 },
-    { id: "D", label: "D", x: 593, y: 290 },
-  ],
-  coverage: {
-    A: ["L1", "L2"],
-    B: ["L2", "L3"],
-    C: ["L4", "L5"],
-    D: ["L5", "L6"],
-  },
-  connectivity: { A: ["B"], B: ["A", "D"], C: [], D: ["B"] },
-  connectedSolution: ["A", "B", "D"],
-};
 
 const steps = [
   {
     title: "Localidades y población",
     copy: "Cada círculo es una localidad. Su tamaño muestra cuántas personas se busca cubrir.",
+    terrainCopy: "Las esferas marcan localidades (tamaño ∝ √población) sobre la coropleta de densidad drapeada al relieve.",
   },
   {
     title: "Posiciones candidatas",
     copy: "El criterio territorial propone sitios: anclas en localidades, intersecciones de cobertura y sitios altos del relieve. Todavía no sabemos cuáles conviene elegir.",
+    terrainCopy: "Las torres candidatas aparecen sobre el relieve: anclas en localidades, intersecciones Murray–Tong y sitios altos del DEM.",
   },
   {
     title: "Aristas de cobertura",
@@ -86,18 +66,17 @@ const steps = [
 ];
 
 const state = {
-  scenario: demo,
-  biobio: null,
-  metropolitana: null,
-  yumbel: null,
+  scenario: null,
+  scenarios: new Map(),
+  terrains: new Map(),
   terrain: null,
-  view: "diagram",
+  view: "terrain",
+  activeZone: null,
   // Restricciones PRC visibles por defecto en todas las simulaciones
   // (screening territorial: parte del problema y del motor).
   showPrcConstraints: true,
   step: 0,
   timer: null,
-  elements: { demands: new Map(), candidates: new Map(), coverage: [], links: [] },
   // Carta de restricciones (ADR 0015): hover/focus ilumina la restricción en
   // el mapa; click la fija (útil en pantalla táctil).
   drawerOpen: false,
@@ -106,235 +85,15 @@ const state = {
   highlight: null,
 };
 
-function node(name, attributes = {}) {
-  const element = document.createElementNS(svgNs, name);
-  Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, value));
-  return element;
-}
-
 function number(value) {
   return new Intl.NumberFormat("es-CL").format(Math.round(value));
 }
 
-function addLine(group, className, left, right, source, target) {
-  const line = node("line", { class: className, x1: left.x, y1: left.y, x2: right.x, y2: right.y });
-  group.append(line);
-  return { line, source, target };
-function render() {
-  const isTerrain = state.view === "terrain";
-  renderAlgorithmSection();
-  renderConstraintDrawer();
-  updatePrcLayerToggle();
-  network.hidden = isTerrain;
-  network.style.display = isTerrain ? "none" : "block";
-  terrainStage.hidden = !isTerrain;
-  terrainOverlay.hidden = !isTerrain;
-  terrainReset.hidden = !isTerrain;
-  zoomControls.hidden = !isTerrain;
-  mapLegend.hidden = isTerrain;
-  mapLegend.style.display = isTerrain ? "none" : "flex";
-  if (isTerrain) {
-    try {
-      terrainView.render(state);
-      updateTerrainLegend();
-    } catch (error) {
-      sceneStatus.textContent = error.message;
-    }
-    update();
-    return;
-  }
-  network.replaceChildren();
-  state.elements = {
-    demands: new Map(),
-    candidates: new Map(),
-    coverage: [],
-    links: [],
-    area: null,
-    prcPaths: { excluded: [], unknown: [] },
-    proximityRings: [],
-    rhoRings: [],
-    rejections: { slope: [], nodata: [] },
-    excluded: { prc: [], sensitive: [] },
-  };
-  if (state.scenario.mapGeometry) {
-    const mapGroup = node("g", { "aria-label": "Mapa territorial" });
-    const areaPath = node("path", { class: "study-area", d: state.scenario.mapGeometry.area });
-    mapGroup.append(areaPath);
-    state.elements.area = areaPath;
-    state.scenario.mapGeometry.localities.forEach((path) => mapGroup.append(node("path", { class: "locality-area", d: path })));
-    network.append(mapGroup);
-    renderPrcConstraints();
-    renderProximityRings();
-    renderRhoRings();
-    renderRejections();
-    renderExcludedCandidates();
-  } else {
-    const terrain = node("g", { "aria-hidden": "true" });
-    [[30, 250, 165, 190, 300, 250, 430, 200, 575, 250, 700, 215], [8, 365, 170, 405, 300, 350, 465, 415, 590, 360, 718, 395]].forEach((points) => {
-      terrain.append(node("polyline", { class: "terrain", points: points.join(" ") }));
-    });
-    network.append(terrain);
-  }
-  const coverageGroup = node("g", { "aria-label": "Aristas de cobertura" });
-  Object.entries(state.scenario.coverage).forEach(([candidateId, demandIds]) => {
-    const candidate = candidateById(candidateId);
-    demandIds.forEach((demandId) => {
-      state.elements.coverage.push(addLine(coverageGroup, "coverage-edge", candidate, demandById(demandId), candidateId, demandId));
-    });
-  });
-  network.append(coverageGroup);
-  const linkGroup = node("g", { "aria-label": "Enlaces entre antenas" });
-  const emitted = new Set();
-  Object.entries(state.scenario.connectivity).forEach(([candidateId, neighbors]) => {
-    neighbors.forEach((neighborId) => {
-      const key = [candidateId, neighborId].sort().join("-");
-      if (!emitted.has(key)) {
-        emitted.add(key);
-        state.elements.links.push(addLine(linkGroup, "link-edge", candidateById(candidateId), candidateById(neighborId), candidateId, neighborId));
-      }
-    });
-  });
-  network.append(linkGroup);
-
-  const demandGroup = node("g", { "aria-label": "Localidades" });
-  const showDemandLabels = state.scenario.demands.length <= 10;
-  state.scenario.demands.forEach((demand) => {
-    const radius = state.scenario.mapGeometry
-      ? Math.max(3.5, Math.min(10, 3 + Math.sqrt(demand.population) / 6))
-      : 7 + Math.sqrt(demand.population) / 2;
-    const circle = node("circle", { class: "demand-node", cx: demand.x, cy: demand.y, r: radius });
-    const title = node("title");
-    title.textContent = `${demand.label}: ${number(demand.population)} habitantes`;
-    circle.append(title);
-    demandGroup.append(circle);
-    if (showDemandLabels) {
-      const label = node("text", { class: "demand-label", x: demand.x + 12, y: demand.y - 11 });
-      label.textContent = demand.label;
-      demandGroup.append(label);
-    }
-    state.elements.demands.set(demand.id, circle);
-  });
-  network.append(demandGroup);
-
-  const candidateGroup = node("g", { "aria-label": "Antenas candidatas" });
-  const showCandidateLabels = state.scenario.candidates.length <= 10;
-  state.scenario.candidates.forEach((candidate) => {
-    const circle = node("circle", { class: "candidate-node", cx: candidate.x, cy: candidate.y, r: 12 });
-    const title = node("title");
-    title.textContent = `Antena candidata ${candidate.label}`;
-    circle.append(title);
-    candidateGroup.append(circle);
-    const label = node("text", { class: "node-label", x: candidate.x + 16, y: candidate.y + 5 });
-    label.textContent = candidate.label;
-    if (showCandidateLabels) candidateGroup.append(label);
-    state.elements.candidates.set(candidate.id, { circle, label });
-  });
-  network.append(candidateGroup);
-  update();
 function prcExclusions() {
   return (state.scenario.constraints || []).filter(
     (feature) => feature.properties.constraint_status === "excluded"
   );
-function updatePrcLayerToggle() {
-  const zones = (state.scenario.constraints || []).length;
-  const exclusions = prcExclusions().length;
-  const available = zones > 0;
-  prcLayerToggle.hidden = !available;
-  prcLayerToggle.setAttribute("aria-pressed", String(state.showPrcConstraints));
-  prcLayerToggle.textContent = exclusions > 0
-    ? `Restricciones PRC (${exclusions} exclusiones · ${zones} zonas)`
-    : `Restricciones PRC (${zones} zonas sin clasificación)`;
-function renderPrcConstraints() {
-  const group = node("g", { class: "prc-exclusions", "aria-label": "Restricciones territoriales explícitas del PRC" });
-  (state.scenario.constraints || []).forEach((feature) => {
-    const excluded = feature.properties.constraint_status === "excluded";
-    const path = node("path", { class: excluded ? "prc-exclusion" : "prc-unknown", d: pathForGeometry(feature.geometry, state.scenario.project) });
-    const title = node("title");
-    const zone = feature.properties.prc_zone || feature.properties.prc_name || "zona restringida";
-    title.textContent = excluded
-      ? `Exclusión PRC: ${zone}`
-      : `Zona PRC sin clasificación: ${zone}`;
-    path.append(title);
-    group.append(path);
-    state.elements.prcPaths[excluded ? "excluded" : "unknown"].push(path);
-  });
-  network.append(group);
-// Capas de la carta de restricciones (ADR 0015): ocultas por defecto; el
-// hover/focus en una fila de la carta las ilumina (clase .hl). Punteros
-// desactivados: no interceptan el mapa.
-function renderProximityRings() {
-  const separationM = state.scenario.stats?.candidateSeparationM;
-  if (!separationM) return;
-  const group = node("g", { class: "proximity-layer", "aria-hidden": "true" });
-  state.scenario.candidates.forEach((candidate) => {
-    const ring = rangeRing(candidate.longitude, candidate.latitude, separationM, 64);
-    const path = node("path", { class: "proximity-ring", d: pathForGeometry({ type: "Polygon", coordinates: [ring] }, state.scenario.project) });
-    group.append(path);
-    state.elements.proximityRings.push(path);
-  });
-  network.append(group);
-function renderRhoRings() {
-  const radii = state.scenario.candidates.filter((candidate) => candidate.radiusM);
-  if (!radii.length) return;
-  const group = node("g", { class: "rho-layer", "aria-hidden": "true" });
-  radii.forEach((candidate) => {
-    const ring = rangeRing(candidate.longitude, candidate.latitude, candidate.radiusM, 96);
-    const path = node("path", { class: "rho-ring", d: pathForGeometry({ type: "Polygon", coordinates: [ring] }, state.scenario.project) });
-    group.append(path);
-    state.elements.rhoRings.push(path);
-  });
-  network.append(group);
 }
-
-function renderRejections() {
-  const features = state.scenario.rejections || [];
-  if (!features.length) return;
-  const group = node("g", { class: "rejections-layer", "aria-hidden": "true" });
-  features.forEach((feature) => {
-    const reason = feature.properties?.reason;
-    if (reason !== "slope" && reason !== "nodata") return;
-    const [longitude, latitude] = feature.geometry.coordinates;
-    const point = state.scenario.project([longitude, latitude]);
-    const dot = node("circle", { class: `rejection rejection-${reason}`, cx: point.x, cy: point.y, r: 2 });
-    const title = node("title");
-    title.textContent =
-      reason === "slope"
-        ? `Descartado: pendiente ${feature.properties.slope_deg?.toFixed(1)}° > ${state.scenario.stats?.maxSlopeDeg ?? "θ_max"}°`
-        : "Descartado: DEM sin datos (NoData)";
-    dot.append(title);
-    group.append(dot);
-    state.elements.rejections[reason].push(dot);
-  });
-  network.append(group);
-}
-
-function renderExcludedCandidates() {
-  const features = state.scenario.excludedCandidates || [];
-  if (!features.length) return;
-  const group = node("g", { class: "excluded-layer", "aria-hidden": "true" });
-  features.forEach((feature) => {
-    const rule = feature.properties?.constraint_rule;
-    if (rule !== "prc_hard_exclusion" && rule !== "sensitive_site_distance") return;
-    const [longitude, latitude] = feature.geometry.coordinates;
-    const point = state.scenario.project([longitude, latitude]);
-    const key = rule === "prc_hard_exclusion" ? "prc" : "sensitive";
-    const mark = node("circle", { class: `excluded-candidate excluded-${key}`, cx: point.x, cy: point.y, r: 5 });
-    const title = node("title");
-    title.textContent =
-      rule === "prc_hard_exclusion"
-        ? `Candidato excluido por PRC (${feature.properties.constraint_status === "excluded" ? "exclusión dura" : "modo estricto"})`
-        : "Candidato excluido: establecimiento sensible (OGUC 116 bis E)";
-    mark.append(title);
-    group.append(mark);
-    state.elements.excluded[key].push(mark);
-  });
-  network.append(group);
-}
-
-// ── Carta de restricciones aplicadas (ADR 0015) ──────────────────────────
-// Una fila por restricción real de la simulación cargada: parámetros vivos
-// del manifiesto, conteos del audit y la equivalencia matemática que aplica
-// el motor. Hover/focus ilumina su representación en el mapa.
 
 function constraintRows(scenario) {
   const rows = [];
@@ -663,37 +422,9 @@ function refreshHighlight() {
   if (state.view === "terrain") terrainView.update(state);
   else update();
 }
-
-// Iluminación en el mapa SVG: cada restricción tiene una capa con clase .hl
-// activa sólo mientras su fila está en hover/focus/fijada. Defensivo: puede
-// correr antes del primer render() (vía renderAlgorithmSection → update).
-function applyHighlightSvg() {
-  const highlight = state.highlight;
-  const elements = state.elements;
-  elements.area?.classList.toggle("hl", highlight === "area");
-  const prcPaths = elements.prcPaths || { excluded: [], unknown: [] };
-  const proximityRings = elements.proximityRings || [];
-  const rhoRings = elements.rhoRings || [];
-  const rejections = elements.rejections || { slope: [], nodata: [] };
-  const excluded = elements.excluded || { prc: [], sensitive: [] };
-  const prcOn = state.showPrcConstraints;
-  const showExcluded = prcOn && (!highlight || highlight === "prc-exclusion");
-  const showUnknown = prcOn && (!highlight || highlight === "prc-unknown");
-  prcPaths.excluded.forEach((path) => {
-    path.classList.toggle("off", !showExcluded);
-    path.classList.toggle("hl", highlight === "prc-exclusion");
-  });
-  prcPaths.unknown.forEach((path) => {
-    path.classList.toggle("off", !showUnknown);
-    path.classList.toggle("hl", highlight === "prc-unknown");
-  });
-  proximityRings.forEach((path) => path.classList.toggle("hl", highlight === "proximity"));
-  rhoRings.forEach((path) => path.classList.toggle("hl", highlight === "ranges"));
-  rejections.slope.forEach((dot) => dot.classList.toggle("hl", highlight === "slope"));
-  rejections.nodata.forEach((dot) => dot.classList.toggle("hl", highlight === "nodata"));
-  excluded.prc.forEach((mark) => mark.classList.toggle("hl", highlight === "prc-exclusion"));
-  excluded.sensitive.forEach((mark) => mark.classList.toggle("hl", highlight === "sensitive"));
-}
+// ── Recorrido de pasos y lectura del estado ──────────────────────────────
+// La vista es siempre la escena 3D (los tres pilotos tienen terrain.json);
+// update() refresca el overlay de lectura y sincroniza la sección inferior.
 
 function update() {
   const showCandidates = state.step >= 1;
@@ -708,38 +439,7 @@ function update() {
     highlight === "solution" ||
     highlight === "threshold" ||
     highlight === "links";
-  const selected = solutionActive ? new Set(state.scenario.connectedSolution) : new Set();
-  const covered = solutionActive ? coveredBy(state.scenario.connectedSolution) : new Set();
-  const reachable =
-    showCoverage || highlight === "coverage"
-      ? new Set(Object.values(state.scenario.coverage).flat())
-      : new Set();
 
-  state.elements.candidates.forEach(({ circle, label }, id) => {
-    // En la solución sólo quedan las antenas elegidas; las candidatas
-    // descartadas se remueven (misma regla que la escena 3D).
-    const visible =
-      (showCandidates || highlight === "cap" || highlight === "coverage" || highlight === "ranges") &&
-      (!solutionActive || selected.has(id));
-    circle.classList.toggle("show", visible);
-    label.classList.toggle("show", visible);
-    circle.classList.toggle("selected", selected.has(id));
-  });
-  state.elements.coverage.forEach(({ line }) => {
-    line.classList.toggle("show", highlight === "coverage");
-  });
-  state.elements.links.forEach(({ line, source, target }) => {
-    line.classList.toggle("show", solutionActive);
-    line.classList.toggle("selected", solutionActive && selected.has(source) && selected.has(target));
-  });
-  state.elements.demands.forEach((circle, id) => {
-    circle.classList.toggle("covered", covered.has(id));
-    circle.classList.toggle("reachable", !covered.has(id) && reachable.has(id));
-    // Sin alcance sólo se distingue en la solución: antes de ella no hay
-    // nada que afirmar sobre la población no cubierta (ADR 0014).
-    circle.classList.toggle("unreachable", showSolution && !reachable.has(id));
-  });
-  applyHighlightSvg();
   const totals = populationByState();
   document.querySelector("#uncovered-value").textContent = showSolution
     ? number(totals.reachable + totals.unreachable)
@@ -750,21 +450,26 @@ function update() {
 
   const step = steps[state.step];
   document.querySelector("#step-index").textContent = `${state.step + 1} de ${steps.length}`;
-  const noConnectivity = state.scenario.mapGeometry && !state.scenario.hasConnectivity && state.step >= 3;
+  const noConnectivity = !state.scenario.hasConnectivity && state.step >= 3;
   document.querySelector("#step-title").textContent = noConnectivity ? "Cobertura del piloto" : step.title;
   document.querySelector("#step-copy").textContent = noConnectivity
     ? "Este resultado existente muestra cobertura. Regenera el piloto con el pipeline actualizado para añadir enlaces entre antenas."
-    : state.view === "terrain" && step.terrainCopy
-      ? step.terrainCopy
-      : step.copy;
-  document.querySelector("#covered-value").textContent = showSolution ? number(population(covered)) : "0";
-  document.querySelector("#selected-value").textContent = showSolution ? `${selected.size} de ${state.scenario.k}` : `0 de ${state.scenario.k}`;
+    : step.terrainCopy || step.copy;
+  const selectedCount = state.scenario.connectedSolution.length;
+  document.querySelector("#covered-value").textContent = showSolution
+    ? number(state.scenario.stats?.populationCovered ?? 0)
+    : "0";
+  document.querySelector("#selected-value").textContent = showSolution
+    ? `${selectedCount} de ${state.scenario.k}`
+    : `0 de ${state.scenario.k}`;
   document.querySelector("#connected-value").textContent = noConnectivity
     ? "No calculado"
     : showSolution ? "Sí" : state.step >= 3 ? "Por verificar" : "Aún no aplica";
   previousButton.disabled = state.step === 0;
   nextButton.disabled = state.step === steps.length - 1;
-  playButton.textContent = state.timer ? "Pausar" : state.step === steps.length - 1 ? "Ver de nuevo" : "Reproducir";
+  playButton.textContent = state.timer
+    ? "Pausar"
+    : state.step === steps.length - 1 ? "Ver de nuevo" : "Iniciar simulación";
   document.querySelectorAll("#algorithm-steps .algorithm-card, #algorithm-model .model-row").forEach((card) => {
     card.classList.toggle("active", Number(card.dataset.step) === state.step);
   });
@@ -788,7 +493,7 @@ function stop() {
 function setStep(step) {
   state.step = Math.max(0, Math.min(steps.length - 1, step));
   update();
-  if (state.view === "terrain") terrainView.update(state);
+  terrainView.update(state);
 }
 
 function play() {
@@ -813,27 +518,17 @@ function play() {
   update();
 }
 
-function setActiveTab(tab) {
-  const tabs = { demo: demoTab, biobio: biobioTab, metro: metroTab, yumbel: yumbelTab };
-  Object.entries(tabs).forEach(([name, button]) => {
-    const active = name === tab;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-selected", String(active));
-  });
-  // La carta de restricciones es por escenario: al cambiar de simulación se
-  // limpia cualquier iluminación fijada (los filtros aplicados cambian).
-  state.highlightPinned = null;
-  state.hoverHighlight = null;
-  state.highlight = null;
+// Reinicio completo de la visualización: paso inicial y cámara al encuadre
+// original (el botón «Reiniciar» de los controles superiores).
+function resetSimulation() {
+  stop();
+  setStep(0);
+  terrainView.reset();
 }
 
-function pathForGeometry(geometry, project) {
-  const rings = geometry.type === "Polygon" ? geometry.coordinates : geometry.coordinates.flat();
-  return rings.map((ring) => ring.map((coordinate, index) => {
-    const point = project(coordinate);
-    return `${index ? "L" : "M"}${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
-  }).join(" ") + " Z").join(" ");
-}
+// ── Carga de escenarios (corridas versionadas de outputs/, ADR 0003) ─────
+// Nunca se recalcula LOS en el visor: todo lo que se muestra sale de los
+// artefactos exportados por el pipeline.
 
 async function loadOutput(directory, name) {
   try {
@@ -891,9 +586,6 @@ async function loadOutput(directory, name) {
       const response = await fetch(`../outputs/${directory}/excluded_candidates.geojson`, { cache: "no-cache" });
       if (response.ok) excludedCandidates = (await response.json()).features;
     } catch (_) { /* Sin exclusiones PRC/sensibles no hay archivo. */ }
-    const coordinates = demandPoints.features.map((feature) => feature.geometry.coordinates);
-    const bounds = coordinates.reduce((value, [x, y]) => [Math.min(value[0], x), Math.min(value[1], y), Math.max(value[2], x), Math.max(value[3], y)], [Infinity, Infinity, -Infinity, -Infinity]);
-    const project = ([x, y]) => ({ x: 42 + ((x - bounds[0]) / (bounds[2] - bounds[0])) * 636, y: 45 + ((bounds[3] - y) / (bounds[3] - bounds[1])) * 365 });
     const connectedResult = metrics.results.find((result) => result.algorithm === "exact_connected");
     const greedyResult = metrics.results.find((result) => result.algorithm === "greedy_connected");
     const coverageValues = Object.values(graph.coverage).flat();
@@ -970,16 +662,14 @@ async function loadOutput(directory, name) {
           : null,
         sensitiveConfigured: Boolean(manifestConfig?.sensitive_directory),
       },
-      demands: demandPoints.features.map((feature) => ({ id: feature.properties.id, label: feature.properties.id, population: feature.properties.population, longitude: feature.geometry.coordinates[0], latitude: feature.geometry.coordinates[1], ...project(feature.geometry.coordinates) })),
+      demands: demandPoints.features.map((feature) => ({ id: feature.properties.id, label: feature.properties.id, population: feature.properties.population, longitude: feature.geometry.coordinates[0], latitude: feature.geometry.coordinates[1] })),
       // Sólo candidatos vigentes: los excluidos por PRC/sensibles viven en
       // excluded_candidates.geojson y se dibujan como cruces de la carta.
-      candidates: candidates.features.filter((feature) => feature.properties.constraint_status !== "excluded").map((feature) => ({ id: feature.properties.id, label: feature.properties.id, longitude: feature.geometry.coordinates[0], latitude: feature.geometry.coordinates[1], radiusM: feature.properties.radius_m ?? null, constraintStatus: feature.properties.constraint_status, ...project(feature.geometry.coordinates) })),
+      candidates: candidates.features.filter((feature) => feature.properties.constraint_status !== "excluded").map((feature) => ({ id: feature.properties.id, label: feature.properties.id, longitude: feature.geometry.coordinates[0], latitude: feature.geometry.coordinates[1], radiusM: feature.properties.radius_m ?? null, constraintStatus: feature.properties.constraint_status })),
       coverage: graph.coverage,
       connectivity: Object.fromEntries(candidates.features.map((feature) => [feature.properties.id, connectivity?.[feature.properties.id] || []])),
       connectedSolution: (connectedResult || metrics.results[0]).selected,
       hasConnectivity: Boolean(connectivity && connectedResult),
-      mapGeometry: { area: pathForGeometry(area.features[0].geometry, project), localities: demand.features.map((feature) => pathForGeometry(feature.geometry, project)) },
-      project,
       localityPolygons: demand.features.map((feature) => ({ id: feature.properties.id, population: feature.properties.population, geometry: feature.geometry })),
       roads,
       constraints,
@@ -992,21 +682,6 @@ async function loadOutput(directory, name) {
   }
 }
 
-async function loadBiobio() {
-  if (!state.biobio) state.biobio = await loadOutput("biobio", "Piloto Biobío (criterio)");
-  return Boolean(state.biobio);
-}
-
-async function loadMetropolitana() {
-  if (!state.metropolitana) state.metropolitana = await loadOutput("metropolitana", "Piloto Metropolitana (criterio)");
-  return Boolean(state.metropolitana);
-}
-
-async function loadYumbel() {
-  if (!state.yumbel) state.yumbel = await loadOutput("yumbel-criterio", "Yumbel 50 km · PRC + clases (criterio)");
-  return Boolean(state.yumbel);
-}
-
 async function loadTerrain(directory) {
   try {
     const response = await fetch(`../outputs/${directory}/terrain.json`, { cache: "no-cache" });
@@ -1017,79 +692,45 @@ async function loadTerrain(directory) {
   }
 }
 
-async function showBiobio() {
+// Carga (con caché) y muestra la simulación de una zona del mapa.
+async function showZone(zone) {
   stop();
-  sceneStatus.textContent = "Cargando piloto Biobío";
-  if (!(await loadBiobio())) {
-    sceneStatus.textContent = "Piloto Biobío no disponible";
-    return;
+  state.activeZone = zone;
+  // La carta de restricciones es por escenario: al cambiar de simulación se
+  // limpia cualquier iluminación fijada (los filtros aplicados cambian).
+  state.highlightPinned = null;
+  state.hoverHighlight = null;
+  state.highlight = null;
+  if (!state.scenarios.has(zone.id)) state.scenarios.set(zone.id, await loadOutput(zone.directory, zone.name));
+  const scenario = state.scenarios.get(zone.id);
+  sceneStatus.textContent = scenario ? scenario.name : `${zone.name} no disponible`;
+  if (!scenario) {
+    simName.textContent = zone.name;
+    playButton.disabled = true;
+    return false;
   }
-  state.terrain = await loadTerrain("biobio");
-  state.scenario = state.biobio;
+  if (!state.terrains.has(zone.id)) state.terrains.set(zone.id, await loadTerrain(zone.directory));
+  const terrain = state.terrains.get(zone.id);
+  state.scenario = scenario;
+  state.terrain = terrain;
   state.step = 0;
-  if (state.terrain) {
+  playButton.disabled = false;
+  simName.textContent = zone.name;
   // La carta de restricciones (ADR 0015) se reconstruye por escenario: sus
   // filas y capas son de la corrida cargada.
   renderConstraintDrawer();
+  if (terrain) {
     state.view = "terrain";
-    sceneStatus.textContent = state.scenario.name;
+    sceneStatus.textContent = `${zone.subtitle} · arrastra para rotar`;
   } else {
-    state.view = "map";
-    sceneStatus.textContent = `${state.scenario.name} · sin terrain.json (regenera el piloto)`;
-  }
-  setActiveTab("biobio");
-  render();
-}
-
-async function showMetropolitana() {
-  stop();
-  sceneStatus.textContent = "Cargando piloto Metropolitana";
-  if (!(await loadMetropolitana())) {
-    sceneStatus.textContent = "Piloto Metropolitana no disponible";
-    return;
-  }
-  state.terrain = await loadTerrain("metropolitana");
-  state.scenario = state.metropolitana;
-  state.step = 0;
-  if (state.terrain) {
     state.view = "terrain";
-    sceneStatus.textContent = state.scenario.name;
-  } else {
-    state.view = "map";
-    sceneStatus.textContent = `${state.scenario.name} · sin terrain.json (regenera el piloto)`;
+    sceneStatus.textContent = "Sin terrain.json: regenera el piloto con el pipeline actual";
   }
-  setActiveTab("metro");
-  render();
-}
-
-function showDemo() {
-  stop();
-  state.scenario = demo;
-  state.view = "diagram";
-  state.step = 0;
-  sceneStatus.textContent = demo.name;
-  setActiveTab("demo");
-  render();
-}
-
-async function showYumbel() {
-  stop();
-  sceneStatus.textContent = "Cargando Yumbel 50 km";
-  if (!(await loadYumbel())) {
-    sceneStatus.textContent = "Simulación Yumbel no disponible";
-    return;
-  }
-  state.terrain = await loadTerrain("yumbel-criterio");
-  if (!state.terrain) {
-    sceneStatus.textContent = "Falta relieve Yumbel";
-    return;
-  }
-  state.scenario = state.yumbel;
-  state.view = "terrain";
-  state.step = 0;
-  sceneStatus.textContent = "Yumbel 50 km · PRC + clases de potencia · arrastra para rotar";
-  setActiveTab("yumbel");
-  render();
+  renderAlgorithmSection();
+  if (terrain) terrainView.render(state);
+  updateTerrainLegend();
+  update();
+  return true;
 }
 
 function updateTerrainLegend() {
@@ -1136,16 +777,14 @@ function updateTerrainLegend() {
         .join("")
     : "";
   const [left, bottom, right, top] = terrain.bounds_metric_m || [0, 0, 0, 0];
-  const km = (value) => new Intl.NumberFormat("es-CL", { maximumFractionDigits: 1 }).format(value / 1000);
-  const notes = [`Este: 0-${km(right - left)} km · Norte: 0-${km(top - bottom)} km · Relieve ×2,5 (misma exageración del hillshade) · Torre 30 m a escala`];
+  const kmSpan = (value) => new Intl.NumberFormat("es-CL", { maximumFractionDigits: 1 }).format(value / 1000);
+  const notes = [`Este: 0-${kmSpan(right - left)} km · Norte: 0-${kmSpan(top - bottom)} km · Relieve ×2,5 (misma exageración del hillshade) · Torre 30 m a escala`];
   if (state.scenario.roads?.length) notes.push("© OpenStreetMap contributors");
   const exclusions = prcExclusions();
   if (exclusions.length) notes.push(`PRC: ${exclusions.length} exclusiones (screening, no permiso)`);
   terrainNote.textContent = notes.join(" · ");
 }
 
-// Sección "Cómo se aplicó el algoritmo": cuatro fases con los números reales
-// del escenario cargado; cada tarjeta sincroniza el mapa con su fase.
 const algorithmCards = [
   {
     step: 1,
@@ -1268,29 +907,144 @@ function renderAlgorithmSection() {
   });
   update();
 }
+// ── Navegación entre vistas: inicio → mapa → simulación ──────────────────
+
+function showView(view) {
+  [viewInicio, viewMapa, viewSim].forEach((section) => {
+    section.hidden = section !== view;
+  });
+  window.scrollTo(0, 0);
+}
+
+async function openSimulation(zone) {
+  // Transición: fade, cambio de vista, fade-out; la zona ya quedó cargando.
+  viewFade.hidden = false;
+  viewFade.classList.add("on");
+  const loaded = await showZone(zone);
+  showView(viewSim);
+  await new Promise((resolve) => setTimeout(resolve, 380));
+  viewFade.classList.remove("on");
+  setTimeout(() => { viewFade.hidden = true; }, 420);
+  if (loaded) setDrawer(false);
+  return loaded;
+}
+
+// ── Mapa de Chile + carta de impacto social ──────────────────────────────
+
+const map = createChileMap(document.querySelector("#chile-map"), document.querySelector("#zone-markers"), {
+  onZoneClick(zone) {
+    fillZoneCard(zone);
+    zoneCard.classList.add("open");
+    zoneCard.setAttribute("aria-hidden", "false");
+    document.querySelector("#chile-map").classList.add("card-open");
+  },
+});
+
+function fillZoneCard(zone) {
+  state.activeZone = zone;
+  document.querySelector("#zone-kicker").textContent = zone.kicker;
+  document.querySelector("#zone-title").textContent = zone.name;
+  document.querySelector("#zone-subtitle").textContent = zone.subtitle;
+  document.querySelector("#zone-lead").textContent = zone.lead;
+  const sections = document.querySelector("#zone-sections");
+  sections.replaceChildren(
+    ...zone.sections.map((section) => {
+      const article = document.createElement("article");
+      article.className = "zone-section";
+      const h4 = document.createElement("h4");
+      h4.textContent = section.title;
+      article.append(h4, ...section.paragraphs.map((text) => {
+        const p = document.createElement("p");
+        p.textContent = text;
+        return p;
+      }));
+      return article;
+    }),
+  );
+  // Chips con los números reales de la corrida versionada (metrics.json):
+  // la carta nunca inventa cifras de la simulación.
+  const chips = document.querySelector("#zone-chips");
+  chips.hidden = true;
+  fetch(`../outputs/${zone.directory}/metrics.json`, { cache: "no-cache" })
+    .then((response) => (response.ok ? response.json() : null))
+    .then((metrics) => {
+      if (!metrics) return;
+      const exact = metrics.results.find((result) => result.algorithm === "exact_connected") || metrics.results[0];
+      const percent = new Intl.NumberFormat("es-CL", { style: "percent", maximumFractionDigits: 1 });
+      const share = exact.population_total ? percent.format(exact.population_covered / exact.population_total) : "—";
+      chips.innerHTML = [
+        `${number(exact.population_covered)} de ${number(exact.population_total)} hab cubiertos (${share})`,
+        `${number(exact.num_demand_nodes ?? metrics.results[0].num_demand_nodes)} localidades`,
+        `k = ${exact.k} antenas conectadas`,
+        `${number(exact.evaluations)} evaluaciones`,
+      ]
+        .map((chip) => `<span class="zone-chip">${chip}</span>`)
+        .join("");
+      chips.hidden = false;
+    })
+    .catch(() => { /* Sin métricas la carta queda sin chips. */ });
+  const sources = document.querySelector("#zone-sources");
+  sources.innerHTML = `<p class="zone-sources-title">Fuentes</p>` + zone.sources
+    .map((source) => `<a href="${source.url}" target="_blank" rel="noopener">${source.text}</a>`)
+    .map((link) => `<span class="zone-source">${link}</span>`)
+    .join("");
+}
+
+function closeZoneCard() {
+  zoneCard.classList.remove("open");
+  zoneCard.setAttribute("aria-hidden", "true");
+  document.querySelector("#chile-map").classList.remove("card-open");
+}
+
+zoneCard.querySelector(".zone-card-close").addEventListener("click", closeZoneCard);
+
+zoneCta.addEventListener("click", async () => {
+  const zone = state.activeZone;
+  if (!zone) return;
+  closeZoneCard();
+  // Zoom animado al territorio: la carta se va, el mapa vuela a la zona y
+  // la transición entrega la simulación 3D.
+  await map.focusZone(zone, 1500);
+  await openSimulation(zone);
+  map.resetView(0);
+});
+
+async function backToMap() {
+  stop();
+  setDrawer(false);
+  showView(viewMapa);
+  map.refresh();
+  await map.resetView(1100);
+}
+
+document.querySelector("#btn-entrar").addEventListener("click", () => {
+  showView(viewMapa);
+  map.refresh();
+});
+document.querySelector("#btn-entrar-2").addEventListener("click", () => {
+  showView(viewMapa);
+  map.refresh();
+});
+document.querySelector("#btn-volver-inicio").addEventListener("click", () => showView(viewInicio));
+document.querySelector("#btn-volver-mapa").addEventListener("click", backToMap);
+
+// ── Controles de la simulación (cluster superior izquierdo) ──────────────
 
 previousButton.addEventListener("click", () => { stop(); setStep(state.step - 1); });
 nextButton.addEventListener("click", () => { stop(); setStep(state.step + 1); });
 playButton.addEventListener("click", play);
-demoTab.addEventListener("click", showDemo);
-biobioTab.addEventListener("click", showBiobio);
-metroTab.addEventListener("click", showMetropolitana);
-yumbelTab.addEventListener("click", showYumbel);
-terrainReset.addEventListener("click", () => terrainView.reset());
+resetButton.addEventListener("click", resetSimulation);
 zoomInButton.addEventListener("click", () => terrainView.zoomIn());
 zoomOutButton.addEventListener("click", () => terrainView.zoomOut());
-prcLayerToggle.addEventListener("click", () => {
-  state.showPrcConstraints = !state.showPrcConstraints;
-  updatePrcLayerToggle();
-  if (state.view === "terrain") terrainView.update(state);
-  else render();
-});
 constraintToggle.addEventListener("click", () => {
   setDrawer(!state.drawerOpen);
 });
 constraintClose.addEventListener("click", () => setDrawer(false));
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && state.drawerOpen) setDrawer(false);
+  if (event.key === "Escape") {
+    if (state.drawerOpen) setDrawer(false);
+    else if (zoneCard.classList.contains("open")) closeZoneCard();
+  }
 });
 
 function setDrawer(open) {
@@ -1298,4 +1052,67 @@ function setDrawer(open) {
   constraintDrawer.classList.toggle("open", open);
   constraintToggle.setAttribute("aria-expanded", String(open));
 }
-showYumbel();
+
+// ── Landing: cifras nacionales verificadas + resultados vivos ────────────
+
+function fillLanding() {
+  const factGrid = document.querySelector("#fact-grid");
+  factGrid.replaceChildren(
+    ...[
+      { value: "196.156", label: "hogares chilenos siguen sin acceso propio a internet (3,4 % del país)" },
+      { value: "95,1 % vs 96,8 %", label: "acceso pagado rural vs urbano en 2025; la brecha era de ~30 puntos en 2008" },
+      { value: "4,9 %", label: "de las conexiones fijas de internet está en zonas rurales — el resto del acceso rural depende del celular" },
+      { value: "> 12 m", label: "toda torre sobre esa altura exige recepción municipal (LGUC 116 bis F): dónde colocarla es una decisión de un solo intento" },
+    ].map((fact) => {
+      const div = document.createElement("div");
+      div.className = "fact";
+      div.innerHTML = `<strong>${fact.value}</strong><span>${fact.label}</span>`;
+      return div;
+    }),
+  );
+  const sources = document.querySelector("#nacional-sources");
+  sources.innerHTML = NACIONAL.fuentes
+    .map((source) => `<li><a href="${source.url}" target="_blank" rel="noopener">${source.text}</a></li>`)
+    .join("");
+
+  // Números vivos de las corridas versionadas: 827 localidades y la
+  // cobertura exacta de cada piloto, tal como los muestra el visor.
+  const heroStats = document.querySelector("#hero-stats");
+  Promise.all(
+    ZONES.map((zone) =>
+      fetch(`../outputs/${zone.directory}/metrics.json`, { cache: "no-cache" })
+        .then((response) => (response.ok ? response.json() : null))
+        .catch(() => null),
+    ),
+  ).then((metricsList) => {
+    const results = metricsList.filter(Boolean).map((metrics, index) => {
+      const exact = metrics.results.find((result) => result.algorithm === "exact_connected") || metrics.results[0];
+      return { zone: ZONES[index], exact };
+    });
+    if (!results.length) return;
+    const percent = new Intl.NumberFormat("es-CL", { style: "percent", maximumFractionDigits: 1 });
+    const localities = results.reduce((sum, r) => sum + (r.exact.num_demand_nodes ?? 0), 0);
+    const hab = results.reduce((sum, r) => sum + (r.exact.population_total ?? 0), 0);
+    const covered = results.reduce((sum, r) => sum + (r.exact.population_covered ?? 0), 0);
+    heroStats.innerHTML = [
+      `<div class="hero-stat"><b>${number(localities)}</b><span>localidades simuladas</span></div>`,
+      `<div class="hero-stat"><b>${number(hab)}</b><span>habitantes analizados</span></div>`,
+      `<div class="hero-stat"><b>${number(covered)}</b><span>habitantes cubiertos con k = 5 antenas conectadas</span></div>`,
+    ].join("") + results
+      .map((r) => `<div class="hero-stat zone"><b>${percent.format(r.exact.population_covered / r.exact.population_total)}</b><span>${r.zone.name.split("·")[0].trim()}</span></div>`)
+      .join("");
+    heroStats.hidden = false;
+  });
+}
+
+// ── Arranque ──────────────────────────────────────────────────────────────
+
+fillLanding();
+map.load().then(() => {
+  // Precarga silenciosa de los tres pilotos: al elegir una zona la
+  // simulación ya está lista.
+  ZONES.forEach(async (zone) => {
+    if (!state.scenarios.has(zone.id)) state.scenarios.set(zone.id, await loadOutput(zone.directory, zone.name));
+    if (!state.terrains.has(zone.id)) state.terrains.set(zone.id, await loadTerrain(zone.directory));
+  });
+});
