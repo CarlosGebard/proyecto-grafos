@@ -235,8 +235,6 @@ function prcExclusions() {
   return (state.scenario.constraints || []).filter(
     (feature) => feature.properties.constraint_status === "excluded"
   );
-}
-
 function updatePrcLayerToggle() {
   const zones = (state.scenario.constraints || []).length;
   const exclusions = prcExclusions().length;
@@ -246,8 +244,6 @@ function updatePrcLayerToggle() {
   prcLayerToggle.textContent = exclusions > 0
     ? `Restricciones PRC (${exclusions} exclusiones · ${zones} zonas)`
     : `Restricciones PRC (${zones} zonas sin clasificación)`;
-}
-
 function renderPrcConstraints() {
   const group = node("g", { class: "prc-exclusions", "aria-label": "Restricciones territoriales explícitas del PRC" });
   (state.scenario.constraints || []).forEach((feature) => {
@@ -263,8 +259,6 @@ function renderPrcConstraints() {
     state.elements.prcPaths[excluded ? "excluded" : "unknown"].push(path);
   });
   network.append(group);
-}
-
 // Capas de la carta de restricciones (ADR 0015): ocultas por defecto; el
 // hover/focus en una fila de la carta las ilumina (clase .hl). Punteros
 // desactivados: no interceptan el mapa.
@@ -279,8 +273,6 @@ function renderProximityRings() {
     state.elements.proximityRings.push(path);
   });
   network.append(group);
-}
-
 function renderRhoRings() {
   const radii = state.scenario.candidates.filter((candidate) => candidate.radiusM);
   if (!radii.length) return;
