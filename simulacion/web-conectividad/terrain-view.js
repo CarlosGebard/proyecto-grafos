@@ -8,6 +8,7 @@
 
 import * as THREE from "three";
 import { OrbitControls } from "./vendor/OrbitControls.js";
+import { assembleTiles, zoomForWindow, ATTRIBUTION } from "./osm-tiles.js";
 
 const NODATA_COLOR = 0xd8d8d8;
 const COLOR_LOCALITY = 0x39463e;
@@ -87,6 +88,40 @@ export function coverageStatus(scenario, solution) {
 
 function clamp(value, minimum, maximum) {
   return Math.max(minimum, Math.min(maximum, value));
+}
+
+// Lee un token de color del visor (--night, etc.) y lo convierte a sRGB:
+// el CSS usa oklch y ni three.js ni el canvas lo devuelven en hex. Conversión
+// OKLCH → sRGB estándar (Björn Ottosson), con recorte por canal.
+function cssTokenColor(variable) {
+  const match = getComputedStyle(document.documentElement)
+    .getPropertyValue(variable)
+    .trim()
+    .match(/oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)/);
+  const fallback = "#000000";
+  if (!match) return fallback;
+  const lightness = Number(match[1]);
+  const chroma = Number(match[2]);
+  const hue = (Number(match[3]) * Math.PI) / 180;
+  const a = chroma * Math.cos(hue);
+  const b = chroma * Math.sin(hue);
+  const l_ = lightness + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = lightness - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = lightness - 0.0894841775 * a - 1.291485548 * b;
+  const l = l_ ** 3;
+  const m = m_ ** 3;
+  const s = s_ ** 3;
+  const linear = [
+    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
+  ];
+  const toSrgb = (u) => {
+    const v = Math.min(1, Math.max(0, u));
+    return v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055;
+  };
+  const [r, g, blue] = linear.map(toSrgb).map((u) => Math.round(u * 255));
+  return `#${[r, g, blue].map((u) => u.toString(16).padStart(2, "0")).join("")}`;
 }
 
 // Área geodésica de un anillo WGS84 (exceso esférico; fórmula estándar tipo Turf.js).
@@ -289,7 +324,9 @@ export function createTerrainView(container) {
   container.append(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color("#dce6df");
+  // Fondo de noche blueprint: se lee del mismo token del visor (--night),
+  // normalizado a hex vía canvas (three no parsea oklch directamente).
+  scene.background = new THREE.Color(cssTokenColor("--night"));
 
   const camera = new THREE.PerspectiveCamera(
     50,
@@ -315,6 +352,8 @@ export function createTerrainView(container) {
 
   let layers = null;
   let frame = null;
+  // Distancia cámara→objetivo del encuadre original (base del zoom relativo).
+  let baselineDistance = 0;
 
   function resetCamera() {
     const radius = 3.1;
@@ -327,6 +366,14 @@ export function createTerrainView(container) {
     );
     controls.target.set(0, 0.05, 0);
     controls.update();
+    baselineDistance = camera.position.distanceTo(controls.target);
+  }
+
+  // Zoom relativo para la lectura «×n.n» del panel de controles: 1 es el
+  // encuadre original; refleja también la rueda de OrbitControls.
+  function zoomLevel() {
+    if (!baselineDistance) return 1;
+    return baselineDistance / camera.position.distanceTo(controls.target);
   }
 
   function disposeObject(object) {
@@ -343,6 +390,7 @@ export function createTerrainView(container) {
     const count = width * height;
     const positions = new Float32Array(count * 3);
     const colors = new Float32Array(count * 3);
+    const uvs = new Float32Array(count * 2);
     const range = Math.max(1e-6, terrain.elevation_max_m - minimum);
     for (let row = 0; row < height; row += 1) {
       for (let col = 0; col < width; col += 1) {
@@ -352,6 +400,10 @@ export function createTerrainView(container) {
         positions[index * 3] = xs[col];
         positions[index * 3 + 1] = elevationY(elevation);
         positions[index * 3 + 2] = zs[row];
+        // UV para el mosaico OSM: (0,0) en el esquina SO de la ventana,
+        // (1,1) en el NE — fila 0 es el norte, v invertida.
+        uvs[index * 2] = col / (width - 1);
+        uvs[index * 2 + 1] = 1 - row / (height - 1);
         const color = raw == null
           ? new THREE.Color(NODATA_COLOR)
           : colorAtStops(stops, (elevation - minimum) / range);
@@ -373,8 +425,11 @@ export function createTerrainView(container) {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+    geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
+    // Fondo local (paleta hipsométrica por vértice); si llegan tiles OSM,
+    // attachOsmTexture conmuta a textura drapeada.
     const material = new THREE.MeshLambertMaterial({ vertexColors: true });
     const mesh = new THREE.Mesh(geometry, material);
     return mesh;
@@ -615,6 +670,35 @@ export function createTerrainView(container) {
     return new THREE.Mesh(geometry, material);
   }
 
+  // Capa base OSM sobre el relieve: ensambla los tiles de la ventana en un
+  // canvas y lo aplica como textura (sustituye la tinta por vértice). Sin
+  // red o con fallas, el mesh conserva la paleta hipsométrica — el visor
+  // sigue funcionando offline. Token por build: una reconstrucción posterior
+  // invalida la textura de la malla anterior.
+  let osmToken = 0;
+  async function attachOsmTexture(terrain, mesh) {
+    const [west, south, east, north] = terrain.bounds_wgs84;
+    const token = ++osmToken;
+    const latMidRad = (((south + north) / 2) * Math.PI) / 180;
+    const zoom = zoomForWindow(west, south, east, north, 2200, 13);
+    const assembled = await assembleTiles({ west, south, east, north, zoom });
+    if (!assembled || token !== osmToken || mesh.geometry !== layers?.terrainMesh?.geometry) return;
+    const texture = new THREE.CanvasTexture(assembled.canvas);
+    texture.anisotropy = renderer.capabilities.getMaxAnisotropy?.() || 1;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    const material = mesh.material;
+    material.map = texture;
+    material.vertexColors = false;
+    // Luz ambiente 1,0 + sol 2,2 satura los tiles pálidos de OSM: el color
+    // base compensa la suma para que la textura no se lave (el sombreado del
+    // relieve se conserva).
+    material.color.setScalar(0.45);
+    material.needsUpdate = true;
+    mesh.userData.osmZoom = zoom;
+    mesh.userData.metersPerPx =
+      (156543.03392 * Math.cos(latMidRad)) / 2 ** zoom;
+  }
+
   function build(terrain, scenario) {
     if (!terrain.palette) {
       throw new Error("terrain.json sin paleta: regenera el piloto con el pipeline actual");
@@ -649,6 +733,7 @@ export function createTerrainView(container) {
       zs.push(mapper.z2(north - (row / (terrain.height - 1)) * (north - south)));
     }
     next.terrainMesh = buildTerrain(terrain, mapper, elevationY, xs, zs);
+    attachOsmTexture(terrain, next.terrainMesh);
 
     // Segunda dimensión: densidad de población (hab/km²) por cuantiles.
     // La subdivisión es parte del terreno (una misma dimensión): rellenos
@@ -1233,14 +1318,22 @@ export function createTerrainView(container) {
   resetCamera();
   animate();
 
-  return {
+  // Atribución exigida por la licencia de OSM sobre la capa base.
+  const attribution = document.createElement("p");
+  attribution.className = "osm-attribution";
+  attribution.textContent = `Base: ${ATTRIBUTION}`;
+  container.appendChild(attribution);
+
+  const api = {
     render,
     update,
     reset: resetCamera,
     zoomIn: () => zoomBy(0.75),
     zoomOut: () => zoomBy(1.33),
+    zoomLevel,
     get densityClasses() {
       return layers?.densityClassification?.classes || [];
     },
   };
+  return api;
 }
