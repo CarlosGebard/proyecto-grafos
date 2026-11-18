@@ -1,0 +1,10 @@
+[
+  {
+    "id": 13,
+    "name": "PRC_Paine",
+    "file": "13_PRC_Paine.geojson",
+    "features": 131,
+    "source": "https://geoide.minvu.cl/server/rest/services/IPT/PRC_RM_Sur/FeatureServer/13",
+    "note": "Campos renombrados a NOMBRE/COMUNA (desde NOM/COM) para compatibilidad con src/geo/constraints.py. El servicio PRC_Metropolitano exige token; la RM está dividida en PRC_RM_Norte y PRC_RM_Sur, ambos públicos."
+  }
+]
