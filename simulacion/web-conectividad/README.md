@@ -3,9 +3,12 @@
 Presentación estática en tres vistas: **inicio** (problema + solución +
 botón de entrada), **mapa de Chile** con las localidades de los tres pilotos
 como puntos brillantes y cartas de impacto social por zona, y **simulación
-3D** del relieve con los controles del estudio. Sin paso de build y sin red:
-three.js, OrbitControls, el contorno de Chile y las localidades están
-vendidos en `vendor/` y `assets/` (ADR 0008, mapa propio en ADR 0016).
+3D** del relieve con los controles del estudio. Sin paso de build: three.js,
+OrbitControls, el contorno de Chile y las localidades están vendidos en
+`vendor/` y `assets/`. La **capa base son tiles de OpenStreetMap**
+(`osm-tiles.js`, ADR 0017, revisa ADR 0008): se descargan en runtime con
+atribución visible y, sin red, ambas superficies degradan a su fondo local
+(tinte plano del contorno / paleta hipsométrica del relieve).
 
 Desde `simulacion/`:
 

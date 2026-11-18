@@ -71,6 +71,13 @@ b { font-variant-numeric: tabular-nums; }
 .map-shell { position: absolute; inset: 0; overflow: hidden; background: var(--night); }
 #chile-map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .chile-land { fill: #16283a; stroke: #3d5a70; stroke-width: 1.1; opacity: .95; transition: opacity .9s ease; }
+/* Con capa OSM cargada la silueta pasa a contorno; sin red queda el tinte. */
+#chile-map.tiles-ok .chile-land { fill: transparent; }
+.chile-tiles-base { opacity: 0; transition: opacity .7s ease; }
+#chile-map.tiles-ok .chile-tiles-base { opacity: 1; }
+.chile-tiles-detail { opacity: 0; transition: opacity .5s ease; }
+.chile-tiles-detail.visible { opacity: 1; }
+.map-attribution { margin: 0 0 0 auto; color: color-mix(in srgb, var(--night-ink) 65%, transparent); font-size: .68rem; }
 .chile-dots { transition: opacity .9s ease; }
 .dot-halo { opacity: .2; }
 .dot-core { opacity: .95; }
@@ -126,7 +133,8 @@ b { font-variant-numeric: tabular-nums; }
 .page-shell { max-width: 1800px; margin: 0 auto; padding: 0 32px 42px; }
 .simulation { margin-top: 0; }
 .canvas-panel { position: relative; min-height: clamp(660px, 92vh, 980px); overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--map); }
-#terrain-3d { display: block; width: 100%; min-height: clamp(660px, 92vh, 980px); cursor: grab; touch-action: none; }#terrain-3d:active { cursor: grabbing; }#terrain-3d[hidden] { display: none; }#terrain-3d canvas { display: block; }
+#terrain-3d { display: block; position: relative; width: 100%; min-height: clamp(660px, 92vh, 980px); cursor: grab; touch-action: none; }#terrain-3d:active { cursor: grabbing; }#terrain-3d[hidden] { display: none; }#terrain-3d canvas { display: block; }
+.osm-attribution { position: absolute; z-index: 2; right: 10px; bottom: 8px; margin: 0; font-size: .68rem; color: color-mix(in srgb, #1f2b24 78%, transparent); background: color-mix(in srgb, #ffffff 72%, transparent); padding: 2px 8px; border-radius: 6px; pointer-events: none; }
 
 /* Cluster de controles: superior izquierdo (nombre, zoom, iniciar,
    reiniciar, restricciones). */

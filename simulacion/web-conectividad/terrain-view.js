@@ -8,6 +8,7 @@
 
 import * as THREE from "three";
 import { OrbitControls } from "./vendor/OrbitControls.js";
+import { assembleTiles, zoomForWindow, ATTRIBUTION } from "./osm-tiles.js";
 
 const NODATA_COLOR = 0xd8d8d8;
 const COLOR_LOCALITY = 0x39463e;
@@ -343,6 +344,7 @@ export function createTerrainView(container) {
     const count = width * height;
     const positions = new Float32Array(count * 3);
     const colors = new Float32Array(count * 3);
+    const uvs = new Float32Array(count * 2);
     const range = Math.max(1e-6, terrain.elevation_max_m - minimum);
     for (let row = 0; row < height; row += 1) {
       for (let col = 0; col < width; col += 1) {
@@ -352,6 +354,10 @@ export function createTerrainView(container) {
         positions[index * 3] = xs[col];
         positions[index * 3 + 1] = elevationY(elevation);
         positions[index * 3 + 2] = zs[row];
+        // UV para el mosaico OSM: (0,0) en el esquina SO de la ventana,
+        // (1,1) en el NE — fila 0 es el norte, v invertida.
+        uvs[index * 2] = col / (width - 1);
+        uvs[index * 2 + 1] = 1 - row / (height - 1);
         const color = raw == null
           ? new THREE.Color(NODATA_COLOR)
           : colorAtStops(stops, (elevation - minimum) / range);
@@ -373,8 +379,11 @@ export function createTerrainView(container) {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+    geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
+    // Fondo local (paleta hipsométrica por vértice); si llegan tiles OSM,
+    // attachOsmTexture conmuta a textura drapeada.
     const material = new THREE.MeshLambertMaterial({ vertexColors: true });
     const mesh = new THREE.Mesh(geometry, material);
     return mesh;
@@ -615,6 +624,35 @@ export function createTerrainView(container) {
     return new THREE.Mesh(geometry, material);
   }
 
+  // Capa base OSM sobre el relieve: ensambla los tiles de la ventana en un
+  // canvas y lo aplica como textura (sustituye la tinta por vértice). Sin
+  // red o con fallas, el mesh conserva la paleta hipsométrica — el visor
+  // sigue funcionando offline. Token por build: una reconstrucción posterior
+  // invalida la textura de la malla anterior.
+  let osmToken = 0;
+  async function attachOsmTexture(terrain, mesh) {
+    const [west, south, east, north] = terrain.bounds_wgs84;
+    const token = ++osmToken;
+    const latMidRad = (((south + north) / 2) * Math.PI) / 180;
+    const zoom = zoomForWindow(west, south, east, north, 2200, 13);
+    const assembled = await assembleTiles({ west, south, east, north, zoom });
+    if (!assembled || token !== osmToken || mesh.geometry !== layers?.terrainMesh?.geometry) return;
+    const texture = new THREE.CanvasTexture(assembled.canvas);
+    texture.anisotropy = renderer.capabilities.getMaxAnisotropy?.() || 1;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    const material = mesh.material;
+    material.map = texture;
+    material.vertexColors = false;
+    // Luz ambiente 1,0 + sol 2,2 satura los tiles pálidos de OSM: el color
+    // base compensa la suma para que la textura no se lave (el sombreado del
+    // relieve se conserva).
+    material.color.setScalar(0.45);
+    material.needsUpdate = true;
+    mesh.userData.osmZoom = zoom;
+    mesh.userData.metersPerPx =
+      (156543.03392 * Math.cos(latMidRad)) / 2 ** zoom;
+  }
+
   function build(terrain, scenario) {
     if (!terrain.palette) {
       throw new Error("terrain.json sin paleta: regenera el piloto con el pipeline actual");
@@ -649,6 +687,7 @@ export function createTerrainView(container) {
       zs.push(mapper.z2(north - (row / (terrain.height - 1)) * (north - south)));
     }
     next.terrainMesh = buildTerrain(terrain, mapper, elevationY, xs, zs);
+    attachOsmTexture(terrain, next.terrainMesh);
 
     // Segunda dimensión: densidad de población (hab/km²) por cuantiles.
     // La subdivisión es parte del terreno (una misma dimensión): rellenos
@@ -1233,7 +1272,13 @@ export function createTerrainView(container) {
   resetCamera();
   animate();
 
-  return {
+  // Atribución exigida por la licencia de OSM sobre la capa base.
+  const attribution = document.createElement("p");
+  attribution.className = "osm-attribution";
+  attribution.textContent = `Base: ${ATTRIBUTION}`;
+  container.appendChild(attribution);
+
+  const api = {
     render,
     update,
     reset: resetCamera,
@@ -1243,4 +1288,5 @@ export function createTerrainView(container) {
       return layers?.densityClassification?.classes || [];
     },
   };
+  return api;
 }

@@ -934,6 +934,7 @@ async function openSimulation(zone) {
 const map = createChileMap(document.querySelector("#chile-map"), document.querySelector("#zone-markers"), {
   onZoneClick(zone) {
     fillZoneCard(zone);
+    map.preloadZone?.(zone);
     zoneCard.classList.add("open");
     zoneCard.setAttribute("aria-hidden", "false");
     document.querySelector("#chile-map").classList.add("card-open");
@@ -1108,6 +1109,7 @@ function fillLanding() {
 // ── Arranque ──────────────────────────────────────────────────────────────
 
 fillLanding();
+document.querySelector("#map-attribution").textContent = "Mapa base © OpenStreetMap contributors";
 map.load().then(() => {
   // Precarga silenciosa de los tres pilotos: al elegir una zona la
   // simulación ya está lista.
