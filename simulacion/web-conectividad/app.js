@@ -120,8 +120,6 @@ function addLine(group, className, left, right, source, target) {
   const line = node("line", { class: className, x1: left.x, y1: left.y, x2: right.x, y2: right.y });
   group.append(line);
   return { line, source, target };
-}
-
 function render() {
   const isTerrain = state.view === "terrain";
   renderAlgorithmSection();
@@ -177,7 +175,6 @@ function render() {
     });
     network.append(terrain);
   }
-
   const coverageGroup = node("g", { "aria-label": "Aristas de cobertura" });
   Object.entries(state.scenario.coverage).forEach(([candidateId, demandIds]) => {
     const candidate = candidateById(candidateId);
@@ -186,7 +183,6 @@ function render() {
     });
   });
   network.append(coverageGroup);
-
   const linkGroup = node("g", { "aria-label": "Enlaces entre antenas" });
   const emitted = new Set();
   Object.entries(state.scenario.connectivity).forEach(([candidateId, neighbors]) => {
@@ -235,8 +231,6 @@ function render() {
   });
   network.append(candidateGroup);
   update();
-}
-
 function prcExclusions() {
   return (state.scenario.constraints || []).filter(
     (feature) => feature.properties.constraint_status === "excluded"
