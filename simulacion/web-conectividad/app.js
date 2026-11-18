@@ -82,7 +82,9 @@ const state = {
   yumbel: null,
   terrain: null,
   view: "diagram",
-  showPrcConstraints: false,
+  // Restricciones PRC visibles por defecto en todas las simulaciones
+  // (screening territorial: parte del problema y del motor).
+  showPrcConstraints: true,
   step: 0,
   timer: null,
   elements: { demands: new Map(), candidates: new Map(), coverage: [], links: [] },
