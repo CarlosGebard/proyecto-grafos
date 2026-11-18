@@ -205,9 +205,16 @@ svg text { font-family: var(--font-carto); }
 .zone-marker-label { position: absolute; left: 22px; top: -6px; font-family: var(--font-carto); font-size: 12px; letter-spacing: .02em; color: rgba(255, 255, 255, .85); text-shadow: 0 1px 5px rgba(0, 0, 0, .95), 0 0 2px rgba(0, 0, 0, .8); white-space: nowrap; pointer-events: none; }
 .zone-marker:focus-visible { outline: 2px solid var(--signal); outline-offset: 4px; }
 .zone-marker.is-selected .zone-marker-dot { transform: scale(1.45); }
-/* Ajustes finos de posición para no tapar etiquetas entre zonas. */
-.marker-yumbel { translate: 60px -30px; }
-.marker-biobio { translate: -10px 46px; }
+/* El punto queda fijo en la coordenada proyectada; sólo la etiqueta se
+   aparta para no tapar a su vecina (los centros de las ventanas de Yumbel
+   y Biobío distan ~8 km: sus puntos coinciden al zoom nacional). */
+.marker-yumbel .zone-marker-label { translate: 0 -16px; }
+.marker-yumbel { z-index: 2; } /* punto coincidente con Biobío: el centro abre Yumbel, el toque bajo el punto abre Biobío */
+.marker-biobio .zone-marker-label { translate: 0 16px; }
+/* Los puntos coinciden al zoom nacional: el área de toque sigue a su
+   etiqueta para que ambos marcadores sigan siendo alcanzables. */
+.marker-yumbel::before { top: -24px; }
+.marker-biobio::before { top: 4px; }
 /* Zoom avanzado: el marcador se atenúa para no tapar el territorio. */
 .zone-marker.near { opacity: .45; }
 .zone-marker.near .zone-marker-label { font-size: 10px; }
