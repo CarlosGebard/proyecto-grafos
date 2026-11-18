@@ -104,6 +104,7 @@ def generate_candidates(
     highsite_window_m: float = 1000.0,
     max_slope_deg: float = 30.0,
     separation_m: float = 1000.0,
+    collect_rejections: bool = False,
 ):
     """Candidatos por criterio: demandas + intersecciones + sitios altos.
 
@@ -111,6 +112,10 @@ def generate_candidates(
     de las clases de potencia más max_distance_m. El filtro de proximidad
     (separation_m) evita que el tope llene la instancia con puntos casi
     duplicados de un mismo clúster; devuelve (candidatos, audit).
+    Con collect_rejections, el audit lleva además `_rejections`: los puntos
+    descartados dentro del área por filtros del DEM (pendiente / NoData),
+    para su exportación cartográfica; el pipeline lo retira antes del
+    manifiesto.
     """
     radii = sorted({float(value) for value in radii})
     if not radii or any(not math.isfinite(value) or value <= 0 for value in radii):
@@ -168,6 +173,31 @@ def generate_candidates(
     slopes = dem.slope_sample(np.column_stack([xs, ys]))
     gentle = np.isfinite(slopes) & (slopes <= max_slope_deg + 1e-9)
     keep = inside & finite & gentle
+    rejections = []
+    if collect_rejections:
+        # Puntos descartados dentro del área por filtros del DEM, en orden
+        # de clave (determinista). Los filtros de proximidad y tope no se
+        # exportan: su representación es el anillo de separación y el conteo.
+        for idx in np.flatnonzero(inside & ~finite):
+            rejections.append(
+                {
+                    "reason": "nodata",
+                    "elevation_m": None,
+                    "slope_deg": float(slopes[idx])
+                    if np.isfinite(slopes[idx])
+                    else None,
+                    "geometry": Point(float(xs[idx]), float(ys[idx])),
+                }
+            )
+        for idx in np.flatnonzero(inside & finite & ~gentle):
+            rejections.append(
+                {
+                    "reason": "slope",
+                    "elevation_m": float(elevations[idx]),
+                    "slope_deg": float(slopes[idx]),
+                    "geometry": Point(float(xs[idx]), float(ys[idx])),
+                }
+            )
     excluded_nodata = int((inside & ~finite).sum())
     excluded_slope = int((inside & finite & ~gentle).sum())
     weights = np.array([node.population for node in demands], dtype=float)
@@ -251,4 +281,6 @@ def generate_candidates(
         "capped": capped,
         "kept": len(candidates),
     }
+    if collect_rejections:
+        audit["_rejections"] = rejections
     return candidates, audit

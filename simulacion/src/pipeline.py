@@ -3,6 +3,7 @@
 import argparse
 import json
 import logging
+import math
 import platform
 import sys
 import tomllib
@@ -11,6 +12,8 @@ from datetime import datetime, timezone
 from importlib.metadata import version
 from pathlib import Path
 from time import perf_counter
+
+import geopandas as gpd
 
 from src.algorithms.connected import (
     greedy_conectado,
@@ -69,6 +72,27 @@ def asignar_radios(candidates, classes, default_radius_m: float):
     return [
         replace(candidate, radius_m=radios[candidate.id]) for candidate in candidates
     ], audit
+
+
+# Puntos descartados por filtros del DEM (pendiente / NoData), para la carta
+# de restricciones del visor. Tope por razón: muestra determinista (paso
+# constante sobre la lista ordenada por clave) si una instancia excede el
+# cap; los conteos completos viven en el manifiesto (audit de candidatos).
+REJECTIONS_FILENAME = "candidate_rejections.geojson"
+MAX_EXPORTED_REJECTIONS = 5000
+
+
+def write_candidate_rejections(path: Path, rejections: list[dict], metric_crs) -> int:
+    """Exportar puntos descartados por pendiente/NoData como GeoJSON WGS84."""
+    export = []
+    for reason in sorted({item["reason"] for item in rejections}):
+        rows = [item for item in rejections if item["reason"] == reason]
+        step = max(1, math.ceil(len(rows) / MAX_EXPORTED_REJECTIONS))
+        export.extend(rows[::step])
+    frame = gpd.GeoDataFrame(export)
+    frame.set_geometry("geometry", crs=metric_crs, inplace=True)
+    frame.to_crs(4326).to_file(path, driver="GeoJSON")
+    return len(export)
 
 
 def write_json(path: Path, value, *, compact: bool = False) -> None:
@@ -167,7 +191,20 @@ def run(config: PipelineConfig) -> dict:
         highsite_window_m=config.highsite_window_m,
         max_slope_deg=config.max_slope_deg,
         separation_m=config.candidate_separation_m,
+        collect_rejections=True,
     )
+    rejected_points = candidate_audit.pop("_rejections", [])
+    if rejected_points:
+        exported = write_candidate_rejections(
+            output / REJECTIONS_FILENAME, rejected_points, crs
+        )
+        candidate_audit["rejections_file"] = REJECTIONS_FILENAME
+        candidate_audit["rejections_exported"] = exported
+        LOG.info(
+            "3. Puntos descartados por filtros del DEM: %s (%s exportados)",
+            len(rejected_points),
+            exported,
+        )
     constraints = None
     prc_audit = None
     sensitive_audit = None

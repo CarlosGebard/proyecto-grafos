@@ -16,6 +16,13 @@ const COLOR_RANGE_RIM = 0x8a5c14;
 const COLOR_LINK = 0x6b3fa8;
 const COLOR_CANDIDATE = 0xecf1ec;
 const COLOR_SELECTED = 0x6b3fa8;
+// Carta de restricciones (ADR 0015): círculos de separación d_sep, puntos
+// descartados por pendiente/NoData y candidatos excluidos por PRC o por
+// establecimientos sensibles. Mismos tintes que el mapa SVG (styles.css).
+const COLOR_PROXIMITY = 0x1f7a8c;
+const COLOR_SLOPE_REJECT = 0xb44828;
+const COLOR_NODATA_REJECT = 0x6e6a60;
+const COLOR_AREA_OUTLINE = 0x2b3a30;
 // Despegue del relleno de zonas sobre la malla (evita z-fighting con el
 // terreno coplanar sin flotar a la vista; ~1 m a escala del piloto).
 const ZONE_LIFT = 0.00008;
@@ -188,7 +195,9 @@ function linesOf(geometry) {
 // Círculo geodésico local de radio ρ en metros (misma aproximación que
 // Turf.js circle): Δlat constante y Δlon corregido por cos(latitud). Para
 // ρ ≤ 30 km a latitudes de Chile central el error es despreciable.
-function rangeRing(longitude, latitude, radiusM, segments = 96) {
+// Exportado: el mapa SVG usa el mismo anillo para los círculos de
+// separación y los rangos ρ(a) (una sola definición del círculo).
+export function rangeRing(longitude, latitude, radiusM, segments = 96) {
   const deltaLat = radiusM / 111320;
   const deltaLon = radiusM / (111320 * Math.cos((latitude * Math.PI) / 180));
   const ring = [];
@@ -760,6 +769,110 @@ export function createTerrainView(container) {
         .filter(Boolean);
       return { fill, outlines };
     });
+    // Índice por estado para la carta de restricciones: iluminar exclusiones
+    // duras sin difundir las zonas sin clasificación (y viceversa).
+    next.constraintsByStatus = { excluded: [], unknown: [] };
+    scenario.constraints.forEach((feature, index) => {
+      const status = feature.properties.constraint_status;
+      if (next.constraintsByStatus[status]) {
+        next.constraintsByStatus[status].push(next.constraints[index]);
+      }
+    });
+
+    // Borde del área de estudio (C₀ = { p : p ∈ A }): tenue como contexto;
+    // la carta de restricciones lo ilumina al pasar por "Área de estudio".
+    next.areaOutline = ringsOf(
+      scenario.areaGeometry || { type: "Polygon", coordinates: [] }
+    )
+      .filter((ring) => ring.length >= 3)
+      .map((ring) =>
+        drapedLine(
+          elevationY,
+          [...ring, ring[0]],
+          mapper,
+          sampleElevation,
+          0.0008,
+          new THREE.LineBasicMaterial({
+            color: COLOR_AREA_OUTLINE,
+            transparent: true,
+            opacity: 0.35,
+          }),
+          terrain
+        )
+      )
+      .filter(Boolean);
+
+    // Círculos de separación d_sep (restricción de proximidad): la región
+    // que cada candidato aceptado reserva a su alrededor. Ocultos salvo
+    // hover en la fila correspondiente de la carta.
+    const separationM = scenario.stats?.candidateSeparationM || 0;
+    next.proximityRings = separationM
+      ? scenario.candidates
+          .map((candidate) => {
+            const ring = clipRingToBounds(
+              rangeRing(candidate.longitude, candidate.latitude, separationM, 64),
+              [west, south, east, north]
+            );
+            if (ring.length < 3) return null;
+            return drapedLine(
+              elevationY,
+              [...ring, ring[0]],
+              mapper,
+              sampleElevation,
+              0.0016,
+              new THREE.LineBasicMaterial({
+                color: COLOR_PROXIMITY,
+                transparent: true,
+                opacity: 0.85,
+              }),
+              terrain
+            );
+          })
+          .filter(Boolean)
+      : [];
+
+    // Cruces en el suelo para puntos descartados y candidatos excluidos:
+    // visibles sólo desde la carta (hover), sin ensuciar la escena base.
+    const crossMarks = (features, color, sizeM, lift) => {
+      const positions = [];
+      const latitude0 = terrain.bounds_wgs84[1];
+      const dx = sizeM / (111320 * Math.cos((latitude0 * Math.PI) / 180));
+      const dy = sizeM / 111320;
+      (features || []).forEach((feature) => {
+        const [longitude, latitude] = feature.geometry.coordinates;
+        const x = mapper.x2(longitude);
+        const z = mapper.z2(latitude);
+        const y0 = elevationY(sampleElevation(longitude, latitude)) + lift;
+        positions.push(x - dx, y0, z - dy, x + dx, y0, z + dy);
+        positions.push(x - dx, y0, z + dy, x + dx, y0, z - dy);
+      });
+      if (!positions.length) return null;
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+      return new THREE.LineSegments(
+        geometry,
+        new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.95 })
+      );
+    };
+    const crossSize = mapper.spanM * 0.01;
+    const rejectionsByReason = { slope: [], nodata: [] };
+    (scenario.rejections || []).forEach((feature) => {
+      const reason = feature.properties?.reason;
+      if (rejectionsByReason[reason]) rejectionsByReason[reason].push(feature);
+    });
+    next.rejections = {
+      slope: crossMarks(rejectionsByReason.slope, COLOR_SLOPE_REJECT, crossSize, 0.0018),
+      nodata: crossMarks(rejectionsByReason.nodata, COLOR_NODATA_REJECT, crossSize, 0.0018),
+    };
+    const excludedByRule = { prc_hard_exclusion: [], sensitive_site_distance: [] };
+    (scenario.excludedCandidates || []).forEach((feature) => {
+      const rule = feature.properties?.constraint_rule;
+      if (excludedByRule[rule]) excludedByRule[rule].push(feature);
+    });
+    next.excludedCandidates = {
+      prc_hard_exclusion: crossMarks(excludedByRule.prc_hard_exclusion, 0xa72f24, crossSize, 0.0019),
+      sensitive_site_distance: crossMarks(excludedByRule.sensitive_site_distance, 0xc9771c, crossSize, 0.0019),
+    };
 
     // Rango nominal ρ(a): anillo + disco drapeados al relieve por antena.
     // El radio viene de candidates.geojson (radius_m; el pipeline
@@ -915,6 +1028,26 @@ export function createTerrainView(container) {
         group.add(outline);
       });
     });
+    next.areaOutline.forEach((line) => {
+      line.renderOrder = 5;
+      group.add(line);
+    });
+    Object.values(next.rejections).forEach((marks) => {
+      if (marks) {
+        marks.renderOrder = 8;
+        group.add(marks);
+      }
+    });
+    Object.values(next.excludedCandidates).forEach((marks) => {
+      if (marks) {
+        marks.renderOrder = 8;
+        group.add(marks);
+      }
+    });
+    next.proximityRings.forEach((ring) => {
+      ring.renderOrder = 7;
+      group.add(ring);
+    });
     next.ranges.forEach((range) => {
       if (range.fill) {
         range.fill.renderOrder = 6;
@@ -935,38 +1068,65 @@ export function createTerrainView(container) {
   function update(state) {
     if (!layers) return;
     const { scenario } = layers;
+    const highlight = state.highlight || null;
     const showCandidates = state.step >= 1;
     const showCoverage = state.step >= 2;
     const showSolution = state.step === 3;
-    const selected = showSolution ? new Set(scenario.connectedSolution) : new Set();
-    const statusOf = coverageStatus(scenario, showSolution ? scenario.connectedSolution : []);
+    // La carta de restricciones puede adelantar estados del modelo sin
+    // cambiar el paso del recorrido: "solution"/"threshold" muestran la
+    // solución; "links" la red; "coverage"/"ranges" los rangos ρ(a).
+    const solutionPreview =
+      highlight === "solution" || highlight === "threshold" || highlight === "links";
+    const solutionActive = showSolution || solutionPreview;
+    const selected = new Set(
+      solutionActive ? scenario.connectedSolution || [] : []
+    );
+    const statusOf = coverageStatus(
+      scenario,
+      solutionActive ? scenario.connectedSolution || [] : []
+    );
 
     layers.candidates.forEach((tower, index) => {
       const candidate = scenario.candidates[index];
       const isSelected = selected.has(candidate.id);
       // En la solución sólo quedan las antenas elegidas: las candidatas
       // descartadas se remueven de la escena.
-      tower.visible = showCandidates && (!showSolution || isSelected);
+      tower.visible =
+        showCandidates ||
+        highlight === "cap" ||
+        (solutionPreview && isSelected);
+      tower.visible = tower.visible && (!solutionActive || isSelected);
       if (!tower.visible) return;
       tower.traverse((part) => {
         if (!part.material) return;
-        part.material.color.set(isSelected ? COLOR_SELECTED : COLOR_CANDIDATE);
-        part.material.opacity = isSelected ? 1 : 0.9;
-        part.material.transparent = !isSelected;
+        const capMode = highlight === "cap" && !isSelected;
+        part.material.color.set(
+          isSelected ? COLOR_SELECTED : capMode ? 0x15221d : COLOR_CANDIDATE
+        );
+        part.material.opacity = isSelected || capMode ? 1 : 0.9;
+        part.material.transparent = !isSelected && !capMode;
       });
     });
     layers.ranges.forEach((range) => {
       // Paso cobertura: rango de cada candidata que alcanza al menos una
       // localidad (por distancia y LOS ya calculados). Paso solución: sólo
-      // las elegidas, con tinte más fuerte.
-      const active = showCoverage && (showSolution ? selected.has(range.id) : range.hasCoverage);
+      // las elegidas, con tinte más fuerte. La carta fuerza visibilidad:
+      // "ranges" todas las ρ(a), "coverage" sólo las que cubren, y en la
+      // solución preview las elegidas.
+      const active =
+        highlight === "ranges"
+          ? Boolean(range.fill || range.rims.length)
+          : highlight === "coverage"
+            ? range.hasCoverage
+            : showCoverage && (solutionActive ? selected.has(range.id) : range.hasCoverage);
+      const strong = highlight != null || solutionActive;
       if (range.fill) {
         range.fill.visible = active;
-        range.fill.material.opacity = showSolution ? 0.18 : 0.06;
+        range.fill.material.opacity = strong ? 0.18 : 0.06;
       }
       range.rims.forEach((rim) => {
         rim.visible = active;
-        rim.material.opacity = showSolution ? 0.75 : 0.5;
+        rim.material.opacity = strong ? 0.8 : 0.5;
       });
     });
     // Población afectada vs no afectada (ADR 0014): el tono de la coropleta
@@ -974,8 +1134,8 @@ export function createTerrainView(container) {
     // cubiertas sólo se atenúan y dejan ver el relieve.
     layers.localities.forEach(({ fill, outlines }, index) => {
       const locality = scenario.localityPolygons[index];
-      const isCovered = showSolution && statusOf(locality.id) === "covered";
-      if (fill) fill.material.opacity = showSolution && !isCovered ? 0.3 : 0.9;
+      const isCovered = solutionActive && statusOf(locality.id) === "covered";
+      if (fill) fill.material.opacity = solutionActive && !isCovered ? 0.3 : 0.9;
       outlines.forEach((outline) => {
         outline.material.color.set(isCovered ? 0xf7f4df : 0x233226);
         outline.material.opacity = isCovered ? 0.95 : 0.6;
@@ -985,15 +1145,53 @@ export function createTerrainView(container) {
     layers.demands.forEach((mesh, index) => {
       const id = scenario.demands[index].id;
       mesh.material.color.set(
-        showSolution ? COVERAGE_STATE_COLORS[statusOf(id)] : COLOR_LOCALITY
+        solutionActive ? COVERAGE_STATE_COLORS[statusOf(id)] : COLOR_LOCALITY
       );
     });
-    layers.constraints.forEach(({ fill, outlines }) => {
-      const visible = state.showPrcConstraints;
-      if (fill) fill.visible = visible;
-      outlines.forEach((outline) => { outline.visible = visible; });
+    // Carta de restricciones (ADR 0015): hover ilumina una restricción.
+    // PRC: exclusiones duras y zonas sin clasificación se iluminan por
+    // separado; el resto de capas sólo aparece con su fila activa.
+    const prcOn = state.showPrcConstraints;
+    const showExcludedPrc = prcOn && (!highlight || highlight === "prc-exclusion");
+    const showUnknownPrc = prcOn && (!highlight || highlight === "prc-unknown");
+    layers.constraintsByStatus.excluded.forEach(({ fill, outlines }) => {
+      if (fill) {
+        fill.visible = showExcludedPrc;
+        fill.material.opacity = highlight === "prc-exclusion" ? 0.45 : 0.24;
+      }
+      outlines.forEach((outline) => {
+        outline.visible = showExcludedPrc;
+        outline.material.opacity = highlight === "prc-exclusion" ? 1 : 0.8;
+      });
     });
-    layers.links.visible = showSolution && Boolean(scenario.hasConnectivity);
+    layers.constraintsByStatus.unknown.forEach(({ fill, outlines }) => {
+      if (fill) {
+        fill.visible = showUnknownPrc;
+        fill.material.opacity = highlight === "prc-unknown" ? 0.3 : 0.14;
+      }
+      outlines.forEach((outline) => {
+        outline.visible = showUnknownPrc;
+        outline.material.opacity = highlight === "prc-unknown" ? 0.95 : 0.6;
+      });
+    });
+    layers.areaOutline.forEach((line) => {
+      line.material.opacity = highlight === "area" ? 1 : 0.35;
+    });
+    layers.proximityRings.forEach((ring) => {
+      ring.visible = highlight === "proximity";
+    });
+    if (layers.rejections.slope) layers.rejections.slope.visible = highlight === "slope";
+    if (layers.rejections.nodata) layers.rejections.nodata.visible = highlight === "nodata";
+    if (layers.excludedCandidates.prc_hard_exclusion) {
+      layers.excludedCandidates.prc_hard_exclusion.visible = highlight === "prc-exclusion";
+    }
+    if (layers.excludedCandidates.sensitive_site_distance) {
+      layers.excludedCandidates.sensitive_site_distance.visible = highlight === "sensitive";
+    }
+    layers.links.visible =
+      solutionActive &&
+      (showSolution || highlight === "links" || highlight === "solution") &&
+      Boolean(scenario.hasConnectivity);
   }
 
   function render(state) {

@@ -120,3 +120,52 @@ h3 { letter-spacing: -.035em; line-height: 1.08; }
 /* Antena elegida y enlace LOS en la leyenda 3D: mismo morado de la escena (COLOR_SELECTED / COLOR_LINK). */
 .antenna-swatch-selected { width: 4px; height: 13px; justify-self: center; background: #6b3fa8; border-color: transparent; border-radius: 1px; }
 .link-swatch { height: 2px; background: #6b3fa8; border-color: transparent; border-radius: 0; }
+
+/* Carta de restricciones aplicadas (ADR 0015): carta lateral deslizante con
+   una fila por restricción; hover/focus ilumina su capa en el mapa. */
+.constraint-drawer { position: absolute; z-index: 6; top: 12px; bottom: 12px; left: 12px; width: min(400px, calc(100% - 24px)); padding: 14px 16px 16px; overflow-y: auto; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--surface) 96%, transparent); transform: translateX(calc(-100% - 16px)); visibility: hidden; transition: transform .28s ease, visibility .28s ease; }
+.constraint-drawer.open { transform: translateX(0); visibility: visible; }
+.constraint-drawer-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.constraint-drawer-head h2 { margin: 0; font-size: 1.15rem; letter-spacing: -.02em; line-height: 1.1; }
+.constraint-close { border: none; background: none; color: var(--muted); cursor: pointer; font-size: 1.5rem; line-height: 1; padding: 0 2px; }.constraint-close:hover { color: var(--ink); }.constraint-close:focus-visible { outline: 3px solid #db9c3d; outline-offset: 2px; }
+.constraint-lead { margin: 4px 0 10px; color: var(--muted); font-size: .74rem; line-height: 1.4; }
+.constraint-group { margin: 14px 0 6px; color: var(--accent); font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.constraint-group:first-of-type { margin-top: 2px; }
+.constraint-row { display: grid; gap: 4px; width: 100%; margin: 0 0 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); cursor: pointer; text-align: left; transition: border-color .15s ease, background .15s ease; }
+.constraint-row:hover, .constraint-row:focus-visible { border-color: var(--accent); background: var(--accent-soft); }
+.constraint-row:focus-visible { outline: 3px solid #db9c3d; outline-offset: 2px; }
+.constraint-row.no-map { cursor: default; }
+.constraint-row.no-map:hover, .constraint-row.no-map:focus-visible { border-color: var(--line); background: var(--surface); }
+.constraint-row.pinned { border-color: var(--accent); background: var(--accent-soft); }
+.constraint-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.constraint-top strong { font-size: .84rem; line-height: 1.25; }
+.constraint-badge { flex-shrink: 0; padding: 1px 7px; border-radius: 999px; font-size: .58rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.constraint-badge.ok { background: rgba(22, 131, 84, .15); color: #168354; }
+.constraint-badge.off { background: rgba(85, 82, 74, .15); color: var(--muted); }
+.constraint-badge.info { background: rgba(31, 122, 140, .15); color: #1f7a8c; }
+.constraint-meta { color: var(--muted); font-size: .72rem; }
+.constraint-counts { color: var(--ink); font-size: .72rem; font-weight: 750; font-variant-numeric: tabular-nums; }
+.constraint-formula { padding: 6px 8px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 6px; background: color-mix(in srgb, var(--page) 55%, var(--surface)); color: var(--ink); font-size: .7rem; line-height: 1.6; white-space: nowrap; overflow-x: auto; }
+.constraint-formula sub { font-size: .68em; line-height: 0; }
+.constraint-note { color: var(--muted); font-size: .68rem; line-height: 1.4; }
+@media (prefers-color-scheme: dark) { .constraint-badge.ok { background: rgba(22, 131, 84, .3); } .constraint-badge.info { background: rgba(31, 122, 140, .3); } }
+
+/* Capas de restricciones en el mapa SVG: ocultas salvo .hl desde la carta;
+   nunca interceptan el puntero. */
+.proximity-ring { fill: rgba(31, 122, 140, .06); stroke: #1f7a8c; stroke-width: 1.2; stroke-dasharray: 5 4; opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+.proximity-ring.hl { opacity: .9; }
+.rho-ring { fill: none; stroke: #8a5c14; stroke-width: 1.4; stroke-dasharray: 2 3; opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+.rho-ring.hl { opacity: .9; }
+.rejection { fill: #b44828; opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+.rejection-nodata { fill: #6e6a60; }
+.rejection.hl { opacity: .95; }
+.excluded-candidate { fill: none; stroke-width: 2.4; opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+.excluded-prc { stroke: #a72f24; }
+.excluded-sensitive { stroke: #c9771c; }
+.excluded-candidate.hl { opacity: 1; }
+.study-area { transition: stroke .2s ease, fill .2s ease; }
+.study-area.hl { stroke: #b44828; stroke-width: 3; fill: #e9d2cc; }
+.prc-exclusion.off, .prc-unknown.off { display: none; }
+.prc-exclusion.hl { fill: rgba(167, 47, 36, .45); stroke-width: 1.6; }
+.prc-unknown.hl { fill: rgba(85, 82, 74, .32); stroke-width: 1.2; }
+@media (prefers-color-scheme: dark) { .study-area.hl { fill: #4a2d28; } }

@@ -1,4 +1,10 @@
-import { COVERAGE_STATES, COVERAGE_STATE_COLORS, coverageStatus, createTerrainView } from "./terrain-view.js";
+import {
+  COVERAGE_STATES,
+  COVERAGE_STATE_COLORS,
+  coverageStatus,
+  createTerrainView,
+  rangeRing,
+} from "./terrain-view.js";
 
 const svgNs = "http://www.w3.org/2000/svg";
 const network = document.querySelector("#network");
@@ -12,6 +18,10 @@ const populationStates = document.querySelector("#pop-states");
 const populationStatesBar = document.querySelector("#pop-states-bar");
 const terrainNote = document.querySelector("#terrain-note");
 const prcLayerToggle = document.querySelector("#prc-layer-toggle");
+const constraintToggle = document.querySelector("#constraint-toggle");
+const constraintDrawer = document.querySelector("#constraint-drawer");
+const constraintClose = document.querySelector("#constraint-close");
+const constraintList = document.querySelector("#constraint-list");
 const zoomControls = document.querySelector("#zoom-controls");
 const zoomInButton = document.querySelector("#zoom-in");
 const zoomOutButton = document.querySelector("#zoom-out");
@@ -88,6 +98,12 @@ const state = {
   step: 0,
   timer: null,
   elements: { demands: new Map(), candidates: new Map(), coverage: [], links: [] },
+  // Carta de restricciones (ADR 0015): hover/focus ilumina la restricción en
+  // el mapa; click la fija (útil en pantalla táctil).
+  drawerOpen: false,
+  hoverHighlight: null,
+  highlightPinned: null,
+  highlight: null,
 };
 
 function node(name, attributes = {}) {
@@ -125,6 +141,7 @@ function addLine(group, className, left, right, source, target) {
 function render() {
   const isTerrain = state.view === "terrain";
   renderAlgorithmSection();
+  renderConstraintDrawer();
   updatePrcLayerToggle();
   network.hidden = isTerrain;
   network.style.display = isTerrain ? "none" : "block";
@@ -145,13 +162,30 @@ function render() {
     return;
   }
   network.replaceChildren();
-  state.elements = { demands: new Map(), candidates: new Map(), coverage: [], links: [] };
+  state.elements = {
+    demands: new Map(),
+    candidates: new Map(),
+    coverage: [],
+    links: [],
+    area: null,
+    prcPaths: { excluded: [], unknown: [] },
+    proximityRings: [],
+    rhoRings: [],
+    rejections: { slope: [], nodata: [] },
+    excluded: { prc: [], sensitive: [] },
+  };
   if (state.scenario.mapGeometry) {
     const mapGroup = node("g", { "aria-label": "Mapa territorial" });
-    mapGroup.append(node("path", { class: "study-area", d: state.scenario.mapGeometry.area }));
+    const areaPath = node("path", { class: "study-area", d: state.scenario.mapGeometry.area });
+    mapGroup.append(areaPath);
+    state.elements.area = areaPath;
     state.scenario.mapGeometry.localities.forEach((path) => mapGroup.append(node("path", { class: "locality-area", d: path })));
     network.append(mapGroup);
-    if (state.showPrcConstraints) renderPrcConstraints();
+    renderPrcConstraints();
+    renderProximityRings();
+    renderRhoRings();
+    renderRejections();
+    renderExcludedCandidates();
   } else {
     const terrain = node("g", { "aria-hidden": "true" });
     [[30, 250, 165, 190, 300, 250, 430, 200, 575, 250, 700, 215], [8, 365, 170, 405, 300, 350, 465, 415, 590, 360, 718, 395]].forEach((points) => {
@@ -248,35 +282,485 @@ function renderPrcConstraints() {
       : `Zona PRC sin clasificación: ${zone}`;
     path.append(title);
     group.append(path);
+    state.elements.prcPaths[excluded ? "excluded" : "unknown"].push(path);
   });
   network.append(group);
+}
+
+// Capas de la carta de restricciones (ADR 0015): ocultas por defecto; el
+// hover/focus en una fila de la carta las ilumina (clase .hl). Punteros
+// desactivados: no interceptan el mapa.
+function renderProximityRings() {
+  const separationM = state.scenario.stats?.candidateSeparationM;
+  if (!separationM) return;
+  const group = node("g", { class: "proximity-layer", "aria-hidden": "true" });
+  state.scenario.candidates.forEach((candidate) => {
+    const ring = rangeRing(candidate.longitude, candidate.latitude, separationM, 64);
+    const path = node("path", { class: "proximity-ring", d: pathForGeometry({ type: "Polygon", coordinates: [ring] }, state.scenario.project) });
+    group.append(path);
+    state.elements.proximityRings.push(path);
+  });
+  network.append(group);
+}
+
+function renderRhoRings() {
+  const radii = state.scenario.candidates.filter((candidate) => candidate.radiusM);
+  if (!radii.length) return;
+  const group = node("g", { class: "rho-layer", "aria-hidden": "true" });
+  radii.forEach((candidate) => {
+    const ring = rangeRing(candidate.longitude, candidate.latitude, candidate.radiusM, 96);
+    const path = node("path", { class: "rho-ring", d: pathForGeometry({ type: "Polygon", coordinates: [ring] }, state.scenario.project) });
+    group.append(path);
+    state.elements.rhoRings.push(path);
+  });
+  network.append(group);
+}
+
+function renderRejections() {
+  const features = state.scenario.rejections || [];
+  if (!features.length) return;
+  const group = node("g", { class: "rejections-layer", "aria-hidden": "true" });
+  features.forEach((feature) => {
+    const reason = feature.properties?.reason;
+    if (reason !== "slope" && reason !== "nodata") return;
+    const [longitude, latitude] = feature.geometry.coordinates;
+    const point = state.scenario.project([longitude, latitude]);
+    const dot = node("circle", { class: `rejection rejection-${reason}`, cx: point.x, cy: point.y, r: 2 });
+    const title = node("title");
+    title.textContent =
+      reason === "slope"
+        ? `Descartado: pendiente ${feature.properties.slope_deg?.toFixed(1)}° > ${state.scenario.stats?.maxSlopeDeg ?? "θ_max"}°`
+        : "Descartado: DEM sin datos (NoData)";
+    dot.append(title);
+    group.append(dot);
+    state.elements.rejections[reason].push(dot);
+  });
+  network.append(group);
+}
+
+function renderExcludedCandidates() {
+  const features = state.scenario.excludedCandidates || [];
+  if (!features.length) return;
+  const group = node("g", { class: "excluded-layer", "aria-hidden": "true" });
+  features.forEach((feature) => {
+    const rule = feature.properties?.constraint_rule;
+    if (rule !== "prc_hard_exclusion" && rule !== "sensitive_site_distance") return;
+    const [longitude, latitude] = feature.geometry.coordinates;
+    const point = state.scenario.project([longitude, latitude]);
+    const key = rule === "prc_hard_exclusion" ? "prc" : "sensitive";
+    const mark = node("circle", { class: `excluded-candidate excluded-${key}`, cx: point.x, cy: point.y, r: 5 });
+    const title = node("title");
+    title.textContent =
+      rule === "prc_hard_exclusion"
+        ? `Candidato excluido por PRC (${feature.properties.constraint_status === "excluded" ? "exclusión dura" : "modo estricto"})`
+        : "Candidato excluido: establecimiento sensible (OGUC 116 bis E)";
+    mark.append(title);
+    group.append(mark);
+    state.elements.excluded[key].push(mark);
+  });
+  network.append(group);
+}
+
+// ── Carta de restricciones aplicadas (ADR 0015) ──────────────────────────
+// Una fila por restricción real de la simulación cargada: parámetros vivos
+// del manifiesto, conteos del audit y la equivalencia matemática que aplica
+// el motor. Hover/focus ilumina su representación en el mapa.
+
+function constraintRows(scenario) {
+  const rows = [];
+  const stats = scenario.stats || null;
+  let stage = 0;
+  let lastStage = null;
+  const stageLabel = (index) => `C<sub>${index}</sub>`;
+
+  if (stats) {
+    rows.push({ header: "Restricciones territoriales (candidatos)" });
+
+    const areaStage = stage++;
+    lastStage = stageLabel(areaStage);
+    rows.push({
+      id: "area",
+      title: "Área de estudio",
+      badge: "aplicada",
+      meta: stats.studySizeM ? `ventana ${km(stats.studySizeM)} alrededor del centro` : "bbox regional",
+      counts:
+        stats.excludedOutsideArea != null
+          ? `${number(stats.excludedOutsideArea)} puntos fuera del área`
+          : null,
+      formula: `${lastStage} = { p : p ∈ A }`,
+      note: "Sólo los puntos dentro de la ventana A entran al criterio de candidatos.",
+      mapKey: "area",
+    });
+
+    const demStage = stage++;
+    const demStageLabel = stageLabel(demStage);
+    lastStage = demStageLabel;
+    rows.push({
+      id: "slope",
+      title: "Pendiente (constructabilidad)",
+      badge: "aplicada",
+      meta: stats.maxSlopeDeg != null ? `θ_max = ${stats.maxSlopeDeg}°` : null,
+      counts: `${number(stats.excludedSlope ?? 0)} puntos descartados`,
+      formula: `${demStageLabel} = { p ∈ ${stageLabel(areaStage)} : |∇z(p)| ≤ tan(θ_max) }`,
+      note: "Sin sitios de antena en laderas más empinadas que θ_max.",
+      mapKey: "slope",
+    });
+    rows.push({
+      id: "nodata",
+      title: "DEM sin datos (NoData)",
+      badge: "aplicada",
+      meta: stats.dem?.source ? `DEM ${stats.dem.source}` : null,
+      counts: `${number(stats.excludedNodata ?? 0)} puntos descartados`,
+      formula: `z(p) = NoData ⇒ p ∉ ${demStageLabel}`,
+      note: "Una celda sin elevación no genera cobertura ni LOS (política no_coverage).",
+      mapKey: "nodata",
+    });
+
+    if (stats.candidateSeparationM != null) {
+      const proxStage = stage++;
+      const proxLabel = stageLabel(proxStage);
+      lastStage = proxLabel;
+      rows.push({
+        id: "proximity",
+        title: "Separación mínima entre candidatos",
+        badge: "aplicada",
+        meta: `d_sep = ${km(stats.candidateSeparationM)}`,
+        counts: `${number(stats.excludedProximity ?? 0)} puntos descartados`,
+        formula: `${proxLabel} = { p : ‖p−q‖ ≥ d_sep ∀ q ∈ ${proxLabel} }`,
+        note: "Selección voraz por puntaje w₁(p) = Σ<sub>u</sub> w<sub>u</sub>·𝟙[‖p−u‖ ≤ ρ_max]; evita duplicados de un clúster (ADR 0007).",
+        mapKey: "proximity",
+      });
+    }
+
+    if (stats.maxCandidates != null) {
+      const capStage = stage++;
+      const capLabel = stageLabel(capStage);
+      lastStage = capLabel;
+      rows.push({
+        id: "cap",
+        title: "Tope de candidatos",
+        badge: "aplicada",
+        meta: `N_max = ${number(stats.maxCandidates)}`,
+        counts: `${number(stats.keptCandidates ?? scenario.candidates.length)} candidatos finales${stats.capped ? " · instancia recortada (top-N_max por w₁)" : ""}`,
+        formula: `${capLabel} = top-N_max de ${stageLabel(capStage - 1)} por w₁(p), con |${capLabel}| ≤ N_max`,
+        note: "Protección del presupuesto de pares LOS: la instancia no crece sin control.",
+        mapKey: "cap",
+      });
+    }
+
+    const prcZones = (scenario.constraints || []).length;
+    const prcAvailable = stats.prcZonesAvailable ?? 0;
+    if (prcZones) {
+      const prcStage = stage++;
+      const prcLabel = stageLabel(prcStage);
+      const exclusions = prcExclusions().length;
+      lastStage = prcLabel;
+      rows.push({
+        id: "prc-exclusion",
+        title: "PRC: exclusiones duras (screening)",
+        badge: "aplicada",
+        meta: `modo ${stats.prcMode || "screening"} · ADR 0005`,
+        counts: `${number(prcZones)} zonas · ${number(exclusions)} exclusiones duras · ${number(stats.prcAudit?.excluded ?? 0)} candidatos excluidos`,
+        formula: `${prcLabel} = { p ∈ ${stageLabel(prcStage - 1)} : p ∉ Z_exc }`,
+        note: "Z_exc: zonas Agua, AV, ZPD, ZRi, ZEH-2(c) o nombre ∝ {área verde, inundable, drenaje, riesgo, no edificable}.",
+        mapKey: "prc-exclusion",
+      });
+      rows.push({
+        id: "prc-unknown",
+        title: "PRC: zonas sin clasificación",
+        badge: "etiqueta",
+        meta: "screening: sin clasificación ≠ prohibido",
+        counts: `${number(prcZones)} zonas mapeadas · no filtran candidatos`,
+        formula: `p ∈ Z_sin ⇒ p ∈ ${prcLabel} marcado “unknown” (no se retira)`,
+        note: "El PRC filtra como screening territorial; jamás es permiso de construcción (ADR 0005).",
+        mapKey: "prc-unknown",
+      });
+    } else if (prcAvailable) {
+      rows.push({
+        id: "prc-exclusion",
+        title: "PRC: screening territorial",
+        badge: "no aplicada",
+        meta: "sin prc_directory en la config de esta corrida",
+        counts: `${number(prcAvailable)} zonas disponibles en constraints.geojson · no filtran candidatos`,
+        formula: `${lastStage} = ${lastStage} (sin paso PRC)`,
+        note: "Capa versionada de una corrida previa: sin capa declarada en la config, no se aplica (ADR 0005: limitación de datos, nunca permiso).",
+        mapKey: null,
+      });
+    }
+
+    const sensitiveApplied = Boolean(stats.sensitiveAudit);
+    rows.push({
+      id: "sensitive",
+      title: "Establecimientos sensibles (OGUC 116 bis E · Ley 20.599)",
+      badge: sensitiveApplied ? "aplicada" : "sin capa",
+      meta: sensitiveApplied
+        ? `buffer d_E = ${number(stats.sensitiveAudit.bufferM)} m`
+        : "capa no declarada en la configuración",
+      counts: sensitiveApplied
+        ? `${number(stats.sensitiveAudit.excluded)} candidatos excluidos`
+        : "no filtra en esta simulación",
+      formula: "p no instalable si d(p, E) < d_E, con d_E = max(4·h_ant, 50 m)",
+      note: sensitiveApplied
+        ? stats.sensitiveAudit.source
+        : "Limitación de datos declarada: sin capa no hay autorización implícita (ADR 0005/0007).",
+      mapKey: sensitiveApplied ? "sensitive" : null,
+    });
+  }
+
+  rows.push({ header: "Restricciones del modelo (motor exacto)" });
+
+  if (stats?.classes?.length) {
+    rows.push({
+      id: "classes",
+      title: "Clases de potencia ρ(a)",
+      badge: "aplicada",
+      meta: stats.classes.map((klass) => `${klass.count} × ${km(klass.radius_m)} (${klass.name})`).join(" · "),
+      counts:
+        stats.maxDistanceM != null
+          ? `excedentes → ρ_max = ${km(stats.maxDistanceM)}`
+          : null,
+      formula: "ρ(a) = radius_m(clase(a)); asignación determinista por id ascendente",
+      note: "docs/referencias-potencia-antenas.md: potencia/radio verificados contra fuentes primarias.",
+      mapKey: "ranges",
+    });
+  } else if (stats?.maxDistanceM != null) {
+    rows.push({
+      id: "classes",
+      title: "Clases de potencia ρ(a)",
+      badge: "aplicada",
+      meta: `uniforme: ρ_max = ${km(stats.maxDistanceM)} (max_distance_m)`,
+      formula: "ρ(a) = ρ_max ∀ a ∈ C",
+      mapKey: "ranges",
+    });
+  }
+
+  const coverageCounts = stats
+    ? `${number(stats.coveragePairs)} pares factibles · ${number(stats.reachable)} localidades alcanzables`
+    : `${number(Object.values(scenario.coverage).flat().length)} pares factibles · ${number(new Set(Object.values(scenario.coverage).flat()).size)} localidades alcanzables`;
+  const demMeta = [];
+  if (stats?.dem?.source) demMeta.push(`DEM ${stats.dem.source}`);
+  if (stats?.dem?.resolutionM != null) demMeta.push(`celda ${stats.dem.resolutionM} m`);
+  if (stats?.sampleStepM != null) demMeta.push(`paso LOS ≤ ${number(stats.sampleStepM)} m`);
+  if (stats?.dem?.antennaHeightM != null) demMeta.push(`h_ant ${stats.dem.antennaHeightM} m`);
+  if (stats?.dem?.receiverHeightM != null) demMeta.push(`h_rec ${stats.dem.receiverHeightM} m`);
+  rows.push({
+    id: "coverage",
+    title: "Cobertura (distancia + línea de vista)",
+    badge: "aplicada",
+    meta: demMeta.length ? demMeta.join(" · ") : "diagrama didáctico",
+    counts: coverageCounts,
+    formula: "C(a) = { u ∈ L : ‖a−u‖ ≤ ρ(a) ∧ LOS(a,u) }",
+    note: stats?.sampleStepM
+      ? `LOS muestreada con paso ≤ ${number(stats.sampleStepM)} m (≤ ½ píxel del DEM); celda NoData ⇒ sin cobertura.`
+      : "La unión — no la suma por antena — es el objetivo (comentario del profesor).",
+    mapKey: "coverage",
+  });
+
+  const hasLinks = stats ? Boolean(stats.linkPairs) : Boolean(Object.values(scenario.connectivity).some((n) => n.length));
+  rows.push({
+    id: "links",
+    title: "Conectividad de la red (LOS entre antenas)",
+    badge: hasLinks ? "aplicada" : "sin datos",
+    meta: "enlaces factibles entre pares con visibilidad",
+    counts:
+      stats?.linkPairs != null
+        ? `${number(stats.linkPairs)} enlaces factibles`
+        : hasLinks
+          ? "grafo didáctico de enlaces"
+          : "sin enlaces calculados",
+    formula: "E_conn = { (a,a′) : LOS(a,a′) ∧ ‖a−a′‖ ≤ min(ρ_a, ρ_a′) }",
+    note: "La solución debe formar una sola red: G[S] conexo (un único componente).",
+    mapKey: hasLinks ? "links" : null,
+  });
+
+  if (stats?.thresholdPopulation != null) {
+    rows.push({
+      id: "threshold",
+      title: "Umbral de población t",
+      badge: "aplicada",
+      meta: `t = ${number(stats.thresholdPopulation)} hab`,
+      counts: null,
+      formula: "f(S) = Σ<sub>u ∈ U(S)</sub> w<sub>u</sub> ≥ t, con U(S) = ∪<sub>a∈S</sub> C(a)",
+      note: "El objetivo es la población única cubierta por la unión, nunca la suma por antena.",
+      mapKey: "solution",
+    });
+  }
+
+  rows.push({
+    id: "k",
+    title: "Presupuesto de antenas",
+    badge: "aplicada",
+    meta: `k = ${scenario.k}`,
+    counts:
+      stats?.keptCandidates != null
+        ? `${number(stats.keptCandidates)} sitios disponibles para elegir`
+        : `${scenario.candidates.length} sitios disponibles para elegir`,
+    formula: "S ⊆ C, |S| ≤ k",
+    mapKey: "solution",
+  });
+
+  if (stats) {
+    const gateways = stats.gateways || [];
+    rows.push({
+      id: "gateway",
+      title: "Gateway (salida a Internet)",
+      badge: gateways.length ? "aplicada" : "no exigida",
+      meta: gateways.length ? `G = { ${gateways.join(", ")} }` : "G = ∅",
+      counts: gateways.length ? null : "cualquier antena puede actuar como gateway",
+      formula: "S ∩ G ≠ ∅",
+      note: "Con G vacío la restricción se satisface trivialmente (no hay salida exigida).",
+      mapKey: null,
+    });
+    if (stats.maxEvaluations != null) {
+      rows.push({
+        id: "evaluations",
+        title: "Presupuesto de evaluaciones",
+        badge: "aplicada",
+        meta: `E_max = ${number(stats.maxEvaluations)}`,
+        counts:
+          stats.evaluations != null
+            ? `${number(stats.evaluations)} evaluaciones usadas`
+            : null,
+        formula: "|{ S visitados por la enumeración ESU }| ≤ E_max",
+        note: "Protección de peor caso: si el presupuesto se excede, ExactLimitExceeded.",
+        mapKey: null,
+      });
+    }
+  }
+
+  return rows;
+}
+
+function constraintRowElement(row) {
+  if (row.header) {
+    const heading = document.createElement("h3");
+    heading.className = "constraint-group";
+    heading.textContent = row.header;
+    return heading;
+  }
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = [
+    "constraint-row",
+    row.mapKey ? "" : "no-map",
+    state.highlightPinned && state.highlightPinned === row.mapKey ? "pinned" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  button.dataset.constraint = row.id;
+  const badgeClass = {
+    aplicada: "ok",
+    etiqueta: "info",
+    "no exigida": "off",
+    "sin capa": "off",
+    "sin datos": "off",
+  }[row.badge] || "info";
+  button.innerHTML = `
+    <span class="constraint-top"><strong>${row.title}</strong><span class="constraint-badge ${badgeClass}">${row.badge}</span></span>
+    ${row.meta ? `<span class="constraint-meta">${row.meta}</span>` : ""}
+    ${row.counts ? `<span class="constraint-counts">${row.counts}</span>` : ""}
+    <code class="constraint-formula">${row.formula}</code>
+    ${row.note ? `<span class="constraint-note">${row.note}</span>` : ""}`;
+  if (row.mapKey) {
+    button.addEventListener("mouseenter", () => setHoverHighlight(row.mapKey));
+    button.addEventListener("mouseleave", () => setHoverHighlight(null));
+    button.addEventListener("focus", () => setHoverHighlight(row.mapKey));
+    button.addEventListener("blur", () => setHoverHighlight(null));
+    button.addEventListener("click", () => {
+      state.highlightPinned = state.highlightPinned === row.mapKey ? null : row.mapKey;
+      renderConstraintDrawer();
+      refreshHighlight();
+    });
+  }
+  return button;
+}
+
+function renderConstraintDrawer() {
+  const rows = constraintRows(state.scenario);
+  constraintToggle.hidden = false;
+  constraintToggle.setAttribute("aria-expanded", String(state.drawerOpen));
+  constraintDrawer.classList.toggle("open", state.drawerOpen);
+  constraintList.replaceChildren(...rows.map(constraintRowElement));
+}
+
+function setHoverHighlight(mapKey) {
+  state.hoverHighlight = mapKey;
+  refreshHighlight();
+}
+
+function refreshHighlight() {
+  state.highlight = state.highlightPinned || state.hoverHighlight;
+  if (state.view === "terrain") terrainView.update(state);
+  else update();
+}
+
+// Iluminación en el mapa SVG: cada restricción tiene una capa con clase .hl
+// activa sólo mientras su fila está en hover/focus/fijada. Defensivo: puede
+// correr antes del primer render() (vía renderAlgorithmSection → update).
+function applyHighlightSvg() {
+  const highlight = state.highlight;
+  const elements = state.elements;
+  elements.area?.classList.toggle("hl", highlight === "area");
+  const prcPaths = elements.prcPaths || { excluded: [], unknown: [] };
+  const proximityRings = elements.proximityRings || [];
+  const rhoRings = elements.rhoRings || [];
+  const rejections = elements.rejections || { slope: [], nodata: [] };
+  const excluded = elements.excluded || { prc: [], sensitive: [] };
+  const prcOn = state.showPrcConstraints;
+  const showExcluded = prcOn && (!highlight || highlight === "prc-exclusion");
+  const showUnknown = prcOn && (!highlight || highlight === "prc-unknown");
+  prcPaths.excluded.forEach((path) => {
+    path.classList.toggle("off", !showExcluded);
+    path.classList.toggle("hl", highlight === "prc-exclusion");
+  });
+  prcPaths.unknown.forEach((path) => {
+    path.classList.toggle("off", !showUnknown);
+    path.classList.toggle("hl", highlight === "prc-unknown");
+  });
+  proximityRings.forEach((path) => path.classList.toggle("hl", highlight === "proximity"));
+  rhoRings.forEach((path) => path.classList.toggle("hl", highlight === "ranges"));
+  rejections.slope.forEach((dot) => dot.classList.toggle("hl", highlight === "slope"));
+  rejections.nodata.forEach((dot) => dot.classList.toggle("hl", highlight === "nodata"));
+  excluded.prc.forEach((mark) => mark.classList.toggle("hl", highlight === "prc-exclusion"));
+  excluded.sensitive.forEach((mark) => mark.classList.toggle("hl", highlight === "sensitive"));
 }
 
 function update() {
   const showCandidates = state.step >= 1;
   const showCoverage = state.step >= 2;
-  const showLinks = false;
   const showSolution = state.step === steps.length - 1;
-  const selected = showSolution ? new Set(state.scenario.connectedSolution) : new Set();
-  const covered = showSolution ? coveredBy(state.scenario.connectedSolution) : new Set();
-  const reachable = showCoverage
-    ? new Set(Object.values(state.scenario.coverage).flat())
-    : new Set();
+  const highlight = state.highlight;
+  // La carta de restricciones puede adelantar estados del modelo sin
+  // cambiar el paso: "solution"/"threshold"/"links" muestran la solución,
+  // "coverage" los pares factibles, "cap" todas las candidatas.
+  const solutionActive =
+    showSolution ||
+    highlight === "solution" ||
+    highlight === "threshold" ||
+    highlight === "links";
+  const selected = solutionActive ? new Set(state.scenario.connectedSolution) : new Set();
+  const covered = solutionActive ? coveredBy(state.scenario.connectedSolution) : new Set();
+  const reachable =
+    showCoverage || highlight === "coverage"
+      ? new Set(Object.values(state.scenario.coverage).flat())
+      : new Set();
 
   state.elements.candidates.forEach(({ circle, label }, id) => {
     // En la solución sólo quedan las antenas elegidas; las candidatas
     // descartadas se remueven (misma regla que la escena 3D).
-    const visible = showCandidates && (!showSolution || selected.has(id));
+    const visible =
+      (showCandidates || highlight === "cap" || highlight === "coverage" || highlight === "ranges") &&
+      (!solutionActive || selected.has(id));
     circle.classList.toggle("show", visible);
     label.classList.toggle("show", visible);
     circle.classList.toggle("selected", selected.has(id));
   });
   state.elements.coverage.forEach(({ line }) => {
-    line.classList.toggle("show", false);
+    line.classList.toggle("show", highlight === "coverage");
   });
   state.elements.links.forEach(({ line, source, target }) => {
-    line.classList.toggle("show", showLinks);
-    line.classList.toggle("selected", showSolution && selected.has(source) && selected.has(target));
+    line.classList.toggle("show", solutionActive);
+    line.classList.toggle("selected", solutionActive && selected.has(source) && selected.has(target));
   });
   state.elements.demands.forEach((circle, id) => {
     circle.classList.toggle("covered", covered.has(id));
@@ -285,6 +769,7 @@ function update() {
     // nada que afirmar sobre la población no cubierta (ADR 0014).
     circle.classList.toggle("unreachable", showSolution && !reachable.has(id));
   });
+  applyHighlightSvg();
   const totals = populationByState();
   document.querySelector("#uncovered-value").textContent = showSolution
     ? number(totals.reachable + totals.unreachable)
@@ -365,6 +850,11 @@ function setActiveTab(tab) {
     button.classList.toggle("active", active);
     button.setAttribute("aria-selected", String(active));
   });
+  // La carta de restricciones es por escenario: al cambiar de simulación se
+  // limpia cualquier iluminación fijada (los filtros aplicados cambian).
+  state.highlightPinned = null;
+  state.hoverHighlight = null;
+  state.highlight = null;
 }
 
 function pathForGeometry(geometry, project) {
@@ -388,13 +878,17 @@ async function loadOutput(directory, name) {
     let roads = [];
     let constraints = [];
     let manifestConfig = null;
+    let manifest = null;
     try {
       const response = await fetch(`../outputs/${directory}/connectivity.json`, { cache: "no-cache" });
       if (response.ok) connectivity = await response.json();
     } catch (_) { /* La conectividad es opcional. */ }
     try {
       const response = await fetch(`../outputs/${directory}/manifest.json`, { cache: "no-cache" });
-      if (response.ok) manifestConfig = (await response.json()).config || null;
+      if (response.ok) {
+        manifest = await response.json();
+        manifestConfig = manifest.config || null;
+      }
     } catch (_) { /* El manifiesto es opcional. */ }
     try {
       const response = await fetch(`../outputs/${directory}/roads.geojson`, { cache: "no-cache" });
@@ -407,12 +901,35 @@ async function loadOutput(directory, name) {
       const response = await fetch(`../outputs/${directory}/constraints.geojson`, { cache: "no-cache" });
       if (response.ok) constraints = (await response.json()).features;
     } catch (_) { /* El filtro PRC es opcional. */ }
+    // PRC sólo cuenta como aplicado si la corrida lo declaró (audit del
+    // manifiesto o prc_directory en la config). Un constraints.geojson
+    // heredado de una era anterior no se muestra ni se lista como aplicado:
+    // screening honesto (ADR 0005).
+    const prcZonesAvailable = constraints.length;
+    const prcApplied = Boolean(manifest?.prc_constraints || manifestConfig?.prc_directory);
+    if (!prcApplied) constraints = [];
+    // Puntos descartados por filtros del DEM y candidatos excluidos por
+    // restricciones territoriales: capas de la carta de restricciones
+    // (ADR 0015). Opcionales: pilotos anteriores pueden no tenerlos.
+    let rejections = [];
+    let excludedCandidates = [];
+    try {
+      const response = await fetch(`../outputs/${directory}/candidate_rejections.geojson`, { cache: "no-cache" });
+      if (response.ok) rejections = (await response.json()).features;
+    } catch (_) { /* Requiere pipeline con exportación de rechazos. */ }
+    try {
+      const response = await fetch(`../outputs/${directory}/excluded_candidates.geojson`, { cache: "no-cache" });
+      if (response.ok) excludedCandidates = (await response.json()).features;
+    } catch (_) { /* Sin exclusiones PRC/sensibles no hay archivo. */ }
     const coordinates = demandPoints.features.map((feature) => feature.geometry.coordinates);
     const bounds = coordinates.reduce((value, [x, y]) => [Math.min(value[0], x), Math.min(value[1], y), Math.max(value[2], x), Math.max(value[3], y)], [Infinity, Infinity, -Infinity, -Infinity]);
     const project = ([x, y]) => ({ x: 42 + ((x - bounds[0]) / (bounds[2] - bounds[0])) * 636, y: 45 + ((bounds[3] - y) / (bounds[3] - bounds[1])) * 365 });
     const connectedResult = metrics.results.find((result) => result.algorithm === "exact_connected");
     const greedyResult = metrics.results.find((result) => result.algorithm === "greedy_connected");
     const coverageValues = Object.values(graph.coverage).flat();
+    const candidateAudit = manifest?.candidates || {};
+    const prcAudit = manifest?.prc_constraints || null;
+    const sensitiveAudit = manifest?.sensitive_sites || null;
     return {
       name,
       k: metrics.results[0].k,
@@ -444,12 +961,49 @@ async function loadOutput(directory, name) {
           ? {
               populationCovered: greedyResult.population_covered,
               evaluations: greedyResult.evaluations,
-              runtimeSeconds: greedyResult.runtime_seconds,
+              runtimeSeconds: greedyResult.runtimeSeconds ?? greedyResult.runtime_seconds,
             }
           : null,
+        // Carta de restricciones (ADR 0015): conteos y parámetros de cada
+        // filtro, desde el audit y la config del manifiesto.
+        studySizeM: manifestConfig?.study_size_m ?? null,
+        prcMode: manifestConfig?.prc_mode ?? null,
+        maxEvaluations: manifestConfig?.max_evaluations ?? null,
+        sampleStepM: manifest?.model?.sample_step_m ?? null,
+        rawPoints: candidateAudit.raw_points ?? null,
+        keptCandidates: candidateAudit.kept ?? null,
+        maxCandidates: candidateAudit.max_candidates ?? manifestConfig?.max_candidates ?? null,
+        capped: candidateAudit.capped ?? null,
+        excludedOutsideArea: candidateAudit.excluded_outside_area ?? null,
+        excludedNodata: candidateAudit.excluded_nodata ?? null,
+        excludedSlope: candidateAudit.excluded_slope ?? null,
+        excludedProximity: candidateAudit.excluded_proximity ?? null,
+        highsiteWindowM: candidateAudit.highsite_window_m ?? null,
+        prcAudit: prcAudit
+          ? {
+              mode: prcAudit.mode ?? null,
+              generated: prcAudit.generated ?? null,
+              kept: prcAudit.kept ?? null,
+              excluded: prcAudit.excluded ?? null,
+            }
+          : null,
+        prcApplied,
+        prcZonesAvailable,
+        sensitiveAudit: sensitiveAudit
+          ? {
+              generated: sensitiveAudit.generated ?? null,
+              kept: sensitiveAudit.kept ?? null,
+              excluded: sensitiveAudit.excluded ?? null,
+              bufferM: sensitiveAudit.buffer_m ?? null,
+              source: sensitiveAudit.source ?? null,
+            }
+          : null,
+        sensitiveConfigured: Boolean(manifestConfig?.sensitive_directory),
       },
       demands: demandPoints.features.map((feature) => ({ id: feature.properties.id, label: feature.properties.id, population: feature.properties.population, longitude: feature.geometry.coordinates[0], latitude: feature.geometry.coordinates[1], ...project(feature.geometry.coordinates) })),
-      candidates: candidates.features.map((feature) => ({ id: feature.properties.id, label: feature.properties.id, longitude: feature.geometry.coordinates[0], latitude: feature.geometry.coordinates[1], radiusM: feature.properties.radius_m ?? null, constraintStatus: feature.properties.constraint_status, ...project(feature.geometry.coordinates) })),
+      // Sólo candidatos vigentes: los excluidos por PRC/sensibles viven en
+      // excluded_candidates.geojson y se dibujan como cruces de la carta.
+      candidates: candidates.features.filter((feature) => feature.properties.constraint_status !== "excluded").map((feature) => ({ id: feature.properties.id, label: feature.properties.id, longitude: feature.geometry.coordinates[0], latitude: feature.geometry.coordinates[1], radiusM: feature.properties.radius_m ?? null, constraintStatus: feature.properties.constraint_status, ...project(feature.geometry.coordinates) })),
       coverage: graph.coverage,
       connectivity: Object.fromEntries(candidates.features.map((feature) => [feature.properties.id, connectivity?.[feature.properties.id] || []])),
       connectedSolution: (connectedResult || metrics.results[0]).selected,
@@ -459,6 +1013,9 @@ async function loadOutput(directory, name) {
       localityPolygons: demand.features.map((feature) => ({ id: feature.properties.id, population: feature.properties.population, geometry: feature.geometry })),
       roads,
       constraints,
+      rejections,
+      excludedCandidates,
+      areaGeometry: area.features[0].geometry,
     };
   } catch (_) {
     return null;
@@ -755,4 +1312,17 @@ prcLayerToggle.addEventListener("click", () => {
   if (state.view === "terrain") terrainView.update(state);
   else render();
 });
+constraintToggle.addEventListener("click", () => {
+  setDrawer(!state.drawerOpen);
+});
+constraintClose.addEventListener("click", () => setDrawer(false));
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && state.drawerOpen) setDrawer(false);
+});
+
+function setDrawer(open) {
+  state.drawerOpen = open;
+  constraintDrawer.classList.toggle("open", open);
+  constraintToggle.setAttribute("aria-expanded", String(open));
+}
 showYumbel();

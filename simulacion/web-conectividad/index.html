@@ -29,6 +29,7 @@
           <div class="canvas-actions">
             <button class="terrain-reset" id="terrain-reset" type="button" hidden>Reiniciar vista</button>
             <button class="prc-layer-toggle" id="prc-layer-toggle" type="button" aria-pressed="true" hidden>Restricciones PRC</button>
+            <button class="terrain-reset constraint-toggle" id="constraint-toggle" type="button" aria-expanded="false" aria-controls="constraint-drawer" hidden>Restricciones</button>
             <div class="zoom-controls" id="zoom-controls" role="group" aria-label="Zoom del relieve 3D" hidden>
               <button id="zoom-in" type="button" aria-label="Acercar">+</button>
               <button id="zoom-out" type="button" aria-label="Alejar">−</button>
@@ -96,6 +97,18 @@
             <span><i class="legend-coverage"></i> Cobertura</span>
             <span><i class="legend-link"></i> Enlace LOS</span>
           </div>
+
+          <aside class="constraint-drawer" id="constraint-drawer" aria-labelledby="constraint-drawer-title">
+            <header class="constraint-drawer-head">
+              <h2 id="constraint-drawer-title">Restricciones aplicadas</h2>
+              <button class="constraint-close" id="constraint-close" type="button" aria-label="Cerrar carta de restricciones">×</button>
+            </header>
+            <p class="constraint-lead">
+              Pasa el cursor o enfoca una restricción para iluminarla en el mapa; un clic la fija.
+              Cada fila muestra sus parámetros, su conteo real y la equivalencia matemática que aplica el motor.
+            </p>
+            <div id="constraint-list"></div>
+          </aside>
         </section>
       </section>
 
