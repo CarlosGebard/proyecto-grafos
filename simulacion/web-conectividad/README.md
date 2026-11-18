@@ -1,14 +1,19 @@
 # Visor web de conectividad rural
 
-Presentación estática en tres vistas: **inicio** (problema + solución +
-botón de entrada), **mapa de Chile** con las localidades de los tres pilotos
-como puntos brillantes y cartas de impacto social por zona, y **simulación
-3D** del relieve con los controles del estudio. Sin paso de build: three.js,
-OrbitControls, el contorno de Chile y las localidades están vendidos en
-`vendor/` y `assets/`. La **capa base son tiles de OpenStreetMap**
-(`osm-tiles.js`, ADR 0017, revisa ADR 0008): se descargan en runtime con
-atribución visible y, sin red, ambas superficies degradan a su fondo local
-(tinte plano del contorno / paleta hipsométrica del relieve).
+Presentación estática en tres vistas — **inicio**, **mapa de Chile** con las
+localidades de los tres pilotos como puntos brillantes y cartas de impacto
+social por zona, y **simulación 3D** del relieve con los controles del
+estudio — con el sistema visual «Red Austral» (rediseño implementado en
+noviembre de 2026): portada editorial en papel hueso/cobalto con tipografía
+propia, atlas y simulación en «noche blueprint» con puntos de señal. Sin
+paso de build: three.js, el contorno de Chile, las localidades y las fuentes
+tipográficas (Oswald, Archivo, IBM Plex Mono; OFL en `assets/fonts/`) están
+vendidos en `vendor/` y `assets/`. La **capa base son tiles de
+OpenStreetMap** (`osm-tiles.js`, ADR 0017, revisa ADR 0008): se descargan en
+runtime con atribución visible y, sin red, ambas superficies degradan a su
+fondo local (tinte plano del contorno / paleta hipsométrica del relieve). En
+el mapa de Chile los tiles se **recortan al contorno nacional** (`clipPath`
+del SVG), y el relieve 3D toma su fondo del mismo token `--night` del visor.
 
 Desde `simulacion/`:
 
@@ -26,30 +31,33 @@ cloudflared tunnel --url http://127.0.0.1:8000
 
 La URL `trycloudflare.com` que entregue Cloudflare sólo dura mientras el túnel siga activo; no se versiona como enlace permanente.
 
-## Las tres vistas (ADR 0016)
+## Las tres vistas (ADR 0016; rediseño «Red Austral», noviembre de 2026)
 
-1. **Inicio** (`#view-inicio`): el problema (brecha de acceso rural con
-   cifras verificadas — Fundación País Digital «Hogares Conectados 2026»,
-   SUBTEL — y la restricción de permisos LGUC 116 bis F) y la solución
-   (motor exacto ESU + unión incremental, candidatos por criterio
-   territorial, verificación con oráculo). Los totales de la portada se
-   calculan en vivo desde los `metrics.json` versionados.
-2. **Mapa** (`#view-mapa`): contorno continental vendido en
-   `assets/chile.json` (Natural Earth 1:50m, dominio público) y las 827
-   localidades de los pilotos como puntos en `assets/localities.json`
-   (generado desde los `demand_points.geojson` versionados). Clic en
-   cualquier punto abre la **carta de impacto social** desde la derecha
-   (historia y conectividad, segmento socioeconómico, situación actual,
-   impacto proyectado) con fuentes citadas; los chips de cobertura salen
-   del `metrics.json` de la corrida, no de texto fijo. El botón «Ver la
-   simulación de la zona» cierra la carta, anima el `viewBox` del SVG
-   hacia la zona (~1,5 s) y entrega el visor 3D.
+1. **Inicio** (`#view-inicio`): portada editorial — héroe cobalto con haz de
+   rayos, problema con cifras verificadas en bloques con filete de tinta
+   (Fundación País Digital «Hogares Conectados 2026», SUBTEL, LGUC 116 bis
+   F), solución en tres pasos numerados (datos reales, motor exacto ESU +
+   unión incremental, verificación con oráculo) y llamado al atlas con los
+   totales calculados en vivo desde los `metrics.json` versionados.
+2. **Mapa** (`#view-mapa`): noche blueprint con los tiles OSM recortados al
+   contorno continental (`assets/chile.json`, Natural Earth 1:50m, dominio
+   público) y las 827 localidades de los pilotos como puntos de señal en
+   `assets/localities.json` (generado desde los `demand_points.geojson`
+   versionados). Clic en cualquier punto abre la **carta de impacto social**
+   desde la derecha — coordenadas en formato cartográfico, secciones
+   numeradas (historia y conectividad, segmento socioeconómico, situación
+   actual, impacto proyectado), ficha técnica con los números reales de
+   `metrics.json` y fuentes citadas. El botón «Ver la simulación de la
+   zona» cierra la carta, anima el `viewBox` del SVG hacia la zona (~1,5 s)
+   y entrega el visor 3D.
 3. **Simulación** (`#view-sim`): controles arriba a la izquierda — volver
-   al mapa, nombre de la zona, zoom `−`/`+`, «Iniciar simulación»
-   (reproduce las fases), «Reiniciar» (paso 0 y cámara al encuadre
-   original) y «Restricciones» — y leyenda abajo a la izquierda (elevación,
-   densidad, población afectada por estado y rango ρ(a)). El recorrido de
-   fases vive en la esquina inferior derecha.
+   al mapa, nombre de la zona, zoom `−`/`+` con lectura «×n.n», «Iniciar
+   simulación» (reproduce las fases), «Reiniciar» (paso 0 y cámara al
+   encuadre original) y «Restricciones» — y leyenda abajo a la izquierda
+   (elevación, densidad, población afectada por estado y rango ρ(a)). El
+   recorrido de fases vive en la esquina inferior derecha. Bajo el lienzo,
+   «Cómo se aplicó el algoritmo» conserva su formulación matemática y sus
+   filas modelo→dato en papel editorial.
 
 ## Relieve 3D (todos los pilotos)
 
@@ -91,13 +99,15 @@ EOF
 
 ```text
 web-conectividad/
-  index.html        tres vistas + carta lateral de restricciones (ADR 0015)
+  index.html        tres vistas (portada editorial + atlas + simulación) y cartas
+  styles.css        tokens del sistema Red Austral (papel/cobalto/noche/señal)
+  fonts.css         @font-face de las fuentes vendidas (assets/fonts, OFL)
   app.js            estado, carga de artefactos, recorrido, controles
   map.js            proyección del mapa de Chile, puntos y zoom animado
   zones.js          metadatos de zonas y cartas de impacto social (con fuentes)
   terrain-view.js   escena 3D (three.js vendido; no toca el motor)
-  styles.css
-  assets/           chile.json + localities.json (vendidos, sin red)
+  osm-tiles.js      ensamblado de tiles OSM en runtime (ADR 0017)
+  assets/           chile.json + localities.json + fonts/ (vendidos, sin red)
   vendor/           three.module.min.js, three.core.min.js, OrbitControls.js
   assets/radio-tower.svg  ícono Radio Tower de GitHub Octicons (MIT), vía Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Octicons-radio-tower.svg
 ```

@@ -14,11 +14,6 @@ import { assembleTiles, mercatorX, mercatorY, ATTRIBUTION } from "./osm-tiles.js
 const WORLD = 256 * 2 ** 7;
 const BASE_ZOOM = 7;
 const DETAIL_ZOOM = 10;
-const ZONE_ACCENTS = {
-  yumbel: "#e9ad45",
-  biobio: "#6bbcad",
-  metropolitana: "#dd795f",
-};
 
 function project(lon, lat) {
   return { x: mercatorX(lon, WORLD), y: mercatorY(lat, WORLD) };
@@ -212,11 +207,26 @@ export function createChileMap(svg, markerLayer, { onZoneClick }) {
       applyView(view);
 
       const ns = "http://www.w3.org/2000/svg";
+      // Los tiles se recortan al contorno de Chile: fuera del territorio la
+      // noche blueprint queda plana (aspecto de máscara cartográfica) y sin
+      // red el tinte plano del terreno hace de respaldo.
+      const defs = document.createElementNS(ns, "defs");
+      const clip = document.createElementNS(ns, "clipPath");
+      clip.setAttribute("id", "chile-clip");
+      const clipPath = document.createElementNS(ns, "path");
+      clipPath.setAttribute("d", pathForGeometry(baseGeometry));
+      clipPath.setAttribute("fill-rule", "evenodd");
+      clip.appendChild(clipPath);
+      defs.appendChild(clip);
+      svg.appendChild(defs);
+
       const baseImage = document.createElementNS(ns, "image");
       baseImage.setAttribute("class", "chile-tiles-base");
+      baseImage.setAttribute("clip-path", "url(#chile-clip)");
       svg.appendChild(baseImage);
       const detailImage = document.createElementNS(ns, "image");
       detailImage.setAttribute("class", "chile-tiles-detail");
+      detailImage.setAttribute("clip-path", "url(#chile-clip)");
       svg.appendChild(detailImage);
 
       const land = document.createElementNS(ns, "path");
@@ -225,11 +235,10 @@ export function createChileMap(svg, markerLayer, { onZoneClick }) {
       land.setAttribute("fill-rule", "evenodd");
       svg.appendChild(land);
 
-      // Puntos = localidades de los pilotos (demand_points.geojson): halo
-      // suave + núcleo, tamaño ∝ √población. Clic en cualquier punto o
-      // marcador de zona abre la carta de su zona.
+      // Puntos = localidades de los pilotos (demand_points.geojson): señal
+      // hueso con halo suave, tamaño ∝ √población. Clic en cualquier punto
+      // o marcador de zona abre la carta de su zona.
       ZONES.forEach((zone) => {
-        const accent = ZONE_ACCENTS[zone.id];
         const group = document.createElementNS(ns, "g");
         group.setAttribute("class", `chile-dots dots-${zone.id}`);
         (localities[zone.localitiesKey] || []).forEach(([lon, lat, pop]) => {
@@ -240,13 +249,13 @@ export function createChileMap(svg, markerLayer, { onZoneClick }) {
           halo.setAttribute("cx", p.x.toFixed(1));
           halo.setAttribute("cy", p.y.toFixed(1));
           halo.setAttribute("r", (radius * 2.1).toFixed(1));
-          halo.setAttribute("fill", accent);
+          halo.style.fill = "var(--signal)";
           const core = document.createElementNS(ns, "circle");
           core.setAttribute("class", "dot-core");
           core.setAttribute("cx", p.x.toFixed(1));
           core.setAttribute("cy", p.y.toFixed(1));
           core.setAttribute("r", radius.toFixed(1));
-          core.setAttribute("fill", accent);
+          core.style.fill = "var(--signal-hot)";
           const hit = document.createElementNS(ns, "circle");
           hit.setAttribute("class", "dot-hit");
           hit.setAttribute("cx", p.x.toFixed(1));
@@ -259,13 +268,20 @@ export function createChileMap(svg, markerLayer, { onZoneClick }) {
         svg.appendChild(group);
       });
 
-      // Marcadores y etiquetas de zona en HTML (nítidos en cualquier zoom).
+      // Marcadores y etiquetas de zona en HTML (nítidos en cualquier zoom):
+      // pulso de señal + núcleo con brillo + etiqueta cartográfica.
       ZONES.forEach((zone) => {
         const marker = document.createElement("button");
         marker.type = "button";
         marker.className = `zone-marker marker-${zone.id}`;
-        marker.innerHTML = `<span class="zone-marker-dot"></span><span class="zone-marker-label">${zone.name}</span>`;
-        marker.addEventListener("click", () => onZoneClick(zone));
+        marker.innerHTML =
+          `<span class="zone-marker-halo" aria-hidden="true"></span>` +
+          `<span class="zone-marker-dot" aria-hidden="true"></span>` +
+          `<span class="zone-marker-label">${zone.name}</span>`;
+        marker.addEventListener("click", () => {
+          markersByZone.forEach((m, id) => m.classList.toggle("is-selected", id === zone.id));
+          onZoneClick(zone);
+        });
         markerLayer.appendChild(marker);
         markersByZone.set(zone.id, marker);
       });

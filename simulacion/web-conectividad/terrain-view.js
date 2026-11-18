@@ -90,6 +90,40 @@ function clamp(value, minimum, maximum) {
   return Math.max(minimum, Math.min(maximum, value));
 }
 
+// Lee un token de color del visor (--night, etc.) y lo convierte a sRGB:
+// el CSS usa oklch y ni three.js ni el canvas lo devuelven en hex. Conversión
+// OKLCH → sRGB estándar (Björn Ottosson), con recorte por canal.
+function cssTokenColor(variable) {
+  const match = getComputedStyle(document.documentElement)
+    .getPropertyValue(variable)
+    .trim()
+    .match(/oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)/);
+  const fallback = "#000000";
+  if (!match) return fallback;
+  const lightness = Number(match[1]);
+  const chroma = Number(match[2]);
+  const hue = (Number(match[3]) * Math.PI) / 180;
+  const a = chroma * Math.cos(hue);
+  const b = chroma * Math.sin(hue);
+  const l_ = lightness + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = lightness - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = lightness - 0.0894841775 * a - 1.291485548 * b;
+  const l = l_ ** 3;
+  const m = m_ ** 3;
+  const s = s_ ** 3;
+  const linear = [
+    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
+  ];
+  const toSrgb = (u) => {
+    const v = Math.min(1, Math.max(0, u));
+    return v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055;
+  };
+  const [r, g, blue] = linear.map(toSrgb).map((u) => Math.round(u * 255));
+  return `#${[r, g, blue].map((u) => u.toString(16).padStart(2, "0")).join("")}`;
+}
+
 // Área geodésica de un anillo WGS84 (exceso esférico; fórmula estándar tipo Turf.js).
 function geodesicArea(ring) {
   const radius = 6378137;
@@ -290,7 +324,9 @@ export function createTerrainView(container) {
   container.append(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color("#dce6df");
+  // Fondo de noche blueprint: se lee del mismo token del visor (--night),
+  // normalizado a hex vía canvas (three no parsea oklch directamente).
+  scene.background = new THREE.Color(cssTokenColor("--night"));
 
   const camera = new THREE.PerspectiveCamera(
     50,
@@ -316,6 +352,8 @@ export function createTerrainView(container) {
 
   let layers = null;
   let frame = null;
+  // Distancia cámara→objetivo del encuadre original (base del zoom relativo).
+  let baselineDistance = 0;
 
   function resetCamera() {
     const radius = 3.1;
@@ -328,6 +366,14 @@ export function createTerrainView(container) {
     );
     controls.target.set(0, 0.05, 0);
     controls.update();
+    baselineDistance = camera.position.distanceTo(controls.target);
+  }
+
+  // Zoom relativo para la lectura «×n.n» del panel de controles: 1 es el
+  // encuadre original; refleja también la rueda de OrbitControls.
+  function zoomLevel() {
+    if (!baselineDistance) return 1;
+    return baselineDistance / camera.position.distanceTo(controls.target);
   }
 
   function disposeObject(object) {
@@ -1284,6 +1330,7 @@ export function createTerrainView(container) {
     reset: resetCamera,
     zoomIn: () => zoomBy(0.75),
     zoomOut: () => zoomBy(1.33),
+    zoomLevel,
     get densityClasses() {
       return layers?.densityClassification?.classes || [];
     },

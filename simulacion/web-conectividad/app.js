@@ -89,6 +89,41 @@ function number(value) {
   return new Intl.NumberFormat("es-CL").format(Math.round(value));
 }
 
+// Coordenadas en formato cartográfico: -37.128 → «37°08′S · 72°33′O».
+function formatCoord([lon, lat]) {
+  const fmt = (value, pos, neg) => {
+    const absolute = Math.abs(value);
+    const degrees = Math.floor(absolute);
+    const minutes = Math.round((absolute - degrees) * 60);
+    const clamped = minutes === 60 ? degrees + 1 : degrees;
+    const shown = minutes === 60 ? 0 : minutes;
+    return `${clamped}°${String(shown).padStart(2, "0")}′${value >= 0 ? pos : neg}`;
+  };
+  return `${fmt(lat, "N", "S")} · ${fmt(lon, "E", "O")}`;
+}
+
+// Haz de rayos decorativo de la portada: líneas radiales deterministas
+// (mismo trazo en cada carga; sin dependencias).
+function mountRayBursts() {
+  document.querySelectorAll("svg.rayburst").forEach((svg) => {
+    const rays = Number(svg.dataset.rays || 48);
+    const ns = "http://www.w3.org/2000/svg";
+    svg.setAttribute("viewBox", "-110 -110 220 220");
+    for (let i = 0; i < rays; i += 1) {
+      const angle = (i / rays) * Math.PI * 2;
+      const inner = 28 + ((i * 37) % 34);
+      const line = document.createElementNS(ns, "line");
+      line.setAttribute("x1", (Math.cos(angle) * inner).toFixed(2));
+      line.setAttribute("y1", (Math.sin(angle) * inner).toFixed(2));
+      line.setAttribute("x2", (Math.cos(angle) * 106).toFixed(2));
+      line.setAttribute("y2", (Math.sin(angle) * 106).toFixed(2));
+      line.setAttribute("stroke", "currentColor");
+      line.setAttribute("stroke-width", "0.9");
+      svg.appendChild(line);
+    }
+  });
+}
+
 function prcExclusions() {
   return (state.scenario.constraints || []).filter(
     (feature) => feature.properties.constraint_status === "excluded"
@@ -943,18 +978,26 @@ const map = createChileMap(document.querySelector("#chile-map"), document.queryS
 
 function fillZoneCard(zone) {
   state.activeZone = zone;
+  document.querySelector("#zone-coords").textContent = formatCoord(zone.center);
   document.querySelector("#zone-kicker").textContent = zone.kicker;
   document.querySelector("#zone-title").textContent = zone.name;
   document.querySelector("#zone-subtitle").textContent = zone.subtitle;
   document.querySelector("#zone-lead").textContent = zone.lead;
   const sections = document.querySelector("#zone-sections");
   sections.replaceChildren(
-    ...zone.sections.map((section) => {
+    ...zone.sections.map((section, index) => {
       const article = document.createElement("article");
       article.className = "zone-section";
-      const h4 = document.createElement("h4");
-      h4.textContent = section.title;
-      article.append(h4, ...section.paragraphs.map((text) => {
+      const label = document.createElement("p");
+      label.className = "zone-section-label";
+      const num = document.createElement("span");
+      num.className = "zone-section-num";
+      num.textContent = String(index + 1).padStart(2, "0");
+      const title = document.createElement("span");
+      title.className = "zone-section-title";
+      title.textContent = section.title;
+      label.append(num, title);
+      article.append(label, ...section.paragraphs.map((text) => {
         const p = document.createElement("p");
         p.textContent = text;
         return p;
@@ -962,10 +1005,13 @@ function fillZoneCard(zone) {
       return article;
     }),
   );
-  // Chips con los números reales de la corrida versionada (metrics.json):
-  // la carta nunca inventa cifras de la simulación.
+  // Ficha técnica con los números reales de la corrida versionada
+  // (metrics.json): la carta nunca inventa cifras de la simulación.
   const chips = document.querySelector("#zone-chips");
+  const chipsLabel = document.querySelector("#zone-chips-label");
   chips.hidden = true;
+  chipsLabel.hidden = true;
+  chips.replaceChildren();
   fetch(`../outputs/${zone.directory}/metrics.json`, { cache: "no-cache" })
     .then((response) => (response.ok ? response.json() : null))
     .then((metrics) => {
@@ -973,17 +1019,26 @@ function fillZoneCard(zone) {
       const exact = metrics.results.find((result) => result.algorithm === "exact_connected") || metrics.results[0];
       const percent = new Intl.NumberFormat("es-CL", { style: "percent", maximumFractionDigits: 1 });
       const share = exact.population_total ? percent.format(exact.population_covered / exact.population_total) : "—";
-      chips.innerHTML = [
-        `${number(exact.population_covered)} de ${number(exact.population_total)} hab cubiertos (${share})`,
-        `${number(exact.num_demand_nodes ?? metrics.results[0].num_demand_nodes)} localidades`,
-        `k = ${exact.k} antenas conectadas`,
-        `${number(exact.evaluations)} evaluaciones`,
-      ]
-        .map((chip) => `<span class="zone-chip">${chip}</span>`)
-        .join("");
+      const entries = [
+        ["Cobertura exacta", `${number(exact.population_covered)} de ${number(exact.population_total)} hab (${share})`],
+        ["Localidades", number(exact.num_demand_nodes ?? metrics.results[0].num_demand_nodes)],
+        ["Antenas", `${exact.k} conectadas`],
+        ["Evaluaciones", number(exact.evaluations)],
+      ];
+      chips.replaceChildren(...entries.map(([term, value]) => {
+        const cell = document.createElement("div");
+        cell.className = "zone-chip";
+        const dt = document.createElement("dt");
+        dt.textContent = term;
+        const dd = document.createElement("dd");
+        dd.textContent = value;
+        cell.append(dt, dd);
+        return cell;
+      }));
       chips.hidden = false;
+      chipsLabel.hidden = false;
     })
-    .catch(() => { /* Sin métricas la carta queda sin chips. */ });
+    .catch(() => { /* Sin métricas la carta queda sin ficha. */ });
   const sources = document.querySelector("#zone-sources");
   sources.innerHTML = `<p class="zone-sources-title">Fuentes</p>` + zone.sources
     .map((source) => `<a href="${source.url}" target="_blank" rel="noopener">${source.text}</a>`)
@@ -1022,10 +1077,12 @@ document.querySelector("#btn-entrar").addEventListener("click", () => {
   showView(viewMapa);
   map.refresh();
 });
-document.querySelector("#btn-entrar-2").addEventListener("click", () => {
-  showView(viewMapa);
-  map.refresh();
-});
+for (const id of ["btn-entrar-hero", "btn-entrar-2", "btn-entrar-3"]) {
+  document.querySelector(`#${id}`).addEventListener("click", () => {
+    showView(viewMapa);
+    map.refresh();
+  });
+}
 document.querySelector("#btn-volver-inicio").addEventListener("click", () => showView(viewInicio));
 document.querySelector("#btn-volver-mapa").addEventListener("click", backToMap);
 
@@ -1037,6 +1094,22 @@ playButton.addEventListener("click", play);
 resetButton.addEventListener("click", resetSimulation);
 zoomInButton.addEventListener("click", () => terrainView.zoomIn());
 zoomOutButton.addEventListener("click", () => terrainView.zoomOut());
+
+// Lectura «×n.n» del zoom: 1 es el encuadre original. Refleja botones,
+// rueda y reinicio; sólo escribe cuando el valor cambia.
+const zoomReadout = document.querySelector("#zoom-readout");
+(function watchZoom() {
+  let last = "";
+  const tick = () => {
+    const text = `ZOOM ×${terrainView.zoomLevel().toFixed(1)}`;
+    if (text !== last) {
+      zoomReadout.textContent = text;
+      last = text;
+    }
+    window.requestAnimationFrame(tick);
+  };
+  window.requestAnimationFrame(tick);
+})();
 constraintToggle.addEventListener("click", () => {
   setDrawer(!state.drawerOpen);
 });
@@ -1108,6 +1181,7 @@ function fillLanding() {
 
 // ── Arranque ──────────────────────────────────────────────────────────────
 
+mountRayBursts();
 fillLanding();
 document.querySelector("#map-attribution").textContent = "Mapa base © OpenStreetMap contributors";
 map.load().then(() => {

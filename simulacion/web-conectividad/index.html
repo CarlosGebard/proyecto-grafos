@@ -5,149 +5,242 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Optimización de cobertura territorial para conectividad rural: dónde poner k antenas para cubrir la mayor población única, con línea de vista sobre el relieve real."
+      content="Red Austral — optimización de cobertura territorial para conectividad rural: dónde poner k antenas para cubrir la mayor población única, con línea de vista sobre el relieve real."
     />
-    <title>Cobertura territorial · Conectar el Chile rural</title>
+    <title>Red Austral — Simulador de Conectividad Rural de Chile</title>
+    <link rel="stylesheet" href="assets/fonts.css" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <!-- ───────────────────────── Vista 1: inicio ───────────────────────── -->
     <section id="view-inicio" class="view" aria-label="Inicio">
-      <header class="hero">
-        <p class="hero-kicker">Grafos y Algoritmos · optimización de cobertura territorial</p>
-        <h1>Conectar el Chile rural<br />con la menor cantidad de antenas</h1>
-        <p class="hero-lead">
-          ¿Dónde poner <b>k</b> antenas para alcanzar la mayor población posible, si cada antena
-          sólo sirve a quien tiene línea de vista sobre el relieve real y la red debe quedar
-          conectada en un solo componente? Este proyecto resuelve ese problema <b>de forma
-          exacta</b> y lo muestra sobre territorios reales.
-        </p>
-        <div class="hero-stats" id="hero-stats" hidden></div>
-        <button class="button primary cta" id="btn-entrar" type="button">
-          Explorar el mapa de simulaciones
-        </button>
+      <header class="site-header">
+        <div class="site-header-inner">
+          <a href="#view-inicio" class="brand" aria-label="Red Austral, inicio">
+            <span class="brand-mark" aria-hidden="true">RA</span>
+            <span>
+              <span class="brand-name">Red Austral</span>
+              <span class="brand-sub">Simulador de conectividad</span>
+            </span>
+          </a>
+          <nav class="site-nav" aria-label="Secciones">
+            <a href="#problema">El problema</a>
+            <a href="#solucion">La solución</a>
+            <a href="#atlas">El atlas</a>
+          </nav>
+          <button class="button primary" id="btn-entrar" type="button">
+            Ver simulaciones →
+          </button>
+        </div>
       </header>
 
-      <section class="landing-block" aria-labelledby="problema-title">
-        <h2 id="problema-title">El problema</h2>
-        <p class="landing-lead">
-          La conectividad móvil casi universal de Chile esconde una brecha de acceso: la señal
-          existe, pero llega mal —o no llega— a hogares rurales de segmentos de menores ingresos.
-          Y cada torre nueva es una decisión de un solo intento: cuesta lo mismo donde cubre a 40
-          familias que donde cubre a 400.
-        </p>
-        <div class="fact-grid" id="fact-grid"></div>
-        <div class="landing-columns">
+      <main>
+        <!-- héroe: cobalto plano + haz de rayos + tipografía editorial -->
+        <section class="hero-band">
+          <svg class="rayburst" data-rays="48" style="top: -120px; right: -96px; width: 560px; height: 560px; color: rgba(255, 255, 255, .3);" aria-hidden="true"></svg>
+          <svg class="rayburst" data-rays="36" style="bottom: -140px; left: 33%; width: 420px; height: 420px; color: rgba(255, 255, 255, .15);" aria-hidden="true"></svg>
+          <div class="hero-inner">
+            <p class="hero-kicker">Optimización de cobertura territorial · Chile · 18°S — 56°S</p>
+            <h1 class="hero-title">La distancia no debería significar el silencio digital.</h1>
+            <p class="hero-lead">
+              Miles de localidades rurales chilenas siguen fuera del mapa de la banda ancha.
+              Este modelo resuelve <b>de forma exacta</b> dónde poner <b>k</b> antenas para
+              alcanzar la mayor población posible — cada antena sólo sirve a quien tiene
+              <b>línea de vista sobre el relieve real</b>, y la red debe quedar conectada en
+              un solo componente — y lo muestra sobre tres pilotos con datos versionados.
+            </p>
+            <div class="hero-actions">
+              <button class="button signal" id="btn-entrar-hero" type="button">
+                Explorar el mapa con las simulaciones →
+              </button>
+              <a class="button ghost" href="#problema">Conocer el problema</a>
+            </div>
+            <p class="hero-sources">Fuentes: SUBDERE · Censo 2017 (INE) · DEM ALOS/Copernicus · SUBTEL · Fundación País Digital</p>
+          </div>
+        </section>
+
+        <!-- el problema, con cifras verificadas -->
+        <section id="problema" class="landing-section" aria-labelledby="problema-title">
+          <div class="section-inner section-grid">
+            <div>
+              <p class="kicker">01 — El problema</p>
+              <h2 id="problema-title" class="section-title">Chile conecta a sus ciudades, pero deja al resto del país fuera de línea.</h2>
+              <div class="landing-copy">
+                <p>
+                  La conectividad móvil casi universal de Chile esconde una brecha de acceso:
+                  la señal existe, pero llega mal —o no llega— a hogares rurales de segmentos
+                  de menores ingresos. Y cada torre nueva es una decisión de un solo intento:
+                  cuesta lo mismo donde cubre a 40 familias que donde cubre a 400.
+                </p>
+                <p>
+                  No es un problema de proporciones sino de consecuencias: para una posta de
+                  secano o una escuela multicurso, no tener banda ancha significa trasladarse
+                  horas por una consulta de rutina, preparar tareas con cuadernos impresos y
+                  renunciar a vender el trabajo local más allá del pueblo.
+                </p>
+              </div>
+            </div>
+            <div class="fact-list" id="fact-grid" aria-label="Cifras nacionales verificadas"></div>
+          </div>
+        </section>
+
+        <!-- la solución: tres pasos numerados -->
+        <section id="solucion" class="landing-section deep" aria-labelledby="solucion-title">
+          <div class="section-inner">
+            <p class="kicker">02 — La solución</p>
+            <h2 id="solucion-title" class="section-title">Un motor exacto que convierte la brecha digital en territorio explorable.</h2>
+            <div class="step-list">
+              <div class="step-row">
+                <span class="step-num">01</span>
+                <h3 class="step-head">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 22h18"/><path d="M6 18v-7"/><path d="M10 18v-7"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="m3 9 9-6 9 6"/></svg>
+                  Diagnóstico con datos reales
+                </h3>
+                <p class="step-body">
+                  Cada corrida parte del territorio: localidades y población (SUBDERE/Censo
+                  2017), relieve de un DEM (ALOS/Copernicus) y restricciones vigentes —
+                  pendiente, establecimientos sensibles (OGUC 116 bis E) y el PRC como
+                  <b>screening territorial</b>, nunca como permiso de construcción (LGUC
+                  116 bis F). No se simula sobre lugares inventados.
+                </p>
+              </div>
+              <div class="step-row">
+                <span class="step-num">02</span>
+                <h3 class="step-head">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9"/><path d="M7.8 4.7a6.14 6.14 0 0 0-.8 7.5"/><path d="M16.2 4.8c.9 1 1.5 2.3 1.6 3.7"/><path d="M19.1 1.9a10 10 0 0 1 0 14.1"/><circle cx="12" cy="12" r="2"/><path d="m12 14-3 7"/><path d="m15 21-3-7"/></svg>
+                  Modelación y motor exacto
+                </h3>
+                <p class="step-body">
+                  Antenas, enlaces y restricciones se representan como nodos y aristas sobre
+                  el territorio. El motor enumera <b>subconjuntos conexos</b> (ESU, Wernicke
+                  2006) con unión incremental del objetivo y cotas de poda: óptimo garantizado
+                  y desempate lexicográfico reproducible. El goloso existe sólo como
+                  <b>baseline de contraste</b>.
+                </p>
+              </div>
+              <div class="step-row">
+                <span class="step-num">03</span>
+                <h3 class="step-head">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+                  Simulación verificable del impacto
+                </h3>
+                <p class="step-body">
+                  Cada simulación es una <b>corrida versionada</b> del pipeline, comparada
+                  contra un oráculo independiente en los tests. Lo que muestra el relieve 3D
+                  son resultados reales — evaluaciones, tiempos y población cubierta del
+                  escenario cargado —, no ilustraciones.
+                </p>
+              </div>
+            </div>
+            <p class="landing-cta-note">
+              Cada simulación se lee en cuatro fases: localidades → sitios candidatos →
+              cobertura posible (anillos ρ(a) drapeados al relieve) → solución conectada
+              (torres, enlaces LOS y población cubierta).
+            </p>
+            <button class="button primary cta" id="btn-entrar-2" type="button">
+              Ver las simulaciones en el mapa →
+            </button>
+          </div>
+        </section>
+
+        <!-- llamado al atlas, con las cifras vivas de los pilotos -->
+        <section id="atlas" class="atlas-band" aria-labelledby="atlas-title">
+          <svg class="rayburst" data-rays="60" aria-hidden="true"></svg>
+          <div class="atlas-inner">
+            <p class="kicker">03 — El atlas</p>
+            <h2 id="atlas-title">Tres pilotos reales, cientos de localidades por conectar.</h2>
+            <p class="atlas-copy">
+              Explore el mapa de Chile, abra la carta social de cada zona y ejecute la
+              simulación de su relieve: candidatos del criterio territorial, cobertura por
+              distancia y línea de vista, y la solución exacta conectada.
+            </p>
+            <div id="hero-stats" hidden></div>
+            <button class="button signal" id="btn-entrar-3" type="button">
+              Ir al mapa con las simulaciones →
+            </button>
+          </div>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <div class="footer-grid">
           <div>
-            <h3>El problema en lenguaje del curso</h3>
+            <h3>Red Austral</h3>
             <p>
-              Dado un área de estudio con localidades habitadas (censos SUBDERE), un modelo de
-              terreno (DEM) y un conjunto de sitios candidatos, elegir <b>hasta k</b> sitios que
-              <b>maximicen la población única cubierta</b> — la unión de sus coberturas, nunca la
-              suma por antena — donde cada localidad se cubre por <b>distancia y línea de vista</b>
-              sobre el relieve, y las antenas elegidas forman <b>una sola red conectada</b>
-              (enlaces LOS entre pares con visibilidad y gateway).
+              Presentación del proyecto de optimización de cobertura territorial —
+              Grafos y Algoritmos. Herramienta de prefactibilidad para conectividad
+              rural: dónde invertir antenas para cubrir más población única, con
+              screening territorial de PRC y informe de restricciones aplicadas.
             </p>
           </div>
           <div>
-            <h3>Por qué es difícil</h3>
+            <h4>Datos y fuentes</h4>
+            <ul id="nacional-sources"></ul>
+            <p class="footer-note">
+              Herramienta de prefactibilidad: los resultados no certifican cobertura
+              radioeléctrica ni factibilidad de construcción. Base teórica: PartialConRBDS
+              (LIPIcs.ITCS.2026.80); enumeración conexa: Wernicke 2006. Mapa base: tiles de
+              OpenStreetMap (© OpenStreetMap contributors) con contorno Natural Earth de respaldo.
+            </p>
+          </div>
+          <div>
+            <h4>Cobertura del modelo</h4>
             <p>
-              El objetivo <b>no es aditivo</b>: dos antenas que cubren a las mismas familias no
-              suman el doble de población. Ese solape destruye las soluciones golosas y fuerza a
-              examinar subconjuntos — pero el número de combinaciones explota de inmediato
-              (C(121,5) ≈ 1,99·10⁸ en una ventana de 50 km). La respuesta es enumerar sólo los
-              subconjuntos <b>conexos</b> con uniones incrementales y cotas de poda, garantizando
-              el óptimo igualmente.
+              Tres pilotos versionados del pipeline: Biobío (Laja – Salto del Laja),
+              Metropolitana (Buin – Paine) y Yumbel (ventana de 50 × 50 km), con candidatos
+              por criterio territorial, clases de potencia y motor exacto conectado
+              (ESU + unión incremental + cotas + desempate lexicográfico).
             </p>
           </div>
         </div>
-      </section>
-
-      <section class="landing-block" aria-labelledby="solucion-title">
-        <h2 id="solucion-title">La solución implementada</h2>
-        <div class="pillar-grid">
-          <article class="pillar">
-            <h3>Motor exacto conectado</h3>
-            <p>
-              Enumeración canónica de subconjuntos conexos (ESU, Wernicke 2006) con unión
-              incremental del objetivo y cota de prefijos de poda estricta. Óptimo garantizado,
-              desempate lexicográfico reproducible y presupuesto de peor caso
-              (<code>max_evaluations</code>). Sin heurísticas como solución principal: el goloso
-              existe sólo como <b>baseline de contraste</b>.
-            </p>
-          </article>
-          <article class="pillar">
-            <h3>Candidatos por criterio territorial</h3>
-            <p>
-              Nada de retículas: sitios propuestos donde hay algo que conectar — anclas en
-              localidades, intersecciones Murray–Tong de coberturas, sitios altos del DEM —
-              filtrados por pendiente, NoData, separación mínima y establecimientos sensibles
-              (OGUC 116 bis E). El PRC actúa como <b>screening territorial</b>, nunca como permiso
-              de construcción (torre &gt; 12 m exige recepción municipal, LGUC 116 bis F).
-            </p>
-          </article>
-          <article class="pillar">
-            <h3>Verificación abierta</h3>
-            <p>
-              El motor se compara contra un <b>oráculo independiente</b> en los tests, cada corrida
-              reporta evaluaciones y tiempos, y las tres simulaciones de esta página son corridas
-              versionadas del pipeline. Lo que ves en el mapa 3D son los resultados reales, no
-              ilustraciones.
-            </p>
-          </article>
-        </div>
-        <p class="landing-cta-note">
-          Cada simulación se lee en cuatro fases: localidades → sitios candidatos → cobertura
-          posible (anillos ρ(a) drapeados al relieve) → solución conectada (torres, enlaces LOS y
-          población cubierta).
-        </p>
-        <button class="button primary cta" id="btn-entrar-2" type="button">
-          Ver las simulaciones en el mapa
-        </button>
-      </section>
-
-      <footer class="landing-footer">
-        <p class="landing-footer-title">Fuentes del contexto social</p>
-        <ul id="nacional-sources"></ul>
-        <p class="landing-note">
-          Herramienta de prefactibilidad: los resultados no certifican cobertura radioeléctrica
-          ni factibilidad de construcción. Base teórica: PartialConRBDS (LIPIcs.ITCS.2026.80);
-          enumeración conexa: Wernicke 2006. Mapa base: tiles de OpenStreetMap
-          (© OpenStreetMap contributors) con contorno Natural Earth de respaldo.
-        </p>
+        <p class="footer-bottom">Red Austral — proyecto de Grafos y Algoritmos · 2026</p>
       </footer>
     </section>
 
     <!-- ───────────────────────── Vista 2: mapa ───────────────────────── -->
     <section id="view-mapa" class="view view-map" hidden aria-label="Mapa de Chile con las localidades simuladas">
       <div class="map-shell">
-        <svg id="chile-map" role="img" aria-label="Mapa de Chile con las localidades de las tres simulaciones"></svg>
+        <svg id="chile-map" role="img" aria-label="Mapa nocturno de Chile con las localidades de las tres simulaciones"></svg>
         <div id="zone-markers" class="zone-markers"></div>
         <div class="map-topbar">
           <button class="chip-btn" id="btn-volver-inicio" type="button">← Inicio</button>
-          <p class="map-hint">Haz clic en un punto de interés para conocer su historia</p>
-          <p class="map-attribution" id="map-attribution"></p>
+          <p class="map-hint">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9l10.5 4-4.7 1.8L13 19.5z"/><circle cx="7.5" cy="7.5" r="4.5"/></svg>
+            Haz clic en un punto brillante para abrir la carta social de su zona
+          </p>
         </div>
+        <p class="map-attribution" id="map-attribution"></p>
       </div>
       <aside id="zone-card" class="zone-card" aria-hidden="true" aria-labelledby="zone-title">
-        <button class="zone-card-close" id="zone-card-close" type="button" aria-label="Cerrar carta">×</button>
-        <p class="zone-kicker" id="zone-kicker"></p>
-        <h2 class="zone-title" id="zone-title"></h2>
-        <p class="zone-subtitle" id="zone-subtitle"></p>
-        <p class="zone-lead" id="zone-lead"></p>
-        <div id="zone-chips" class="zone-chips" hidden></div>
-        <div id="zone-sections"></div>
-        <div class="zone-sources" id="zone-sources"></div>
-        <button class="button primary zone-cta" id="zone-cta" type="button">
-          Ver la simulación de la zona
+        <button class="zone-card-close" id="zone-card-close" type="button" aria-label="Cerrar carta">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
         </button>
+        <div class="zone-card-scroll zone-card-head">
+          <p class="zone-coords" id="zone-coords"></p>
+          <p class="zone-kicker" id="zone-kicker"></p>
+          <h2 class="zone-title" id="zone-title"></h2>
+          <p class="zone-subtitle" id="zone-subtitle"></p>
+          <p class="zone-lead" id="zone-lead"></p>
+        </div>
+        <div class="zone-card-scroll thin-scroll">
+          <div id="zone-sections"></div>
+          <p class="tech-label" id="zone-chips-label" hidden>Ficha técnica de la corrida</p>
+          <dl id="zone-chips" hidden></dl>
+          <div class="zone-sources" id="zone-sources"></div>
+        </div>
+        <div class="zone-card-foot">
+          <button class="button primary zone-cta" id="zone-cta" type="button">
+            Ver la simulación de la zona
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+          </button>
+        </div>
       </aside>
     </section>
 
     <!-- ────────────────────── Vista 3: simulación ────────────────────── -->
     <section id="view-sim" class="view" hidden aria-label="Simulación de la zona">
       <main class="page-shell">
-        <section class="simulation" aria-label="Simulación interactiva">
+        <section class="simulation on-night" aria-label="Simulación interactiva">
           <div class="canvas-panel">
             <div id="terrain-3d" role="img" aria-label="Mapa 3D de la región. Arrastra para rotar y usa la rueda o los botones para acercar."></div>
 
@@ -159,6 +252,7 @@
                 <span class="sim-controls-label">Zoom</span>
                 <div class="zoom-controls" id="zoom-controls">
                   <button id="zoom-out" type="button" aria-label="Alejar">−</button>
+                  <span class="zoom-readout" id="zoom-readout" aria-hidden="true"></span>
                   <button id="zoom-in" type="button" aria-label="Acercar">+</button>
                 </div>
               </div>
