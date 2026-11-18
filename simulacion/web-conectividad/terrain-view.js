@@ -721,11 +721,10 @@ export function createTerrainView(container) {
         .filter(Boolean);
     }).flat();
 
-    // Exclusiones PRC (screening, no permiso): rojo translúcido + borde.
-    const exclusions = (scenario.constraints || []).filter(
-      (feature) => feature.properties.constraint_status === "excluded"
-    );
-    next.constraints = exclusions.map((feature) => {
+    // Restricciones PRC (screening, no permiso): exclusiones en rojo
+    // translúcido + borde; zonas sin clasificación en gris neutro.
+    next.constraints = (scenario.constraints || []).map((feature) => {
+      const excluded = feature.properties.constraint_status === "excluded";
       const fill = drapedFill(
         elevationY,
         ringsOf(feature.geometry),
@@ -733,9 +732,9 @@ export function createTerrainView(container) {
         sampleElevation,
         0.0012,
         new THREE.MeshBasicMaterial({
-          color: 0xa72f24,
+          color: excluded ? 0xa72f24 : 0x55524a,
           transparent: true,
-          opacity: 0.24,
+          opacity: excluded ? 0.24 : 0.14,
           depthWrite: false,
           side: THREE.DoubleSide,
         }),
@@ -750,7 +749,11 @@ export function createTerrainView(container) {
             mapper,
             sampleElevation,
             0.0014,
-            new THREE.LineBasicMaterial({ color: 0x80251e, transparent: true, opacity: 0.8 }),
+            new THREE.LineBasicMaterial({
+              color: excluded ? 0x80251e : 0x3d3a34,
+              transparent: true,
+              opacity: excluded ? 0.8 : 0.6,
+            }),
             terrain
           )
         )

@@ -226,19 +226,26 @@ function prcExclusions() {
 }
 
 function updatePrcLayerToggle() {
-  const exclusions = prcExclusions();
-  const available = exclusions.length > 0;
+  const zones = (state.scenario.constraints || []).length;
+  const exclusions = prcExclusions().length;
+  const available = zones > 0;
   prcLayerToggle.hidden = !available;
   prcLayerToggle.setAttribute("aria-pressed", String(state.showPrcConstraints));
-  prcLayerToggle.textContent = `Restricciones PRC (${exclusions.length})`;
+  prcLayerToggle.textContent = exclusions > 0
+    ? `Restricciones PRC (${exclusions} exclusiones · ${zones} zonas)`
+    : `Restricciones PRC (${zones} zonas sin clasificación)`;
 }
 
 function renderPrcConstraints() {
-  const group = node("g", { class: "prc-exclusions", "aria-label": "Exclusiones territoriales explícitas del PRC" });
-  prcExclusions().forEach((feature) => {
-    const path = node("path", { class: "prc-exclusion", d: pathForGeometry(feature.geometry, state.scenario.project) });
+  const group = node("g", { class: "prc-exclusions", "aria-label": "Restricciones territoriales explícitas del PRC" });
+  (state.scenario.constraints || []).forEach((feature) => {
+    const excluded = feature.properties.constraint_status === "excluded";
+    const path = node("path", { class: excluded ? "prc-exclusion" : "prc-unknown", d: pathForGeometry(feature.geometry, state.scenario.project) });
     const title = node("title");
-    title.textContent = `Exclusión PRC: ${feature.properties.prc_zone || feature.properties.prc_name || "zona restringida"}`;
+    const zone = feature.properties.prc_zone || feature.properties.prc_name || "zona restringida";
+    title.textContent = excluded
+      ? `Exclusión PRC: ${zone}`
+      : `Zona PRC sin clasificación: ${zone}`;
     path.append(title);
     group.append(path);
   });

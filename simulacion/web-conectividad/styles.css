@@ -64,6 +64,7 @@ h3 { letter-spacing: -.035em; line-height: 1.08; }
 @keyframes appear { 0% { transform: scale(.55); } 70% { transform: scale(1.13); } 100% { transform: scale(1); } }
 .legend { position: absolute; right: 18px; bottom: 18px; display: flex; flex-wrap: wrap; justify-content: end; gap: 13px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--surface) 93%, transparent); color: var(--muted); font-size: .75rem; }.legend[hidden] { display: none; }.legend i { display: inline-block; width: 9px; height: 9px; margin-right: 4px; border-radius: 50%; }.legend-demand { background: #a6afa9; }.legend-candidate { background: var(--candidate); }.legend-coverage { width: 15px !important; height: 2px !important; border-radius: 0 !important; background: var(--accent); vertical-align: 3px; }.legend-link { width: 15px !important; height: 3px !important; border-radius: 0 !important; background: var(--link); vertical-align: 3px; }
 .prc-exclusion { fill: rgba(167, 47, 36, .24); stroke: rgba(128, 37, 30, .8); stroke-width: .7; pointer-events: none; }
+.prc-unknown { fill: rgba(85, 82, 74, .16); stroke: rgba(61, 58, 52, .7); stroke-width: .6; stroke-dasharray: 3 2; pointer-events: none; }
 
 /* Cómo se aplicó el algoritmo: fases sincronizadas con el mapa. */
 .algorithm-walkthrough { margin-top: 34px; padding-top: 28px; border-top: 1px solid var(--line); }
