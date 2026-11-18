@@ -116,22 +116,6 @@ function number(value) {
   return new Intl.NumberFormat("es-CL").format(Math.round(value));
 }
 
-function demandById(id) {
-  return state.scenario.demands.find((demand) => demand.id === id);
-}
-
-function candidateById(id) {
-  return state.scenario.candidates.find((candidate) => candidate.id === id);
-}
-
-function coveredBy(solution) {
-  return new Set(solution.flatMap((candidate) => state.scenario.coverage[candidate] || []));
-}
-
-function population(ids) {
-  return [...ids].reduce((sum, id) => sum + demandById(id).population, 0);
-}
-
 function addLine(group, className, left, right, source, target) {
   const line = node("line", { class: className, x1: left.x, y1: left.y, x2: right.x, y2: right.y });
   group.append(line);
@@ -1058,6 +1042,9 @@ async function showBiobio() {
   state.scenario = state.biobio;
   state.step = 0;
   if (state.terrain) {
+  // La carta de restricciones (ADR 0015) se reconstruye por escenario: sus
+  // filas y capas son de la corrida cargada.
+  renderConstraintDrawer();
     state.view = "terrain";
     sceneStatus.textContent = state.scenario.name;
   } else {

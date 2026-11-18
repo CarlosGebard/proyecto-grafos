@@ -5,219 +5,337 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Visor didáctico de cobertura territorial y conectividad entre antenas."
+      content="Optimización de cobertura territorial para conectividad rural: dónde poner k antenas para cubrir la mayor población única, con línea de vista sobre el relieve real."
     />
-    <title>Red conectada | Cobertura territorial</title>
+    <title>Cobertura territorial · Conectar el Chile rural</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="page-shell">
-      <header class="masthead">
-        <h1>Simulación de cobertura conectada</h1>
+    <!-- ───────────────────────── Vista 1: inicio ───────────────────────── -->
+    <section id="view-inicio" class="view" aria-label="Inicio">
+      <header class="hero">
+        <p class="hero-kicker">Grafos y Algoritmos · optimización de cobertura territorial</p>
+        <h1>Conectar el Chile rural<br />con la menor cantidad de antenas</h1>
+        <p class="hero-lead">
+          ¿Dónde poner <b>k</b> antenas para alcanzar la mayor población posible, si cada antena
+          sólo sirve a quien tiene línea de vista sobre el relieve real y la red debe quedar
+          conectada en un solo componente? Este proyecto resuelve ese problema <b>de forma
+          exacta</b> y lo muestra sobre territorios reales.
+        </p>
+        <div class="hero-stats" id="hero-stats" hidden></div>
+        <button class="button primary cta" id="btn-entrar" type="button">
+          Explorar el mapa de simulaciones
+        </button>
       </header>
 
-      <section class="simulation" aria-label="Simulación interactiva">
-        <div class="tabs" role="tablist" aria-label="Escenario de simulación">
-          <button class="tab active" id="yumbel-tab" type="button" role="tab" aria-selected="true">Yumbel 50 km · PRC</button>
-          <button class="tab" id="biobio-tab" type="button" role="tab" aria-selected="false">Biobío 3D</button>
-          <button class="tab" id="metro-tab" type="button" role="tab" aria-selected="false">Metropolitana 3D</button>
-          <button class="tab" id="demo-tab" type="button" role="tab" aria-selected="false">Ejemplo didáctico</button>
-        </div>
-
-        <section class="canvas-panel" aria-label="Grafo didáctico">
-          <div class="scene-status" id="scene-status">Ejemplo didáctico</div>
-          <div class="canvas-actions">
-            <button class="terrain-reset" id="terrain-reset" type="button" hidden>Reiniciar vista</button>
-            <button class="prc-layer-toggle" id="prc-layer-toggle" type="button" aria-pressed="true" hidden>Restricciones PRC</button>
-            <button class="terrain-reset constraint-toggle" id="constraint-toggle" type="button" aria-expanded="false" aria-controls="constraint-drawer" hidden>Restricciones</button>
-            <div class="zoom-controls" id="zoom-controls" role="group" aria-label="Zoom del relieve 3D" hidden>
-              <button id="zoom-in" type="button" aria-label="Acercar">+</button>
-              <button id="zoom-out" type="button" aria-label="Alejar">−</button>
-            </div>
-          </div>
-
-          <svg id="network" viewBox="0 0 720 470" role="img" aria-labelledby="network-title network-description">
-            <title id="network-title">Construcción de una red de antenas conectada</title>
-            <desc id="network-description">Diagrama animado con localidades, antenas candidatas, enlaces de cobertura y enlaces entre antenas.</desc>
-          </svg>
-          <div id="terrain-3d" hidden role="img" aria-label="Mapa 3D de la región. Arrastra para rotar y usa la rueda o los botones para acercar."></div>
-
-          <div class="step-overlay" id="step-overlay" aria-live="polite">
-            <p class="step-index" id="step-index">1 de 4</p>
-            <h3 id="step-title">Localidades y población</h3>
-            <p id="step-copy">
-              Cada círculo es una localidad. Su tamaño muestra cuántas personas se busca cubrir.
+      <section class="landing-block" aria-labelledby="problema-title">
+        <h2 id="problema-title">El problema</h2>
+        <p class="landing-lead">
+          La conectividad móvil casi universal de Chile esconde una brecha de acceso: la señal
+          existe, pero llega mal —o no llega— a hogares rurales de segmentos de menores ingresos.
+          Y cada torre nueva es una decisión de un solo intento: cuesta lo mismo donde cubre a 40
+          familias que donde cubre a 400.
+        </p>
+        <div class="fact-grid" id="fact-grid"></div>
+        <div class="landing-columns">
+          <div>
+            <h3>El problema en lenguaje del curso</h3>
+            <p>
+              Dado un área de estudio con localidades habitadas (censos SUBDERE), un modelo de
+              terreno (DEM) y un conjunto de sitios candidatos, elegir <b>hasta k</b> sitios que
+              <b>maximicen la población única cubierta</b> — la unión de sus coberturas, nunca la
+              suma por antena — donde cada localidad se cubre por <b>distancia y línea de vista</b>
+              sobre el relieve, y las antenas elegidas forman <b>una sola red conectada</b>
+              (enlaces LOS entre pares con visibilidad y gateway).
             </p>
-            <dl class="readout">
-              <div><dt>Población cubierta</dt><dd id="covered-value">0</dd></div>
-              <div><dt>Sin cubrir</dt><dd id="uncovered-value">—</dd><dd class="readout-detail" id="uncovered-detail"></dd></div>
-              <div><dt>Antenas elegidas</dt><dd id="selected-value">0 de 3</dd></div>
-              <div><dt>Red conectada</dt><dd id="connected-value">Aún no aplica</dd></div>
-            </dl>
-            <div class="controls" aria-label="Controles del recorrido">
-              <button class="button secondary" id="previous-button" type="button">Anterior</button>
-              <button class="button primary" id="next-button" type="button">Siguiente</button>
-              <button class="button secondary" id="play-button" type="button">Reproducir</button>
-            </div>
           </div>
+          <div>
+            <h3>Por qué es difícil</h3>
+            <p>
+              El objetivo <b>no es aditivo</b>: dos antenas que cubren a las mismas familias no
+              suman el doble de población. Ese solape destruye las soluciones golosas y fuerza a
+              examinar subconjuntos — pero el número de combinaciones explota de inmediato
+              (C(121,5) ≈ 1,99·10⁸ en una ventana de 50 km). La respuesta es enumerar sólo los
+              subconjuntos <b>conexos</b> con uniones incrementales y cotas de poda, garantizando
+              el óptimo igualmente.
+            </p>
+          </div>
+        </div>
+      </section>
 
-          <div class="terrain-legend" id="terrain-overlay" hidden aria-label="Leyenda del relieve 3D">
-            <div class="legend-block">
-              <p class="legend-caption">Elevación <span>(m s. n. m.)</span></p>
-              <div class="legend-gradient" id="elev-gradient"></div>
-              <div class="legend-ticks" id="elev-ticks"></div>
+      <section class="landing-block" aria-labelledby="solucion-title">
+        <h2 id="solucion-title">La solución implementada</h2>
+        <div class="pillar-grid">
+          <article class="pillar">
+            <h3>Motor exacto conectado</h3>
+            <p>
+              Enumeración canónica de subconjuntos conexos (ESU, Wernicke 2006) con unión
+              incremental del objetivo y cota de prefijos de poda estricta. Óptimo garantizado,
+              desempate lexicográfico reproducible y presupuesto de peor caso
+              (<code>max_evaluations</code>). Sin heurísticas como solución principal: el goloso
+              existe sólo como <b>baseline de contraste</b>.
+            </p>
+          </article>
+          <article class="pillar">
+            <h3>Candidatos por criterio territorial</h3>
+            <p>
+              Nada de retículas: sitios propuestos donde hay algo que conectar — anclas en
+              localidades, intersecciones Murray–Tong de coberturas, sitios altos del DEM —
+              filtrados por pendiente, NoData, separación mínima y establecimientos sensibles
+              (OGUC 116 bis E). El PRC actúa como <b>screening territorial</b>, nunca como permiso
+              de construcción (torre &gt; 12 m exige recepción municipal, LGUC 116 bis F).
+            </p>
+          </article>
+          <article class="pillar">
+            <h3>Verificación abierta</h3>
+            <p>
+              El motor se compara contra un <b>oráculo independiente</b> en los tests, cada corrida
+              reporta evaluaciones y tiempos, y las tres simulaciones de esta página son corridas
+              versionadas del pipeline. Lo que ves en el mapa 3D son los resultados reales, no
+              ilustraciones.
+            </p>
+          </article>
+        </div>
+        <p class="landing-cta-note">
+          Cada simulación se lee en cuatro fases: localidades → sitios candidatos → cobertura
+          posible (anillos ρ(a) drapeados al relieve) → solución conectada (torres, enlaces LOS y
+          población cubierta).
+        </p>
+        <button class="button primary cta" id="btn-entrar-2" type="button">
+          Ver las simulaciones en el mapa
+        </button>
+      </section>
+
+      <footer class="landing-footer">
+        <p class="landing-footer-title">Fuentes del contexto social</p>
+        <ul id="nacional-sources"></ul>
+        <p class="landing-note">
+          Herramienta de prefactibilidad: los resultados no certifican cobertura radioeléctrica
+          ni factibilidad de construcción. Base teórica: PartialConRBDS (LIPIcs.ITCS.2026.80);
+          enumeración conexa: Wernicke 2006. Mapa base: Natural Earth (dominio público).
+        </p>
+      </footer>
+    </section>
+
+    <!-- ───────────────────────── Vista 2: mapa ───────────────────────── -->
+    <section id="view-mapa" class="view view-map" hidden aria-label="Mapa de Chile con las localidades simuladas">
+      <div class="map-shell">
+        <svg id="chile-map" role="img" aria-label="Mapa de Chile con las localidades de las tres simulaciones"></svg>
+        <div id="zone-markers" class="zone-markers"></div>
+        <div class="map-topbar">
+          <button class="chip-btn" id="btn-volver-inicio" type="button">← Inicio</button>
+          <p class="map-hint">Haz clic en un punto de interés para conocer su historia</p>
+        </div>
+      </div>
+      <aside id="zone-card" class="zone-card" aria-hidden="true" aria-labelledby="zone-title">
+        <button class="zone-card-close" id="zone-card-close" type="button" aria-label="Cerrar carta">×</button>
+        <p class="zone-kicker" id="zone-kicker"></p>
+        <h2 class="zone-title" id="zone-title"></h2>
+        <p class="zone-subtitle" id="zone-subtitle"></p>
+        <p class="zone-lead" id="zone-lead"></p>
+        <div id="zone-chips" class="zone-chips" hidden></div>
+        <div id="zone-sections"></div>
+        <div class="zone-sources" id="zone-sources"></div>
+        <button class="button primary zone-cta" id="zone-cta" type="button">
+          Ver la simulación de la zona
+        </button>
+      </aside>
+    </section>
+
+    <!-- ────────────────────── Vista 3: simulación ────────────────────── -->
+    <section id="view-sim" class="view" hidden aria-label="Simulación de la zona">
+      <main class="page-shell">
+        <section class="simulation" aria-label="Simulación interactiva">
+          <div class="canvas-panel">
+            <div id="terrain-3d" role="img" aria-label="Mapa 3D de la región. Arrastra para rotar y usa la rueda o los botones para acercar."></div>
+
+            <aside class="sim-controls" aria-label="Controles de la simulación">
+              <button class="chip-btn" id="btn-volver-mapa" type="button">← Volver al mapa</button>
+              <h2 class="sim-name" id="sim-name">Cargando…</h2>
+              <p class="sim-subtitle" id="scene-status"></p>
+              <div class="sim-controls-group">
+                <span class="sim-controls-label">Zoom</span>
+                <div class="zoom-controls" id="zoom-controls">
+                  <button id="zoom-out" type="button" aria-label="Alejar">−</button>
+                  <button id="zoom-in" type="button" aria-label="Acercar">+</button>
+                </div>
+              </div>
+              <div class="sim-controls-group sim-controls-stack">
+                <button class="button primary" id="play-button" type="button">Iniciar simulación</button>
+                <button class="button secondary" id="reset-button" type="button">Reiniciar</button>
+                <button class="button secondary" id="constraint-toggle" type="button" hidden>Restricciones</button>
+              </div>
+            </aside>
+
+            <div class="terrain-legend" id="terrain-overlay" hidden aria-label="Leyenda del relieve 3D">
+              <div class="legend-block">
+                <p class="legend-caption">Elevación <span>(m s. n. m.)</span></p>
+                <div class="legend-gradient" id="elev-gradient"></div>
+                <div class="legend-ticks" id="elev-ticks"></div>
+              </div>
+              <div class="legend-block">
+                <p class="legend-caption">Densidad de población <span>(hab/km², cuantiles)</span></p>
+                <div class="legend-classes" id="pop-classes"></div>
+              </div>
+              <div class="legend-block">
+                <p class="legend-caption">Población afectada <span>(solución conectada)</span></p>
+                <div class="legend-classes" id="pop-states"></div>
+                <div class="state-bar" id="pop-states-bar"></div>
+              </div>
+              <div class="legend-block range-legend">
+                <p class="legend-caption">Cobertura <span>rango nominal ρ(a)</span></p>
+                <div class="legend-classes">
+                  <span class="legend-class"><i class="legend-swatch range-swatch-fill"></i>disco ρ(a)</span>
+                  <span class="legend-class"><i class="legend-swatch range-swatch-rim"></i>borde</span>
+                  <span class="legend-class"><i class="legend-swatch antenna-swatch-selected"></i>torre elegida</span>
+                  <span class="legend-class"><i class="legend-swatch link-swatch"></i>enlace LOS</span>
+                </div>
+              </div>
+              <p class="legend-note" id="terrain-note"></p>
             </div>
-            <div class="legend-block">
-              <p class="legend-caption">Densidad <span>(hab/km², cuantiles)</span></p>
-              <div class="legend-classes" id="pop-classes"></div>
-            </div>
-            <div class="legend-block">
-              <p class="legend-caption">Cobertura <span>(rango nominal ρ de antena)</span></p>
-              <div class="range-legend">
-                <span class="legend-class"><i class="legend-swatch range-swatch-fill"></i><b>Rango ρ(a)</b></span>
-                <span class="legend-class"><i class="legend-swatch range-swatch-rim"></i><b>Borde drapeado</b></span>
-                <span class="legend-class"><i class="legend-swatch antenna-swatch-selected"></i><b>Antena elegida</b></span>
-                <span class="legend-class"><i class="legend-swatch link-swatch"></i><b>Enlace LOS</b></span>
+
+            <div class="step-overlay" id="step-overlay" aria-live="polite">
+              <p class="step-index" id="step-index"></p>
+              <h3 id="step-title"></h3>
+              <p id="step-copy"></p>
+              <dl class="readout">
+                <div><dt>Población cubierta</dt><dd id="covered-value">0</dd></div>
+                <div><dt>Antenas</dt><dd id="selected-value">0 de k</dd></div>
+                <div><dt>Red conectada</dt><dd id="connected-value">Aún no aplica</dd></div>
+                <div><dt>Sin cobertura</dt><dd id="uncovered-value">—</dd></div>
+              </dl>
+              <p class="readout-detail" id="uncovered-detail"></p>
+              <div class="controls">
+                <button class="button secondary" id="previous-button" type="button">← Anterior</button>
+                <button class="button secondary" id="next-button" type="button">Siguiente →</button>
               </div>
             </div>
-            <div class="legend-block">
-              <p class="legend-caption">Población <span>(paso solución; no cubierta atenuada)</span></p>
-              <div class="state-bar" id="pop-states-bar" aria-hidden="true"></div>
-              <div class="legend-classes" id="pop-states"></div>
-            </div>
-            <p class="legend-note" id="terrain-note"></p>
-          </div>
 
-          <div class="legend" aria-label="Leyenda">
-            <span><i class="legend-demand"></i> Localidad</span>
-            <span><i class="legend-covered"></i> Cubierta</span>
-            <span><i class="legend-reachable"></i> Alcanzable</span>
-            <span><i class="legend-unreachable"></i> Sin alcance</span>
-            <span><i class="legend-candidate"></i> Antena candidata</span>
-            <span><i class="legend-coverage"></i> Cobertura</span>
-            <span><i class="legend-link"></i> Enlace LOS</span>
+            <aside class="constraint-drawer" id="constraint-drawer" aria-labelledby="constraint-drawer-title">
+              <div class="constraint-drawer-head">
+                <h2 id="constraint-drawer-title">Restricciones aplicadas</h2>
+                <button class="constraint-close" id="constraint-close" type="button" aria-label="Cerrar">×</button>
+              </div>
+              <p class="constraint-lead">
+                Una fila por restricción realmente aplicada en esta corrida, con sus parámetros y
+                la equivalencia matemática que aplica el motor. Pasar el cursor o enfocar una fila
+                ilumina la restricción en el mapa.
+              </p>
+              <div id="constraint-list"></div>
+            </aside>
           </div>
-
-          <aside class="constraint-drawer" id="constraint-drawer" aria-labelledby="constraint-drawer-title">
-            <header class="constraint-drawer-head">
-              <h2 id="constraint-drawer-title">Restricciones aplicadas</h2>
-              <button class="constraint-close" id="constraint-close" type="button" aria-label="Cerrar carta de restricciones">×</button>
-            </header>
-            <p class="constraint-lead">
-              Pasa el cursor o enfoca una restricción para iluminarla en el mapa; un clic la fija.
-              Cada fila muestra sus parámetros, su conteo real y la equivalencia matemática que aplica el motor.
-            </p>
-            <div id="constraint-list"></div>
-          </aside>
         </section>
-      </section>
 
-      <section class="algorithm-walkthrough" aria-labelledby="algorithm-title">
-        <h2 id="algorithm-title">Cómo se aplicó el algoritmo</h2>
-        <p class="algorithm-intro" id="algorithm-intro">
-          Cuatro fases sobre los datos reales del escenario cargado. Toca una fase para verla en el mapa;
-          debajo, el modelo matemático y el archivo real que produce cada uno de sus elementos.
-        </p>
-        <div class="algorithm-steps" id="algorithm-steps"></div>
+        <section class="algorithm-walkthrough" aria-labelledby="algorithm-title">
+          <h2 id="algorithm-title">Cómo se aplicó el algoritmo</h2>
+          <p class="algorithm-intro" id="algorithm-intro">
+            Cuatro fases sobre los datos reales del escenario cargado. Toca una fase para verla en el mapa;
+            debajo, el modelo matemático y el archivo real que produce cada uno de sus elementos.
+          </p>
+          <div class="algorithm-steps" id="algorithm-steps"></div>
 
-        <div class="algorithm-model" id="algorithm-model">
-          <article class="model-panel" aria-labelledby="model-math-title">
-            <h3 id="model-math-title">Formulación matemática</h3>
-            <p class="model-lead">
-              Cobertura máxima ponderada con red conectada: la variante ponderada (i) de PartialConRBDS,
-              resuelta de forma exacta bajo el régimen Δ(G<sub>conn</sub>) acotado. El goloso es sólo baseline de contraste.
-            </p>
-            <div class="math-block" role="img" aria-label="Modelo: maximizar f(S), con S de a lo más k antenas, conexo, con gateway si se exige, y desempate lexicográfico">
-              <div class="math-line"><span class="math-op">max</span> f(S) = Σ<sub>d ∈ U(S)</sub> w(d) <span class="math-comment">con U(S) = ∪<sub>a ∈ S</sub> C(a)</span></div>
-              <div class="math-line"><span class="math-op">s.a.</span> |S| ≤ k</div>
-              <div class="math-line"><span class="math-op"></span> G<sub>conn</sub>[S] conexo <span class="math-comment">(una sola red)</span></div>
-              <div class="math-line"><span class="math-op"></span> S ∩ G ≠ ∅ <span class="math-comment">(sólo si se exigen gateways)</span></div>
-              <div class="math-line"><span class="math-op"></span> empate ⇒ S lexicográficamente menor <span class="math-comment">(reproducible)</span></div>
-            </div>
-            <div class="math-block" role="img" aria-label="Aristas: cobertura por distancia y línea de vista, enlaces entre antenas por el mínimo de radios y línea de vista">
-              <div class="math-line">C(a): (a,d) ∈ E<sub>cov</sub> ⇔ dist(a,d) ≤ ρ(a) ∧ LOS(a,d)</div>
-              <div class="math-line">E<sub>conn</sub>: (u,v) ∈ E<sub>conn</sub> ⇔ dist(u,v) ≤ min(ρ<sub>u</sub>, ρ<sub>v</sub>) ∧ LOS(u,v)</div>
-            </div>
-            <h4>Cómo lo resuelve el motor exacto</h4>
-            <ol class="model-ol">
-              <li><b>Enumeración canónica (ESU, Wernicke 2006).</b> Cada subconjunto conexo de tamaño ≤ k se genera exactamente una vez, anclado en su vértice mínimo; las extensiones usan el vecindario exclusivo N(a) ∖ N(S) con id mayor que la raíz.</li>
-              <li><b>Unión incremental del objetivo.</b> Contadores <code>cover[d]</code> por localidad: al entrar una antena, f suma sólo la población que «estrena», así la unión nunca cuenta dos veces la misma localidad.</li>
-              <li><b>Cota de prefijos.</b> Una rama se poda sólo si su mayoración queda estrictamente bajo el mejor f hallado; podar por empate rompería el desempate lexicográfico.</li>
-              <li><b>Desempate lexicográfico.</b> Ante empate en f gana la tupla de identificadores menor: el mismo resultado en cualquier máquina.</li>
-              <li><b>Requisitos duros.</b> Gateway exigido (S ∩ G ≠ ∅) y presupuesto <code>max_evaluations</code>: si el peor caso excede el presupuesto, el motor aborta con <code>ExactLimitExceeded</code> en vez de devolver una solución no óptima.</li>
-            </ol>
-          </article>
+          <div class="algorithm-model" id="algorithm-model">
+            <article class="model-panel" aria-labelledby="model-math-title">
+              <h3 id="model-math-title">Formulación matemática</h3>
+              <p class="model-lead">
+                Cobertura máxima ponderada con red conectada: la variante ponderada (i) de PartialConRBDS,
+                resuelta de forma exacta bajo el régimen Δ(G<sub>conn</sub>) acotado. El goloso es sólo baseline de contraste.
+              </p>
+              <div class="math-block" role="img" aria-label="Modelo: maximizar f(S), con S de a lo más k antenas, conexo, con gateway si se exige, y desempate lexicográfico">
+                <div class="math-line"><span class="math-op">max</span> f(S) = Σ<sub>d ∈ U(S)</sub> w(d) <span class="math-comment">con U(S) = ∪<sub>a ∈ S</sub> C(a)</span></div>
+                <div class="math-line"><span class="math-op">s.a.</span> |S| ≤ k</div>
+                <div class="math-line"><span class="math-op"></span> G<sub>conn</sub>[S] conexo <span class="math-comment">(una sola red)</span></div>
+                <div class="math-line"><span class="math-op"></span> S ∩ G ≠ ∅ <span class="math-comment">(sólo si se exigen gateways)</span></div>
+                <div class="math-line"><span class="math-op"></span> empate ⇒ S lexicográficamente menor <span class="math-comment">(reproducible)</span></div>
+              </div>
+              <div class="math-block" role="img" aria-label="Aristas: cobertura por distancia y línea de vista, enlaces entre antenas por el mínimo de radios y línea de vista">
+                <div class="math-line">C(a): (a,d) ∈ E<sub>cov</sub> ⇔ dist(a,d) ≤ ρ(a) ∧ LOS(a,d)</div>
+                <div class="math-line">E<sub>conn</sub>: (u,v) ∈ E<sub>conn</sub> ⇔ dist(u,v) ≤ min(ρ<sub>u</sub>, ρ<sub>v</sub>) ∧ LOS(u,v)</div>
+              </div>
+              <h4>Cómo lo resuelve el motor exacto</h4>
+              <ol class="model-ol">
+                <li><b>Enumeración canónica (ESU, Wernicke 2006).</b> Cada subconjunto conexo de tamaño ≤ k se genera exactamente una vez, anclado en su vértice mínimo; las extensiones usan el vecindario exclusivo N(a) ∖ N(S) con id mayor que la raíz.</li>
+                <li><b>Unión incremental del objetivo.</b> Contadores <code>cover[d]</code> por localidad: al entrar una antena, f suma sólo la población que «estrena», así la unión nunca cuenta dos veces la misma localidad.</li>
+                <li><b>Cota de prefijos.</b> Una rama se poda sólo si su mayoración queda estrictamente bajo el mejor f hallado; podar por empate rompería el desempate lexicográfico.</li>
+                <li><b>Desempate lexicográfico.</b> Ante empate en f gana la tupla de identificadores menor: el mismo resultado en cualquier máquina.</li>
+                <li><b>Requisitos duros.</b> Gateway exigido (S ∩ G ≠ ∅) y presupuesto <code>max_evaluations</code>: si el peor caso excede el presupuesto, el motor aborta con <code>ExactLimitExceeded</code> en vez de devolver una solución no óptima.</li>
+              </ol>
+            </article>
 
-          <article class="model-panel" aria-labelledby="model-data-title">
-            <h3 id="model-data-title">Elementos del modelo → datos reales</h3>
-            <p class="model-lead">
-              Cada objeto de la formulación sale de un archivo concreto del pipeline. Los valores son los del escenario cargado;
-              toca una fila para verla en el mapa.
-            </p>
-            <div class="model-rows">
-              <button class="model-row" type="button" data-step="0">
-                <code>D, w(d)</code>
-                <span class="model-body">
-                  <strong>Localidades demandas y su peso</strong>
-                  <span>Polígonos de localidades con población SUBDERE/Censo — <code>demand.geojson</code> (campos <code>ID</code>, <code>HABITANTES</code>).</span>
-                  <span class="model-live" data-live="localities"></span>
-                </span>
-              </button>
-              <button class="model-row" type="button" data-step="1">
-                <code>R</code>
-                <span class="model-body">
-                  <strong>Antenas candidatas</strong>
-                  <span>Criterio territorial (ADR 0007): anclas en localidades, intersecciones Murray–Tong y sitios altos del DEM, con filtros de pendiente y separación mínima; el PRC opera como screening, no como permiso — <code>candidates.geojson</code>.</span>
-                  <span class="model-live" data-live="candidates"></span>
-                  <span class="model-live" data-live="filters"></span>
-                </span>
-              </button>
-              <button class="model-row" type="button" data-step="1">
-                <code>ρ(a)</code>
-                <span class="model-body">
-                  <strong>Radio efectivo por clase de potencia</strong>
-                  <span>Clases verificadas contra fuentes primarias (<code>docs/referencias-potencia-antenas.md</code>); sin clases declaradas, radio uniforme <code>max_distance_m</code>.</span>
-                  <span class="model-live" data-live="rho"></span>
-                </span>
-              </button>
-              <button class="model-row" type="button" data-step="2">
-                <code>C(a)</code>
-                <span class="model-body">
-                  <strong>Cobertura: distancia + línea de vista</strong>
-                  <span>Perfil del DEM muestreado a paso ≤ medio píxel entre <code>ground + h_antena</code> y <code>ground + 1,5 m</code>; celda NoData ⇒ sin arista — <code>dem.tif</code> y <code>graph.json</code>.</span>
-                  <span class="model-live" data-live="los"></span>
-                  <span class="model-live" data-live="coverage"></span>
-                </span>
-              </button>
-              <button class="model-row" type="button" data-step="3">
-                <code>E<sub>conn</sub></code>
-                <span class="model-body">
-                  <strong>Enlaces entre antenas</strong>
-                  <span>Par factible si dist(u,v) ≤ min(ρ<sub>u</sub>, ρ<sub>v</sub>) y hay visibilidad entre torres — <code>connectivity.json</code>.</span>
-                  <span class="model-live" data-live="links"></span>
-                </span>
-              </button>
-              <button class="model-row" type="button" data-step="1">
-                <code>k, t, G</code>
-                <span class="model-body">
-                  <strong>Presupuesto, umbral y gateways</strong>
-                  <span>k antenas como máximo; t umbral de población para la variante de decisión; G gateways con salida a Internet — <code>configs/*.toml</code> del escenario.</span>
-                  <span class="model-live" data-live="params"></span>
-                </span>
-              </button>
-              <button class="model-row" type="button" data-step="3">
-                <code>f(S)</code>
-                <span class="model-body">
-                  <strong>Objetivo: población única cubierta</strong>
-                  <span>Óptimo del motor exacto <code>exact_connected</code> contra el baseline goloso <code>greedy_connected</code> — <code>metrics.json</code>.</span>
-                  <span class="model-live" data-live="result"></span>
-                </span>
-              </button>
-            </div>
-          </article>
-        </div>
-      </section>
-    </main>
+            <article class="model-panel" aria-labelledby="model-data-title">
+              <h3 id="model-data-title">Elementos del modelo → datos reales</h3>
+              <p class="model-lead">
+                Cada objeto de la formulación sale de un archivo concreto del pipeline. Los valores son los del escenario cargado;
+                toca una fila para verla en el mapa.
+              </p>
+              <div class="model-rows">
+                <button class="model-row" type="button" data-step="0">
+                  <code>D, w(d)</code>
+                  <span class="model-body">
+                    <strong>Localidades demandas y su peso</strong>
+                    <span>Polígonos de localidades con población SUBDERE/Censo — <code>demand.geojson</code> (campos <code>ID</code>, <code>HABITANTES</code>).</span>
+                    <span class="model-live" data-live="localities"></span>
+                  </span>
+                </button>
+                <button class="model-row" type="button" data-step="1">
+                  <code>R</code>
+                  <span class="model-body">
+                    <strong>Antenas candidatas</strong>
+                    <span>Criterio territorial (ADR 0007): anclas en localidades, intersecciones Murray–Tong y sitios altos del DEM, con filtros de pendiente y separación mínima; el PRC opera como screening, no como permiso — <code>candidates.geojson</code>.</span>
+                    <span class="model-live" data-live="candidates"></span>
+                    <span class="model-live" data-live="filters"></span>
+                  </span>
+                </button>
+                <button class="model-row" type="button" data-step="1">
+                  <code>ρ(a)</code>
+                  <span class="model-body">
+                    <strong>Radio efectivo por clase de potencia</strong>
+                    <span>Clases verificadas contra fuentes primarias (<code>docs/referencias-potencia-antenas.md</code>); sin clases declaradas, radio uniforme <code>max_distance_m</code>.</span>
+                    <span class="model-live" data-live="rho"></span>
+                  </span>
+                </button>
+                <button class="model-row" type="button" data-step="2">
+                  <code>C(a)</code>
+                  <span class="model-body">
+                    <strong>Cobertura: distancia + línea de vista</strong>
+                    <span>Perfil del DEM muestreado a paso ≤ medio píxel entre <code>ground + h_antena</code> y <code>ground + 1,5 m</code>; celda NoData ⇒ sin arista — <code>dem.tif</code> y <code>graph.json</code>.</span>
+                    <span class="model-live" data-live="los"></span>
+                    <span class="model-live" data-live="coverage"></span>
+                  </span>
+                </button>
+                <button class="model-row" type="button" data-step="3">
+                  <code>E<sub>conn</sub></code>
+                  <span class="model-body">
+                    <strong>Enlaces entre antenas</strong>
+                    <span>Par factible si dist(u,v) ≤ min(ρ<sub>u</sub>, ρ<sub>v</sub>) y hay visibilidad entre torres — <code>connectivity.json</code>.</span>
+                    <span class="model-live" data-live="links"></span>
+                  </span>
+                </button>
+                <button class="model-row" type="button" data-step="1">
+                  <code>k, t, G</code>
+                  <span class="model-body">
+                    <strong>Presupuesto, umbral y gateways</strong>
+                    <span>k antenas como máximo; t umbral de población para la variante de decisión; G gateways con salida a Internet — <code>configs/*.toml</code> del escenario.</span>
+                    <span class="model-live" data-live="params"></span>
+                  </span>
+                </button>
+                <button class="model-row" type="button" data-step="3">
+                  <code>f(S)</code>
+                  <span class="model-body">
+                    <strong>Objetivo: población única cubierta</strong>
+                    <span>Óptimo del motor exacto <code>exact_connected</code> contra el baseline goloso <code>greedy_connected</code> — <code>metrics.json</code>.</span>
+                    <span class="model-live" data-live="result"></span>
+                  </span>
+                </button>
+              </div>
+            </article>
+          </div>
+        </section>
+      </main>
+    </section>
+
+    <div class="view-fade" id="view-fade" hidden></div>
+
     <script type="importmap">
       {"imports": {"three": "./vendor/three.module.min.js"}}
     </script>
