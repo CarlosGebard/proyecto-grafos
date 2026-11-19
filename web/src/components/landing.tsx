@@ -1,11 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowRight, Compass, Landmark, Radio } from "lucide-react";
+import { ArrowRight, Compass, FlaskConical, Landmark, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type LandingProps = {
   onEnterAtlas: () => void;
+  onEnterLab: () => void;
 };
 
 /* dispositivo gráfico: haz de rayos radiales (lenguaje de la referencia) */
@@ -64,7 +65,7 @@ const STATS = [
   { value: "k = 5", label: "antenas por piloto elegidas por el motor exacto (ESU + poda), maximizando la población única cubierta con la red en un solo componente." },
 ];
 
-export function Landing({ onEnterAtlas }: LandingProps) {
+export function Landing({ onEnterAtlas, onEnterLab }: LandingProps) {
   return (
     <>
       {/* cabecera */}
@@ -85,6 +86,14 @@ export function Landing({ onEnterAtlas }: LandingProps) {
             <a href="#problema" className="transition-colors hover:text-cobalt">El problema</a>
             <a href="#solucion" className="transition-colors hover:text-cobalt">La solución</a>
             <a href="#atlas" className="transition-colors hover:text-cobalt">El mapa</a>
+            <button
+              type="button"
+              onClick={onEnterLab}
+              className="flex items-center gap-1.5 transition-colors hover:text-cobalt"
+            >
+              <FlaskConical className="h-3.5 w-3.5" aria-hidden />
+              El algoritmo
+            </button>
           </nav>
           <Button onClick={onEnterAtlas} size="sm" className="gap-1.5 rounded-none bg-cobalt text-xs font-medium uppercase tracking-[0.14em] text-paper hover:bg-cobalt-deep">
             Ver simulaciones <ArrowRight className="h-3.5 w-3.5" aria-hidden />
@@ -140,6 +149,15 @@ export function Landing({ onEnterAtlas }: LandingProps) {
                 className="rounded-none border-white/40 bg-transparent text-xs font-medium uppercase tracking-[0.14em] text-white hover:bg-white/10 hover:text-white"
               >
                 <a href="#problema">Conocer el problema</a>
+              </Button>
+              <Button
+                onClick={onEnterLab}
+                size="lg"
+                variant="outline"
+                className="gap-2 rounded-none border-white/40 bg-transparent text-xs font-medium uppercase tracking-[0.14em] text-white hover:bg-white/10 hover:text-white"
+              >
+                <FlaskConical className="h-4 w-4" aria-hidden />
+                Laboratorio del algoritmo
               </Button>
             </div>
             <p className="mt-12 text-[11px] uppercase tracking-[0.22em] text-white/50" style={{ fontFamily: "var(--font-carto)" }}>

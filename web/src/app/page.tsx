@@ -10,6 +10,7 @@ import {
 } from "@/components/atlas/chile-map";
 import { LocalitySheet } from "@/components/atlas/locality-sheet";
 import { SimulationView } from "@/components/atlas/simulation-view";
+import { AlgorithmLab } from "@/components/learn/algorithm-lab";
 import { Landing } from "@/components/landing";
 import {
   PILOTS,
@@ -18,7 +19,7 @@ import {
   type SimulationBundle,
 } from "@/lib/pilots";
 
-type View = "landing" | "atlas";
+type View = "landing" | "atlas" | "learn";
 type Phase = "atlas" | "flying" | "sim";
 
 export default function Home() {
@@ -113,7 +114,13 @@ export default function Home() {
     <div className="min-h-screen bg-paper text-ink">
       {view === "landing" && (
         <div className="flex min-h-screen flex-col">
-          <Landing onEnterAtlas={() => setView("atlas")} />
+          <Landing onEnterAtlas={() => setView("atlas")} onEnterLab={() => setView("learn")} />
+        </div>
+      )}
+
+      {view === "learn" && (
+        <div className="min-h-screen bg-night">
+          <AlgorithmLab onExit={backToLanding} />
         </div>
       )}
 
