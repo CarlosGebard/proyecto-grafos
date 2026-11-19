@@ -114,8 +114,10 @@ export function SimulationView({
       role="region"
       aria-label={`Simulación del piloto ${pilot.name}`}
     >
-      {/* ── panel de control (superior izquierdo) ── */}
-      <div className="pointer-events-auto absolute left-4 top-4 w-[min(92vw,320px)] rounded-lg border border-white/10 bg-night-2/90 p-4 backdrop-blur-sm">
+      {/* ── columna izquierda: control, restricciones y leyenda ── */}
+      <div className="pointer-events-none absolute inset-y-4 left-4 flex w-[min(92vw,320px)] flex-col gap-3">
+        {/* panel de control */}
+        <div className="pointer-events-auto shrink-0 rounded-lg border border-white/10 bg-night-2/90 p-4 backdrop-blur-sm">
         <p
           className="text-[10px] tracking-[0.2em] text-signal"
           style={{ fontFamily: "var(--font-carto)" }}
@@ -235,7 +237,65 @@ export function SimulationView({
         </div>
       </div>
 
-      {/* ── resultados del motor exacto (paso final) ── */}
+      {/* ── leyenda (anclada al pie de la columna) ── */}
+      <div className="thin-scroll pointer-events-auto mt-auto w-full shrink-0 overflow-y-auto rounded-lg border border-white/10 bg-night-2/90 px-4 py-3 backdrop-blur-sm">
+        <p
+          className="mb-2 text-[10px] uppercase tracking-[0.2em] text-white/50"
+          style={{ fontFamily: "var(--font-carto)" }}
+        >
+          Leyenda
+        </p>
+        <ul className="grid grid-cols-1 gap-y-1.5">
+          <li className="flex items-center gap-2 text-xs text-white/75">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-white/60" />
+            Localidad (tamaño ∝ √población)
+          </li>
+          {showSolution && (
+            <>
+              <li className="flex items-center gap-2 text-xs text-white/75">
+                <span className="inline-block h-2.5 w-2.5 rounded-full bg-signal-hot shadow-[0_0_8px_2px_var(--signal-deep)]" />
+                Población cubierta ({formatNumber(m.populationCovered)} hab)
+              </li>
+              <li className="flex items-center gap-2 text-xs text-white/75">
+                <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-signal-deep bg-transparent" />
+                Alcanzable · sin antena ({formatNumber(m.populationReachable)} hab)
+              </li>
+              <li className="flex items-center gap-2 text-xs text-white/75">
+                <span className="inline-block h-2 w-2 rounded-full bg-white/25" />
+                Sin alcance ({formatNumber(m.populationUnreachable)} hab)
+              </li>
+            </>
+          )}
+          <li className="flex items-center gap-2 text-xs text-white/75">
+            <span className="inline-block h-2.5 w-3.5 [clip-path:polygon(50%_0,100%_100%,0_100%)] bg-white/50" />
+            Antena candidata (criterio territorial)
+          </li>
+          <li className="flex items-center gap-2 text-xs text-white/75">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-signal-hot shadow-[0_0_8px_2px_var(--signal)]" />
+            Antena de la solución (k = {m.k})
+          </li>
+          <li className="flex items-center gap-2 text-xs text-white/75">
+            <span
+              className="inline-block h-0.5 w-4"
+              style={{
+                backgroundImage:
+                  "repeating-linear-gradient(90deg, currentColor 0 3px, transparent 3px 6px)",
+              }}
+            />
+            Enlace de la red conectada
+          </li>
+          <li className="flex items-center gap-2 text-xs text-white/75">
+            <span className="relative inline-block h-3 w-3">
+              <span className="absolute inset-0 rounded-full border border-signal/70" />
+              <span className="absolute inset-0 scale-150 rounded-full border border-signal/30" />
+            </span>
+            Alcance nominal ρ(a) con LOS
+          </li>
+        </ul>
+      </div>
+      </div>
+
+      {/* ── resultados del motor exacto (paso final, fuera de la columna) ── */}
       <AnimatePresence>
         {showSolution && (
           <motion.div
@@ -309,7 +369,7 @@ export function SimulationView({
         )}
       </AnimatePresence>
 
-      {/* ── panel de restricciones ── */}
+      {/* ── panel de restricciones (flyout junto a la columna) ── */}
       <AnimatePresence>
         {showRestrictions && (
           <motion.div
@@ -317,7 +377,7 @@ export function SimulationView({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -24 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="thin-scroll pointer-events-auto absolute bottom-[190px] left-4 max-h-[min(48vh,calc(100vh-470px))] w-[min(92vw,340px)] overflow-y-auto rounded-lg border border-white/10 bg-night-2/95 p-4 backdrop-blur-sm"
+            className="thin-scroll pointer-events-auto absolute bottom-4 left-4 top-4 w-[min(92vw,340px)] overflow-y-auto rounded-lg border border-white/10 bg-night-2/95 p-4 backdrop-blur-sm lg:left-[352px]"
             role="complementary"
             aria-label="Restricciones aplicadas por el modelo"
           >
@@ -364,63 +424,6 @@ export function SimulationView({
         )}
       </AnimatePresence>
 
-      {/* ── leyenda (inferior izquierdo) ── */}
-      <div className="pointer-events-auto absolute bottom-4 left-4 rounded-lg border border-white/10 bg-night-2/90 px-4 py-3 backdrop-blur-sm">
-        <p
-          className="mb-2 text-[10px] uppercase tracking-[0.2em] text-white/50"
-          style={{ fontFamily: "var(--font-carto)" }}
-        >
-          Leyenda
-        </p>
-        <ul className="grid grid-cols-1 gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-1">
-          <li className="flex items-center gap-2 text-xs text-white/75">
-            <span className="inline-block h-2.5 w-2.5 rounded-full bg-white/60" />
-            Localidad (tamaño ∝ √población)
-          </li>
-          {showSolution && (
-            <>
-              <li className="flex items-center gap-2 text-xs text-white/75">
-                <span className="inline-block h-2.5 w-2.5 rounded-full bg-signal-hot shadow-[0_0_8px_2px_var(--signal-deep)]" />
-                Población cubierta ({formatNumber(m.populationCovered)} hab)
-              </li>
-              <li className="flex items-center gap-2 text-xs text-white/75">
-                <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-signal-deep bg-transparent" />
-                Alcanzable · sin antena ({formatNumber(m.populationReachable)} hab)
-              </li>
-              <li className="flex items-center gap-2 text-xs text-white/75">
-                <span className="inline-block h-2 w-2 rounded-full bg-white/25" />
-                Sin alcance ({formatNumber(m.populationUnreachable)} hab)
-              </li>
-            </>
-          )}
-          <li className="flex items-center gap-2 text-xs text-white/75">
-            <span className="inline-block h-2.5 w-3.5 [clip-path:polygon(50%_0,100%_100%,0_100%)] bg-white/50" />
-            Antena candidata (criterio territorial)
-          </li>
-          <li className="flex items-center gap-2 text-xs text-white/75">
-            <span className="inline-block h-2.5 w-2.5 rounded-full bg-signal-hot shadow-[0_0_8px_2px_var(--signal)]" />
-            Antena de la solución (k = {m.k})
-          </li>
-          <li className="flex items-center gap-2 text-xs text-white/75">
-            <span
-              className="inline-block h-0.5 w-4"
-              style={{
-                backgroundImage:
-                  "repeating-linear-gradient(90deg, currentColor 0 3px, transparent 3px 6px)",
-              }}
-            />
-            Enlace de la red conectada
-          </li>
-          <li className="flex items-center gap-2 text-xs text-white/75">
-            <span className="relative inline-block h-3 w-3">
-              <span className="absolute inset-0 rounded-full border border-signal/70" />
-              <span className="absolute inset-0 scale-150 rounded-full border border-signal/30" />
-            </span>
-            Alcance nominal ρ(a) con LOS
-          </li>
-        </ul>
-      </div>
-
       {/* ── volver al atlas (superior derecho) ── */}
       <Button
         onClick={onExit}
@@ -430,19 +433,6 @@ export function SimulationView({
       >
         <X className="h-4 w-4" aria-hidden /> Volver al atlas
       </Button>
-
-      {/* nota de simulación (inferior derecho) */}
-      <div
-        className="absolute bottom-4 right-4 hidden text-right md:block"
-        style={{ fontFamily: "var(--font-carto)" }}
-      >
-        <p className="text-[10px] tracking-wider text-white/40">
-          SIMULACIÓN DEL MOTOR EXACTO · {pilot.name.toUpperCase()} · RED AUSTRAL
-        </p>
-        <p className="mt-0.5 text-[9px] tracking-wide text-white/30">
-          Mapa base © OpenStreetMap · SRTM · OpenTopoMap
-        </p>
-      </div>
     </motion.div>
   );
 }
