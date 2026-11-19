@@ -1,5 +1,5 @@
 {
-  "created_utc": "2026-11-07T15:20:50.045212+00:00",
+  "created_utc": "2026-11-19T17:45:05.428053+00:00",
   "config": {
     "region": "metropolitana",
     "bbox": [
@@ -23,18 +23,21 @@
     "dem_source": "copernicus",
     "hypsometric_palette": "arid",
     "dem": null,
+    "dem_label": null,
     "population": null,
     "population_field": "HABITANTES",
     "id_field": "ID",
     "layer": null,
     "data_dir": "data",
-    "output": "outputs/metropolitana-r2",
+    "output": "outputs/run-agua-metropolitana",
     "download_population": false,
     "download_osm_roads": false,
     "osm_roads": null,
     "prc_directory": null,
     "prc_mode": "screening",
     "sensitive_directory": null,
+    "exclude_water": true,
+    "water_file": "data/downloads/osm-water/metropolitana.geojson",
     "max_evaluations": 2000000,
     "gateways": null,
     "min_population": null,
@@ -51,13 +54,14 @@
   ],
   "metric_crs": "EPSG:32719",
   "timings_seconds": {
-    "population": 3.4993366979997518,
-    "dem": 0.19809652799995092,
-    "candidates": 5.515831937000257,
-    "coverage_graph": 3.2211320200003684,
-    "connectivity_graph": 0.2404594139998153,
-    "visualization": 5.860298716000216,
-    "terrain_export": 0.04981327199948282
+    "population": 1.6245964409999942,
+    "dem": 7.3761527389997354,
+    "water_constraints": 0.2022843800004921,
+    "candidates": 0.20811075600067852,
+    "coverage_graph": 1.0146886539996558,
+    "connectivity_graph": 0.062487205999786966,
+    "visualization": 2.51733138399959,
+    "terrain_export": 0.07003735699981917
   },
   "population": {
     "source": "https://proactiva.subdere.gov.cl/handle/123456789/523",
@@ -163,21 +167,32 @@
     "excluded_proximity": 249,
     "max_candidates": 40,
     "capped": true,
-    "kept": 40
+    "kept": 40,
+    "rejections_file": "candidate_rejections.geojson",
+    "rejections_exported": 7
   },
   "antenna_classes": null,
   "prc_constraints": null,
   "sensitive_sites": null,
+  "water_constraints": {
+    "rule": "sin antena sobre agua (OSM natural=water)",
+    "generated": 40,
+    "kept": 35,
+    "excluded": 5,
+    "source": "instantánea data/downloads/osm-water/metropolitana.geojson",
+    "attribution": "© OpenStreetMap contributors",
+    "num_features": 69
+  },
   "coverage": {
-    "num_pairs": 12400,
-    "los_checks": 12400,
-    "num_edges": 4737,
+    "num_pairs": 10850,
+    "los_checks": 10850,
+    "num_edges": 4715,
     "demand_nodata_ids": []
   },
   "connectivity": {
-    "num_pairs": 780,
-    "los_checks": 780,
-    "num_edges": 450
+    "num_pairs": 595,
+    "los_checks": 595,
+    "num_edges": 424
   },
   "osm_roads": null,
   "model": {
@@ -200,6 +215,6 @@
     "pyproj": "3.8.0",
     "matplotlib": "3.11.1"
   },
-  "python": "3.14.9",
-  "pipeline_runtime_seconds": 98.43680795799992
+  "python": "3.14.8",
+  "pipeline_runtime_seconds": 36.90866945899961
 }

@@ -1,10 +1,14 @@
-"""Restricciones territoriales explícitas provenientes de capas PRC."""
+"""Restricciones territoriales explícitas: capas PRC, establecimientos
+sensibles y cuerpos de agua (OSM natural=water)."""
 
+import json
 from dataclasses import replace
 from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
+
+from src.data.osm import OSM_ATTRIBUTION, water_geojson
 
 EXCLUDED_ZONES = {"agua", "av", "zpd", "zri", "zeh-2(c)"}
 EXCLUDED_TERMS = (
@@ -160,5 +164,71 @@ def apply_prc_constraints(candidates, constraints, excluded_geometry, mode: str)
         "kept": len(kept),
         "excluded": len(excluded),
         "exclusion_rules": reasons,
+    }
+    return kept, excluded, audit
+
+
+def load_water_constraints(source, area_wgs84, metric_crs):
+    """Cuerpos de agua del área de estudio (OSM natural=water) en CRS métrico.
+
+    source: None/"overpass" consulta la red Overpass con el bbox del área; una
+    ruta reutiliza una instantánea GeoJSON previamente descargada
+    (--water-file), para corridas reproducibles sin red. Devuelve
+    (geometría unida o None, colección GeoJSON WGS84 como evidencia de salida).
+    """
+    if source in (None, "overpass"):
+        features = water_geojson(area_wgs84.bounds)["features"]
+        frame = (
+            gpd.GeoDataFrame.from_features(features, crs=4326)
+            if features
+            else gpd.GeoDataFrame({"geometry": []}, crs=4326)
+        )
+    else:
+        path = Path(source)
+        if not path.is_file():
+            raise ValueError(f"water_file no existe: {path}")
+        frame = gpd.read_file(path, bbox=gpd.GeoSeries([area_wgs84], crs=4326))
+        if frame.crs is not None:
+            frame = frame.to_crs(4326)
+    frame = frame.loc[
+        frame.geometry.notna()
+        & ~frame.geometry.is_empty
+        & frame.geom_type.isin(["Polygon", "MultiPolygon"])
+    ]
+    if frame.empty:
+        collection = {
+            "type": "FeatureCollection",
+            "attribution": OSM_ATTRIBUTION,
+            "features": [],
+        }
+        return None, collection
+    collection = json.loads(frame.to_json())
+    collection["attribution"] = OSM_ATTRIBUTION
+    return frame.to_crs(metric_crs).geometry.union_all(), collection
+
+
+def apply_water_constraints(candidates, geometry):
+    """Excluir candidatos sobre cuerpos de agua: una antena no se instala
+    sobre un lago, laguna, embalse o ribera mapeada (ADR 0018)."""
+    kept, excluded = [], []
+    if geometry is not None:
+        for candidate in candidates:
+            if geometry.covers(candidate.point):
+                excluded.append(
+                    replace(
+                        candidate,
+                        constraint_status="excluded",
+                        constraint_rule="water_body",
+                    )
+                )
+                continue
+            kept.append(candidate)
+    else:
+        kept = list(candidates)
+    audit = {
+        "rule": "sin antena sobre agua (OSM natural=water)",
+        "generated": len(candidates),
+        "kept": len(kept),
+        "excluded": len(excluded),
     }
     return kept, excluded, audit

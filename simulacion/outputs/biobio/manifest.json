@@ -1,5 +1,5 @@
 {
-  "created_utc": "2026-11-07T15:21:26.265160+00:00",
+  "created_utc": "2026-11-19T17:45:21.864914+00:00",
   "config": {
     "region": "biobio",
     "bbox": [
@@ -20,21 +20,24 @@
     "candidate_separation_m": 1000.0,
     "sample_step_m": null,
     "dem_resolution_m": null,
-    "dem_source": "copernicus",
+    "dem_source": "alos",
     "hypsometric_palette": "warm_humid",
-    "dem": null,
+    "dem": "outputs/biobio/dem.tif",
+    "dem_label": "ALOS PALSAR Biobío / CIREN-IDE Chile (corte versionado reutilizado)",
     "population": null,
     "population_field": "HABITANTES",
     "id_field": "ID",
     "layer": null,
     "data_dir": "data",
-    "output": "outputs/biobio-r2",
+    "output": "outputs/run-agua-biobio",
     "download_population": false,
     "download_osm_roads": false,
     "osm_roads": null,
     "prc_directory": null,
     "prc_mode": "screening",
     "sensitive_directory": null,
+    "exclude_water": true,
+    "water_file": "data/downloads/osm-water/biobio.geojson",
     "max_evaluations": 2000000,
     "gateways": null,
     "min_population": null,
@@ -51,13 +54,14 @@
   ],
   "metric_crs": "EPSG:32718",
   "timings_seconds": {
-    "population": 2.9950740670001323,
-    "dem": 0.16487051999956748,
-    "candidates": 2.1031521810000413,
-    "coverage_graph": 0.6708315469995796,
-    "connectivity_graph": 0.17847455799983436,
-    "visualization": 4.270626041000469,
-    "terrain_export": 0.050556661999507924
+    "population": 1.4017278450000958,
+    "dem": 0.06226058199990803,
+    "water_constraints": 0.13100498899984814,
+    "candidates": 0.1310824190004496,
+    "coverage_graph": 0.3191432760004318,
+    "connectivity_graph": 0.08569858800001384,
+    "visualization": 2.232614955999452,
+    "terrain_export": 0.07079084799988777
   },
   "population": {
     "source": "https://proactiva.subdere.gov.cl/handle/123456789/523",
@@ -99,21 +103,21 @@
     ]
   },
   "dem": {
-    "dataset": "Copernicus GLO-30 public 2021",
+    "dataset": "ALOS PALSAR Biobío / CIREN-IDE Chile (corte versionado reutilizado)",
     "sources": [
-      "data/downloads/copernicus/Copernicus_DSM_COG_10_S38_00_W073_00_DEM.tif"
+      "outputs/biobio/dem.tif"
     ],
     "source_crs": [
-      "EPSG:4326"
+      "EPSG:32718"
     ],
     "source_resolution": [
       [
-        0.0002777777777777778,
-        0.0002777777777777778
+        30.0,
+        30.0
       ]
     ],
     "source_nodata": [
-      "None"
+      "nan"
     ],
     "output_crs": "PROJCRS[\"WGS 84 / UTM zone 18S\",BASEGEOGCRS[\"WGS 84\",ENSEMBLE[\"World Geodetic System 1984 ensemble\",MEMBER[\"World Geodetic System 1984 (Transit)\"],MEMBER[\"World Geodetic System 1984 (G730)\"],MEMBER[\"World Geodetic System 1984 (G873)\"],MEMBER[\"World Geodetic System 1984 (G1150)\"],MEMBER[\"World Geodetic System 1984 (G1674)\"],MEMBER[\"World Geodetic System 1984 (G1762)\"],MEMBER[\"World Geodetic System 1984 (G2139)\"],MEMBER[\"World Geodetic System 1984 (G2296)\"],ELLIPSOID[\"WGS 84\",6378137,298.257223563,LENGTHUNIT[\"metre\",1]],ENSEMBLEACCURACY[2.0]],PRIMEM[\"Greenwich\",0,ANGLEUNIT[\"degree\",0.0174532925199433]],ID[\"EPSG\",4326]],CONVERSION[\"UTM zone 18S\",METHOD[\"Transverse Mercator\",ID[\"EPSG\",9807]],PARAMETER[\"Latitude of natural origin\",0,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8801]],PARAMETER[\"Longitude of natural origin\",-75,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8802]],PARAMETER[\"Scale factor at natural origin\",0.9996,SCALEUNIT[\"unity\",1],ID[\"EPSG\",8805]],PARAMETER[\"False easting\",500000,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8806]],PARAMETER[\"False northing\",10000000,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8807]]],CS[Cartesian,2],AXIS[\"(E)\",east,ORDER[1],LENGTHUNIT[\"metre\",1]],AXIS[\"(N)\",north,ORDER[2],LENGTHUNIT[\"metre\",1]],USAGE[SCOPE[\"Navigation and medium accuracy spatial referencing.\"],AREA[\"Between 78°W and 72°W, southern hemisphere between 80°S and equator, onshore and offshore. Argentina. Brazil. Chile. Colombia. Ecuador. Peru.\"],BBOX[-80,-78,0,-72]],ID[\"EPSG\",32718]]",
     "resolution_m": 30.0,
@@ -127,9 +131,9 @@
       {
         "files": [
           {
-            "path": "data/downloads/copernicus/Copernicus_DSM_COG_10_S38_00_W073_00_DEM.tif",
-            "sha256": "ba50d6057be4408a742a12e1e1b009e6e9540aab69c53eb4ab738306b18c1df0",
-            "bytes": 46222469
+            "path": "outputs/biobio/dem.tif",
+            "sha256": "80a5d2402b7f2f90339a39e59329073a6be6e621ddc82122a3b9e09a18bd2e1d",
+            "bytes": 1595448
           }
         ]
       }
@@ -159,6 +163,15 @@
   "antenna_classes": null,
   "prc_constraints": null,
   "sensitive_sites": null,
+  "water_constraints": {
+    "rule": "sin antena sobre agua (OSM natural=water)",
+    "generated": 40,
+    "kept": 40,
+    "excluded": 0,
+    "source": "instantánea data/downloads/osm-water/biobio.geojson",
+    "attribution": "© OpenStreetMap contributors",
+    "num_features": 10
+  },
   "coverage": {
     "num_pairs": 3280,
     "los_checks": 3280,
@@ -191,6 +204,6 @@
     "pyproj": "3.8.0",
     "matplotlib": "3.11.1"
   },
-  "python": "3.14.9",
-  "pipeline_runtime_seconds": 34.072464042999854
+  "python": "3.14.8",
+  "pipeline_runtime_seconds": 15.424419419000515
 }

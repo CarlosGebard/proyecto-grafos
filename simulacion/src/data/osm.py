@@ -120,3 +120,116 @@ def roads_from_geodataframe(roads) -> dict:
         "attribution": OSM_ATTRIBUTION,
         "features": features,
     }
+
+
+def water_geojson(
+    bounds: tuple[float, float, float, float], timeout: int = 180
+) -> dict:
+    """Descargar cuerpos de agua OSM (natural=water) dentro de un bbox WGS84.
+
+    Sobre un cuerpo de agua no se instala una antena: lagos, lagunas, embalses
+    y riberas mapeadas entran como restricción territorial dura (ADR 0018).
+    """
+    west, south, east, north = bounds
+    query = (
+        "[out:json][timeout:120];"
+        "("
+        f'way["natural"="water"]({south},{west},{north},{east});'
+        f'relation["natural"="water"]({south},{west},{north},{east});'
+        ");out geom;"
+    )
+    last_error = None
+    for url in OVERPASS_URLS:
+        request = Request(
+            url,
+            data=urlencode({"data": query}).encode(),
+            headers={"User-Agent": "grafos-proyecto-semestral/0.1"},
+            method="POST",
+        )
+        try:
+            with urlopen(request, timeout=timeout) as response:
+                return water_from_overpass(json.load(response))
+        except (HTTPError, URLError, TimeoutError) as error:
+            last_error = error
+    raise RuntimeError("No se pudo descargar agua desde Overpass") from last_error
+
+
+def water_from_overpass(payload: dict) -> dict:
+    """Convertir respuesta Overpass de agua a una colección GeoJSON estable.
+
+    Ways cerrados: polígono directo. Relaciones (multipolígono): se reensamblan
+    con polygonize sobre los miembros exteriores y se perforan con los
+    interiores. Ways abiertos de agua no forman área y se ignoran.
+    """
+    from shapely.geometry import LineString, Polygon
+    from shapely.ops import polygonize
+
+    features = []
+    for element in payload.get("elements", []):
+        tags = element.get("tags") or {}
+        kind = element.get("type")
+        polygons = []
+        if kind == "way":
+            coords = [
+                [point["lon"], point["lat"]] for point in element.get("geometry") or []
+            ]
+            if len(coords) >= 4 and coords[0] == coords[-1]:
+                polygons.append(Polygon(coords))
+        elif kind == "relation":
+            outers, inners = [], []
+            for member in element.get("members") or []:
+                if member.get("type") != "way":
+                    continue
+                coords = [
+                    [point["lon"], point["lat"]]
+                    for point in member.get("geometry") or []
+                ]
+                if len(coords) < 4:
+                    continue
+                (inners if member.get("role") == "inner" else outers).append(coords)
+            if outers:
+                shells = list(polygonize(LineString(ring) for ring in outers))
+                holes = list(polygonize(LineString(ring) for ring in inners))
+                for shell in shells:
+                    cuts = [
+                        hole
+                        for hole in holes
+                        if shell.covers(hole.representative_point())
+                    ]
+                    polygons.append(
+                        Polygon(shell.exterior, [hole.exterior for hole in cuts])
+                    )
+        else:
+            continue
+        clean = []
+        for polygon in polygons:
+            if not polygon.is_valid:
+                polygon = polygon.buffer(0)
+            if polygon.is_empty:
+                continue
+            if polygon.geom_type == "MultiPolygon":
+                clean.extend(polygon.geoms)
+            else:
+                clean.append(polygon)
+        for polygon in clean:
+            features.append(
+                {
+                    "type": "Feature",
+                    "properties": {
+                        "id": str(element["id"]),
+                        "name": tags.get("name"),
+                    },
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [[x, y] for x, y, *_ in ring.coords]
+                            for ring in (polygon.exterior, *polygon.interiors)
+                        ],
+                    },
+                }
+            )
+    return {
+        "type": "FeatureCollection",
+        "attribution": OSM_ATTRIBUTION,
+        "features": features,
+    }

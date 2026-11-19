@@ -31,8 +31,10 @@ from src.geo.candidates import generate_candidates
 from src.geo.constraints import (
     apply_prc_constraints,
     apply_sensitive_constraints,
+    apply_water_constraints,
     load_prc_constraints,
     load_sensitive_sites,
+    load_water_constraints,
 )
 from src.geo.coverage import compute_connectivity, compute_coverage
 from src.geo.elevation import ElevationModel
@@ -154,7 +156,7 @@ def run(config: PipelineConfig) -> dict:
     step = perf_counter()
     if config.dem:
         sources = [Path(config.dem)]
-        dem_label = "user_provided"
+        dem_label = config.dem_label or "user_provided"
     elif config.dem_source == "copernicus":
         sources = copernicus_tiles(area.bounds, data_dir / "downloads/copernicus")
         dem_label = "Copernicus GLO-30 public 2021"
@@ -194,6 +196,44 @@ def run(config: PipelineConfig) -> dict:
         collect_rejections=True,
     )
     rejected_points = candidate_audit.pop("_rejections", [])
+    constraints = None
+    prc_audit = None
+    sensitive_audit = None
+    water_audit = None
+    candidates = all_candidates
+    excluded_candidates = []
+    if config.exclude_water:
+        step = perf_counter()
+        water_geometry, water_collection = load_water_constraints(
+            config.water_file, area, crs
+        )
+        candidates, water_excluded, water_audit = apply_water_constraints(
+            candidates, water_geometry
+        )
+        excluded_candidates.extend(water_excluded)
+        write_json(output / "water.geojson", water_collection)
+        water_audit["source"] = (
+            f"instantánea {config.water_file}"
+            if config.water_file
+            else "OpenStreetMap via Overpass API"
+        )
+        water_audit["attribution"] = OSM_ATTRIBUTION
+        water_audit["num_features"] = len(water_collection["features"])
+        timings["water_constraints"] = perf_counter() - step
+        for item in water_excluded:
+            rejected_points.append(
+                {
+                    "reason": "agua",
+                    "elevation_m": None,
+                    "slope_deg": None,
+                    "geometry": item.point,
+                }
+            )
+        LOG.info(
+            "3a. Agua (OSM natural=water): %s candidatos excluidos (%s polígonos)",
+            len(water_excluded),
+            water_audit["num_features"],
+        )
     if rejected_points:
         exported = write_candidate_rejections(
             output / REJECTIONS_FILENAME, rejected_points, crs
@@ -201,15 +241,10 @@ def run(config: PipelineConfig) -> dict:
         candidate_audit["rejections_file"] = REJECTIONS_FILENAME
         candidate_audit["rejections_exported"] = exported
         LOG.info(
-            "3. Puntos descartados por filtros del DEM: %s (%s exportados)",
+            "3. Puntos descartados por filtros del criterio: %s (%s exportados)",
             len(rejected_points),
             exported,
         )
-    constraints = None
-    prc_audit = None
-    sensitive_audit = None
-    candidates = all_candidates
-    excluded_candidates = []
     if config.prc_directory:
         constraints, excluded_geometry = load_prc_constraints(
             config.prc_directory, area, crs
@@ -404,6 +439,7 @@ def run(config: PipelineConfig) -> dict:
         "antenna_classes": radii_audit,
         "prc_constraints": prc_audit,
         "sensitive_sites": sensitive_audit,
+        "water_constraints": water_audit,
         "coverage": coverage_audit,
         "connectivity": connectivity_audit,
         "osm_roads": osm_audit,
@@ -476,10 +512,12 @@ def parse_config(argv=None) -> PipelineConfig:
     parser.add_argument("--dem-source", choices=["alos", "copernicus"])
     for flag in [
         "dem",
+        "dem-label",
         "population",
         "osm-roads",
         "prc-directory",
         "sensitive-directory",
+        "water-file",
         "population-field",
         "id-field",
         "layer",
@@ -490,6 +528,13 @@ def parse_config(argv=None) -> PipelineConfig:
     parser.add_argument("--center", nargs=2, type=float, metavar=("LON", "LAT"))
     parser.add_argument("--study-size-m", type=float)
     parser.add_argument("--prc-mode", choices=["screening", "strict"])
+    parser.add_argument(
+        "--no-exclude-water",
+        dest="exclude_water",
+        action="store_false",
+        default=None,
+        help="Desactivar la restricción de antenas sobre agua (OSM natural=water)",
+    )
     parser.add_argument("--download-population", action="store_true", default=None)
     parser.add_argument("--download-osm-roads", action="store_true", default=None)
     for flag in ["max-evaluations", "max-candidates", "max-pairs", "max-dem-pixels"]:

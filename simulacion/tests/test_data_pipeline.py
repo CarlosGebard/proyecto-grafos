@@ -77,6 +77,40 @@ def test_dem_crop_reprojection_and_limits(study_inputs, tmp_path):
         prepare_dem([dem], wgs84, crs, result, max_pixels=10)
 
 
+def _water_snapshot(tmp_path, crs, area) -> str:
+    """Instantánea mínima de agua (ADR 0018): los tests de pipeline no
+    consultan Overpass. Lago diminuto junto al borde suroeste, lejos de las
+    demandas, para ejercitar la ruta completa sin cambiar los resultados."""
+    west, south, east, north = project_geometry(area, crs, 4326).bounds
+    lon = west + (east - west) * 0.04
+    lat = south + (north - south) * 0.04
+    half = 0.0004
+    collection = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {"id": "1", "name": "Lago de prueba"},
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [lon - half, lat - half],
+                            [lon + half, lat - half],
+                            [lon + half, lat + half],
+                            [lon - half, lat + half],
+                            [lon - half, lat - half],
+                        ]
+                    ],
+                },
+            }
+        ],
+    }
+    path = tmp_path / "agua.geojson"
+    path.write_text(json.dumps(collection), encoding="utf-8")
+    return str(path)
+
+
 def test_pipeline_exports_and_exact_skip(study_inputs, tmp_path):
     area, crs, population, dem = study_inputs
     bbox = project_geometry(area, crs, 4326).bounds
@@ -84,6 +118,7 @@ def test_pipeline_exports_and_exact_skip(study_inputs, tmp_path):
         bbox=bbox,
         population=str(population),
         dem=str(dem),
+        water_file=_water_snapshot(tmp_path, crs, area),
         output=str(tmp_path / "run"),
         k=2,
         max_distance_m=2000,
@@ -128,6 +163,9 @@ def test_pipeline_exports_and_exact_skip(study_inputs, tmp_path):
     assert terrain["elevation_max_m"] >= terrain["elevation_min_m"]
     manifest = json.loads((output / "manifest.json").read_text())
     assert len(manifest["population"]["files"][0]["sha256"]) == 64
+    assert (output / "water.geojson").exists()
+    assert manifest["water_constraints"]["excluded"] == 0
+    assert "instantánea" in manifest["water_constraints"]["source"]
     assert gpd.read_file(output / "demand.geojson").crs.to_epsg() == 4326
     with pytest.raises(ValueError, match="no está vacío"):
         run(config)
@@ -142,6 +180,7 @@ def test_pipeline_threshold_and_antenna_classes(study_inputs, tmp_path):
         bbox=bbox,
         population=str(population),
         dem=str(dem),
+        water_file=_water_snapshot(tmp_path, crs, area),
         output=str(tmp_path / "run"),
         k=2,
         max_distance_m=2000,

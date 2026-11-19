@@ -1,17 +1,21 @@
+import json
 import math
 
 import geopandas as gpd
 import numpy as np
 import pytest
-from shapely.geometry import Point, Polygon, box
+from shapely.geometry import Point, Polygon, box, shape
 
+from src.data.osm import water_from_overpass
 from src.geo.area import project_geometry, study_area
 from src.geo.candidates import generate_candidates
 from src.geo.constraints import (
     apply_prc_constraints,
     apply_sensitive_constraints,
+    apply_water_constraints,
     load_prc_constraints,
     load_sensitive_sites,
+    load_water_constraints,
 )
 from src.geo.coverage import compute_connectivity, compute_coverage
 from src.geo.elevation import ElevationModel
@@ -307,6 +311,94 @@ def test_prc_hard_exclusions_and_screening_mode(tmp_path, flat_dem):
     assert [candidate.id for candidate in excluded] == ["excluded"]
     assert kept[0].constraint_status == "unknown"
     assert audit["excluded"] == 1
+
+
+def test_water_constraints_exclude_points_inside_polygons():
+    """Agua (ADR 0018): sin antena sobre lagos, embalses o riberas."""
+    lago = Polygon([(10, 10), (40, 10), (40, 40), (10, 40)])
+    candidatos = [
+        AntennaCandidate("en_lago", 0, 0, 0, Point(20, 20)),
+        AntennaCandidate("en_orilla", 0, 0, 0, Point(40, 25)),
+        AntennaCandidate("en_tierra", 0, 0, 0, Point(60, 60)),
+    ]
+    kept, excluded, audit = apply_water_constraints(candidatos, lago)
+    assert [candidate.id for candidate in kept] == ["en_tierra"]
+    assert [candidate.id for candidate in excluded] == ["en_lago", "en_orilla"]
+    assert all(candidate.constraint_rule == "water_body" for candidate in excluded)
+    assert audit["excluded"] == 2
+    assert audit["kept"] == 1
+    kept_none, _, audit_none = apply_water_constraints(candidatos, None)
+    assert len(kept_none) == 3
+    assert audit_none["excluded"] == 0
+
+
+def test_water_from_overpass_assembles_ways_relations_and_snapshot(tmp_path):
+    closed_ring = [
+        {"lat": -33.90, "lon": -70.90},
+        {"lat": -33.90, "lon": -70.80},
+        {"lat": -34.00, "lon": -70.80},
+        {"lat": -34.00, "lon": -70.90},
+        {"lat": -33.90, "lon": -70.90},
+    ]
+    hole_ring = [
+        {"lat": -33.94, "lon": -70.87},
+        {"lat": -33.94, "lon": -70.84},
+        {"lat": -33.97, "lon": -70.84},
+        {"lat": -33.97, "lon": -70.87},
+        {"lat": -33.94, "lon": -70.87},
+    ]
+    payload = {
+        "elements": [
+            {
+                "type": "way",
+                "id": 1,
+                "tags": {"name": "Laguna", "natural": "water"},
+                "geometry": closed_ring,
+            },
+            {
+                "type": "relation",
+                "id": 2,
+                "tags": {"natural": "water"},
+                "members": [
+                    {"type": "way", "role": "outer", "geometry": closed_ring},
+                    {"type": "way", "role": "inner", "geometry": hole_ring},
+                ],
+            },
+            {
+                "type": "way",
+                "id": 3,
+                "tags": {"natural": "water"},
+                "geometry": [
+                    {"lat": 0.0, "lon": 0.0},
+                    {"lat": 0.0, "lon": 1.0},
+                ],
+            },
+        ]
+    }
+    collection = water_from_overpass(payload)
+    # El way abierto no forma área; way cerrado + relación reensamblada.
+    assert len(collection["features"]) == 2
+    lake = shape(collection["features"][0]["geometry"])
+    assert lake.covers(Point(-70.85, -33.95))
+    relation = shape(collection["features"][1]["geometry"])
+    assert len(relation.interiors) == 1
+    assert not relation.covers(Point(-70.855, -33.955))
+
+    path = tmp_path / "agua.geojson"
+    (tmp_path / "agua.geojson").write_text(
+        json.dumps(collection, ensure_ascii=False), encoding="utf-8"
+    )
+    area_wgs84 = gpd.GeoSeries([box(-70.95, -34.05, -70.75, -33.85)], crs=4326).iloc[0]
+    geometry, snapshot = load_water_constraints(str(path), area_wgs84, "EPSG:32718")
+    assert geometry is not None
+    punto = project_geometry(Point(-70.85, -33.95), 4326, "EPSG:32718")
+    assert geometry.covers(punto)
+    assert len(snapshot["features"]) == 2
+    assert snapshot["attribution"].startswith("© OpenStreetMap")
+    with pytest.raises(ValueError):
+        load_water_constraints(
+            str(tmp_path / "ausente.geojson"), area_wgs84, "EPSG:32718"
+        )
 
 
 def test_center_area_has_metric_requested_size():

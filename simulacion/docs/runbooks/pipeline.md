@@ -52,6 +52,8 @@ uv run python -m src.pipeline --config configs/yumbel-50km-prc.toml
 
 Establecimientos sensibles (`sensitive_directory`, OGUC 116 bis E / Ley 20.599): si se declara la capa, se excluye cada establecimiento (educacional, salas cuna, hospital, hogar de ancianos) y su entorno de `max(4 × antenna_height_m, 50)` metros. Sin capa declarada, la auditoría del manifiesto registra la restricción como limitación de datos; su ausencia nunca se interpreta como permiso.
 
+Restricción de agua ([ADR 0018](../adr/0018-restriccion-agua.md)): por defecto el pipeline excluye cada candidato dentro de un polígono `natural = water` de OpenStreetMap (`exclude_water`). Sin `water_file`, la capa se consulta a Overpass — lenta para ventanas grandes, minutos en la primera consulta de relaciones —; con `--water-file` se reutiliza una instantánea GeoJSON (la capa `water_a` del extracto Geofabrik de Chile es equivalente) para corridas reproducibles sin red. El polígono efectivo queda en `water.geojson`, los excluidos entran a `candidate_rejections.geojson` (reason `agua`) y el audit vive en `manifest.json → water_constraints`. Sobre agua no se instala una antena: una localidad ancla sobre una lámina sigue siendo demanda y deja de ser sitio. `--no-exclude-water` desactiva el filtro y queda registrado en el manifiesto.
+
 ## Configuración
 
 La CLI prevalece sobre los valores TOML. Rutas relativas a la raíz desde la que se ejecuta el comando. Consultar `uv run python -m src.pipeline --help`.
@@ -77,8 +79,11 @@ La CLI prevalece sobre los valores TOML. Rutas relativas a la raíz desde la que
 | `prc_directory` | `--prc-directory` | — |
 | `prc_mode` | `--prc-mode` | `screening` |
 | `sensitive_directory` | `--sensitive-directory` | — |
+| `exclude_water` | `--no-exclude-water` | `true` |
+| `water_file` | `--water-file` | — |
+| `dem_label` (etiqueta del manifiesto con `dem`) | `--dem-label` | `user_provided` |
 
-El paso LOS no puede exceder medio píxel DEM. Alterar la resolución modifica el modelo y puede cambiar aristas. La generación por criterio (ADR 0007) crea anclas en las localidades, intersecciones Murray–Tong de circunferencias de radio ρ y sitios altos del DEM; luego filtra por polígono, NoData y pendiente, aplica el filtro de proximidad (`candidate_separation_m`, evita duplicados de un mismo clúster; en ventanas amplias escalar como √(área/n)) y recién entonces aplica el tope `max_candidates` priorizando población alcanzable a distancia. El pipeline calcula cobertura y conectividad entre candidatos; un enlace entre antenas usa `antenna_height_m` en ambos extremos y el mínimo de los radios efectivos (`min(ρu, ρv)`, ADR 0006). La solución exacta es obligatoria: si el motor ESU supera `max_evaluations`, la ejecución termina con error y solicita reducir el área o el conjunto de candidatos. Las descargas Copernicus están limitadas a cuatro tiles por estudio.
+El paso LOS no puede exceder medio píxel DEM. Alterar la resolución modifica el modelo y puede cambiar aristas. La generación por criterio (ADR 0007) crea anclas en las localidades, intersecciones Murray–Tong de circunferencias de radio ρ y sitios altos del DEM; luego filtra por polígono, NoData y pendiente, aplica el filtro de proximidad (`candidate_separation_m`, evita duplicados de un mismo clúster; en ventanas amplias escalar como √(área/n)) y recién entonces aplica el tope `max_candidates` priorizando población alcanzable a distancia; tras la generación se aplican agua (ADR 0018), PRC y establecimientos sensibles. El pipeline calcula cobertura y conectividad entre candidatos; un enlace entre antenas usa `antenna_height_m` en ambos extremos y el mínimo de los radios efectivos (`min(ρu, ρv)`, ADR 0006). La solución exacta es obligatoria: si el motor ESU supera `max_evaluations`, la ejecución termina con error y solicita reducir el área o el conjunto de candidatos. Las descargas Copernicus están limitadas a cuatro tiles por estudio.
 
 Las clases de potencia (`[[antenna_class]]` con `name`, `radius_m`, `count`) asignan radios efectivos por candidato en orden determinista (ids ordenados, clases en orden de declaración); los excedentes usan `max_distance_m`. `gateways` exige que la red seleccionada contenga un punto de acceso; `min_population` agrega la variante de decisión (mínimo `m ≤ k` antenas para cubrir `t` habitantes, o certificado de inalcanzabilidad). El reporte incluye el baseline goloso (`greedy_connected`) para el contraste rápido-vs-óptimo.
 
@@ -91,6 +96,7 @@ Las clases de potencia (`[[antenna_class]]` con `name`, `radius_m`, `count`) asi
 | `terrain.json` | DEM reducido, límites WGS84 y elevaciones para el visor web 3D |
 | `roads.geojson` | Caminos OpenStreetMap, si se usa `--osm-roads <chile.gpkg>` o `--download-osm-roads` |
 | `constraints.geojson` | Polígonos PRC clasificados, sólo si se usa `prc_directory` |
+| `water.geojson` | Polígonos de agua efectivos (OSM `natural = water`), sólo si `exclude_water` |
 | `excluded_candidates.geojson` | Candidatos retirados por el filtro PRC, si existen |
 | `metrics.json` | Resultados libre, conectado y goloso, k, tamaños, población total/cubierta, porcentaje, tiempo, evaluaciones, seleccionadas y cubiertas; decisión de umbral si se configura `min_population` |
 | `manifest.json` | Parámetros efectivos, bbox, CRS, resolución, versiones, hashes SHA-256 de insumos, exclusiones y tiempos por fase |

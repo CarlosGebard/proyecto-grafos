@@ -48,6 +48,14 @@ def restrictions_for(src_id: str, man: dict, rej_count: int | None) -> list[dict
         },
     ]
     sep = cfg.get("candidate_separation_m")
+    water = man.get("water_constraints")
+    if water:
+        items.append({
+            "title": "Sin antenas sobre agua",
+            "value": f"{water.get('num_features', 0)} polígonos · {water.get('excluded', 0)} excluidas",
+            "body": "Sobre un cuerpo de agua mapeado (laguna, embalse, ribera de OSM) no se instala una antena: los sitios en agua quedan fuera del criterio.",
+            "count": "C₂ = { p ∈ C₁ : p ∉ W }",
+        })
     if sep:
         items.append({
             "title": "Separación de candidatos",
@@ -81,7 +89,7 @@ def restrictions_for(src_id: str, man: dict, rej_count: int | None) -> list[dict
         items.append({
             "title": "Rechazos del criterio",
             "value": f"{rej_count:,} puntos descartados".replace(",", "."),
-            "body": "Sitios propuestos que no superaron los filtros del criterio (pendiente, separación, sensibilidad).",
+            "body": "Sitios propuestos que no superaron los filtros del criterio (pendiente, agua, separación, sensibilidad).",
             "count": "R = C₀ ∖ Cₙ",
         })
     return items
@@ -94,7 +102,13 @@ for out_id, src_id in ZONES.items():
     graph = json.load(open(d / "graph.json"))
     conn = json.load(open(d / "connectivity.json"))
     demands = json.load(open(d / "demand_points.geojson"))["features"]
-    cands = json.load(open(d / "candidates.geojson"))["features"]
+    cands_all = json.load(open(d / "candidates.geojson"))["features"]
+    # candidates.geojson trae válidos y excluidos (constraint_status); el
+    # simulador dibuja sólo los emplazables: agua/PRC/sensibles quedan fuera.
+    cands = [
+        f for f in cands_all
+        if f["properties"].get("constraint_status") != "excluded"
+    ]
     try:
         rej_count = len(json.load(open(d / "candidate_rejections.geojson"))["features"])
     except Exception:

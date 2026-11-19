@@ -1,5 +1,5 @@
 {
-  "created_utc": "2026-11-07T15:23:07.861430+00:00",
+  "created_utc": "2026-11-19T17:46:16.033029+00:00",
   "config": {
     "region": "biobio",
     "bbox": null,
@@ -18,21 +18,24 @@
     "candidate_separation_m": 4000.0,
     "sample_step_m": null,
     "dem_resolution_m": 25.0,
-    "dem_source": "copernicus",
+    "dem_source": "alos",
     "hypsometric_palette": "warm_humid",
-    "dem": null,
+    "dem": "outputs/yumbel-criterio/dem.tif",
+    "dem_label": "ALOS PALSAR Biobío / CIREN-IDE Chile (corte versionado reutilizado)",
     "population": null,
     "population_field": "HABITANTES",
     "id_field": "ID",
     "layer": null,
     "data_dir": "data",
-    "output": "outputs/yumbel-criterio-r2",
+    "output": "outputs/run-agua-yumbel",
     "download_population": false,
     "download_osm_roads": false,
     "osm_roads": null,
     "prc_directory": "../prc-mapas/prc_biobio",
     "prc_mode": "screening",
     "sensitive_directory": null,
+    "exclude_water": true,
+    "water_file": "data/downloads/osm-water/yumbel.geojson",
     "max_evaluations": 100000,
     "gateways": null,
     "min_population": 5000.0,
@@ -65,13 +68,14 @@
   ],
   "metric_crs": "EPSG:32718",
   "timings_seconds": {
-    "population": 3.5401108289997865,
-    "dem": 1.3628354140000738,
-    "candidates": 77.89727526200022,
-    "coverage_graph": 1.6077342270000372,
-    "connectivity_graph": 0.046445234999737295,
-    "visualization": 11.78386405799938,
-    "terrain_export": 0.18887699900005828
+    "population": 1.4953773299994282,
+    "dem": 0.35233536300074775,
+    "water_constraints": 0.4287493310002901,
+    "candidates": 2.2486428760003037,
+    "coverage_graph": 0.6106885340004737,
+    "connectivity_graph": 0.023034408999592415,
+    "visualization": 7.534111713999664,
+    "terrain_export": 0.1453386799994405
   },
   "population": {
     "source": "https://proactiva.subdere.gov.cl/handle/123456789/523",
@@ -119,28 +123,21 @@
     ]
   },
   "dem": {
-    "dataset": "Copernicus GLO-30 public 2021",
+    "dataset": "ALOS PALSAR Biobío / CIREN-IDE Chile (corte versionado reutilizado)",
     "sources": [
-      "data/downloads/copernicus/Copernicus_DSM_COG_10_S38_00_W073_00_DEM.tif",
-      "data/downloads/copernicus/Copernicus_DSM_COG_10_S37_00_W073_00_DEM.tif"
+      "outputs/yumbel-criterio/dem.tif"
     ],
     "source_crs": [
-      "EPSG:4326",
-      "EPSG:4326"
+      "EPSG:32718"
     ],
     "source_resolution": [
       [
-        0.0002777777777777778,
-        0.0002777777777777778
-      ],
-      [
-        0.0002777777777777778,
-        0.0002777777777777778
+        25.0,
+        25.0
       ]
     ],
     "source_nodata": [
-      "None",
-      "None"
+      "nan"
     ],
     "output_crs": "PROJCRS[\"WGS 84 / UTM zone 18S\",BASEGEOGCRS[\"WGS 84\",ENSEMBLE[\"World Geodetic System 1984 ensemble\",MEMBER[\"World Geodetic System 1984 (Transit)\"],MEMBER[\"World Geodetic System 1984 (G730)\"],MEMBER[\"World Geodetic System 1984 (G873)\"],MEMBER[\"World Geodetic System 1984 (G1150)\"],MEMBER[\"World Geodetic System 1984 (G1674)\"],MEMBER[\"World Geodetic System 1984 (G1762)\"],MEMBER[\"World Geodetic System 1984 (G2139)\"],MEMBER[\"World Geodetic System 1984 (G2296)\"],ELLIPSOID[\"WGS 84\",6378137,298.257223563,LENGTHUNIT[\"metre\",1]],ENSEMBLEACCURACY[2.0]],PRIMEM[\"Greenwich\",0,ANGLEUNIT[\"degree\",0.0174532925199433]],ID[\"EPSG\",4326]],CONVERSION[\"UTM zone 18S\",METHOD[\"Transverse Mercator\",ID[\"EPSG\",9807]],PARAMETER[\"Latitude of natural origin\",0,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8801]],PARAMETER[\"Longitude of natural origin\",-75,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8802]],PARAMETER[\"Scale factor at natural origin\",0.9996,SCALEUNIT[\"unity\",1],ID[\"EPSG\",8805]],PARAMETER[\"False easting\",500000,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8806]],PARAMETER[\"False northing\",10000000,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8807]]],CS[Cartesian,2],AXIS[\"(E)\",east,ORDER[1],LENGTHUNIT[\"metre\",1]],AXIS[\"(N)\",north,ORDER[2],LENGTHUNIT[\"metre\",1]],USAGE[SCOPE[\"Navigation and medium accuracy spatial referencing.\"],AREA[\"Between 78°W and 72°W, southern hemisphere between 80°S and equator, onshore and offshore. Argentina. Brazil. Chile. Colombia. Ecuador. Peru.\"],BBOX[-80,-78,0,-72]],ID[\"EPSG\",32718]]",
     "resolution_m": 25.0,
@@ -154,18 +151,9 @@
       {
         "files": [
           {
-            "path": "data/downloads/copernicus/Copernicus_DSM_COG_10_S38_00_W073_00_DEM.tif",
-            "sha256": "ba50d6057be4408a742a12e1e1b009e6e9540aab69c53eb4ab738306b18c1df0",
-            "bytes": 46222469
-          }
-        ]
-      },
-      {
-        "files": [
-          {
-            "path": "data/downloads/copernicus/Copernicus_DSM_COG_10_S37_00_W073_00_DEM.tif",
-            "sha256": "ab1a614ded0d36a57a13321abce40ff67ed5b0cc2c4bbf185995952a91c42b34",
-            "bytes": 42850878
+            "path": "outputs/yumbel-criterio/dem.tif",
+            "sha256": "17853c22c1f9721c9f0d1f0d0836c2e2d0bd7dae07ed0ba7c30b3066e804c333",
+            "bytes": 14032163
           }
         ]
       }
@@ -192,7 +180,9 @@
     "excluded_proximity": 590917,
     "max_candidates": 25,
     "capped": true,
-    "kept": 25
+    "kept": 25,
+    "rejections_file": "candidate_rejections.geojson",
+    "rejections_exported": 1980
   },
   "antenna_classes": {
     "classes": {
@@ -228,6 +218,15 @@
     }
   },
   "sensitive_sites": null,
+  "water_constraints": {
+    "rule": "sin antena sobre agua (OSM natural=water)",
+    "generated": 25,
+    "kept": 25,
+    "excluded": 0,
+    "source": "instantánea data/downloads/osm-water/yumbel.geojson",
+    "attribution": "© OpenStreetMap contributors",
+    "num_features": 135
+  },
   "coverage": {
     "num_pairs": 10875,
     "los_checks": 4983,
@@ -239,11 +238,7 @@
     "los_checks": 173,
     "num_edges": 125
   },
-  "osm_roads": {
-    "source": "OpenStreetMap via Overpass API",
-    "attribution": "© OpenStreetMap contributors",
-    "num_features": 9691
-  },
+  "osm_roads": null,
   "model": {
     "name": "distance_and_sampled_los",
     "sample_step_m": 12.5,
@@ -264,6 +259,6 @@
     "pyproj": "3.8.0",
     "matplotlib": "3.11.1"
   },
-  "python": "3.14.9",
-  "pipeline_runtime_seconds": 99.5600628809998
+  "python": "3.14.8",
+  "pipeline_runtime_seconds": 53.32925543999954
 }

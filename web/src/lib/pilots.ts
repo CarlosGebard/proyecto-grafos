@@ -184,7 +184,7 @@ export const PILOTS: Pilot[] = [
       {
         title: "Situación actual",
         paragraphs: [
-          "Es el mejor escenario de los tres pilotos: valle abierto con buena inter-visibilidad y localidades rurales relativamente cercanas entre sí. La simulación cubre 26.254 de 28.337 habitantes (92,7 %) con k = 5 antenas conectadas — la corrida muestra que con criterio territorial, cinco sitios bien puestos alcanzan a casi toda la población rural de la ventana.",
+          "Es el mejor escenario de los tres pilotos: valle abierto con buena inter-visibilidad y localidades rurales relativamente cercanas entre sí. La simulación cubre 26.136 de 28.337 habitantes (92,2 %) con k = 5 antenas conectadas — la corrida muestra que con criterio territorial (y sin antenas sobre agua: la Laguna de Aculeo queda fuera del criterio), cinco sitios bien puestos alcanzan a casi toda la población rural de la ventana.",
           "El contraste regional importa: en la RM las conexiones fijas de internet son abrumadoramente urbanas — a nivel nacional, el 95,1 % de las conexiones fijas está en zonas urbanas y sólo el 4,9 % en rurales (SUBTEL, junio 2026).",
         ],
       },

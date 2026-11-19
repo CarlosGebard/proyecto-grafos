@@ -1,0 +1,12 @@
+{
+"type": "FeatureCollection",
+"name": "excluded_candidates",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "id": "d_7148", "elevation": 350.0, "latitude": -33.834082735470517, "longitude": -70.916672418306973, "selected": false, "radius_m": 30000.0, "constraint_status": "excluded", "constraint_rule": "water_body" }, "geometry": { "type": "Point", "coordinates": [ -70.916672418306973, -33.834082735470517 ] } },
+{ "type": "Feature", "properties": { "id": "h_320898_6254052", "elevation": 350.0, "latitude": -33.838624677200706, "longitude": -70.935634805919406, "selected": false, "radius_m": 30000.0, "constraint_status": "excluded", "constraint_rule": "water_body" }, "geometry": { "type": "Point", "coordinates": [ -70.935634805919406, -33.838624677200706 ] } },
+{ "type": "Feature", "properties": { "id": "h_321288_6252972", "elevation": 350.0, "latitude": -33.84842589435511, "longitude": -70.931641131422438, "selected": false, "radius_m": 30000.0, "constraint_status": "excluded", "constraint_rule": "water_body" }, "geometry": { "type": "Point", "coordinates": [ -70.931641131422438, -33.84842589435511 ] } },
+{ "type": "Feature", "properties": { "id": "h_322518_6253572", "elevation": 350.0, "latitude": -33.843225012733306, "longitude": -70.918232088272845, "selected": false, "radius_m": 30000.0, "constraint_status": "excluded", "constraint_rule": "water_body" }, "geometry": { "type": "Point", "coordinates": [ -70.918232088272845, -33.843225012733306 ] } },
+{ "type": "Feature", "properties": { "id": "h_323598_6253062", "elevation": 350.0, "latitude": -33.848003257196062, "longitude": -70.906667237421274, "selected": false, "radius_m": 30000.0, "constraint_status": "excluded", "constraint_rule": "water_body" }, "geometry": { "type": "Point", "coordinates": [ -70.906667237421274, -33.848003257196062 ] } }
+]
+}

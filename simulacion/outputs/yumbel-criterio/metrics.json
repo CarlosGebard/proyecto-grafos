@@ -8,7 +8,14 @@
       "population_total": 30923.0,
       "population_covered": 9399.0,
       "coverage_percentage": 30.394851728486888,
-      "runtime_seconds": 1.0368987090005248,
+      "population_uncovered_reachable": 1822.0,
+      "population_unreachable": 19702.0,
+      "localities_by_status": {
+        "covered": 118,
+        "reachable": 27,
+        "unreachable": 290
+      },
+      "runtime_seconds": 0.49493919199994707,
       "evaluations": 68405,
       "selected": [
         "x_709954_5881267",
@@ -146,7 +153,14 @@
       "population_total": 30923.0,
       "population_covered": 9399.0,
       "coverage_percentage": 30.394851728486888,
-      "runtime_seconds": 0.33348333300000377,
+      "population_uncovered_reachable": 1822.0,
+      "population_unreachable": 19702.0,
+      "localities_by_status": {
+        "covered": 118,
+        "reachable": 27,
+        "unreachable": 290
+      },
+      "runtime_seconds": 0.14831301699996402,
       "evaluations": 26610,
       "selected": [
         "x_709954_5881267",
@@ -284,7 +298,14 @@
       "population_total": 30923.0,
       "population_covered": 9399.0,
       "coverage_percentage": 30.394851728486888,
-      "runtime_seconds": 0.008099313999991864,
+      "population_uncovered_reachable": 1822.0,
+      "population_unreachable": 19702.0,
+      "localities_by_status": {
+        "covered": 118,
+        "reachable": 27,
+        "unreachable": 290
+      },
+      "runtime_seconds": 0.004082700999788358,
       "evaluations": 1570,
       "selected": [
         "x_709954_5881267",
@@ -435,7 +456,14 @@
       "population_total": 30923.0,
       "population_covered": 5765.0,
       "coverage_percentage": 18.64308120169453,
-      "runtime_seconds": 0.0007529149997935747,
+      "population_uncovered_reachable": 5456.0,
+      "population_unreachable": 19702.0,
+      "localities_by_status": {
+        "covered": 79,
+        "reachable": 66,
+        "unreachable": 290
+      },
+      "runtime_seconds": 0.0003485059996819473,
       "evaluations": 25,
       "selected": [
         "x_711039_5886279"

@@ -42,6 +42,7 @@ class PipelineConfig:
     dem_source: str = "alos"
     hypsometric_palette: str = "warm_humid"
     dem: str | None = None
+    dem_label: str | None = None
     population: str | None = None
     population_field: str = "HABITANTES"
     id_field: str = "ID"
@@ -54,6 +55,8 @@ class PipelineConfig:
     prc_directory: str | None = None
     prc_mode: str = "screening"
     sensitive_directory: str | None = None
+    exclude_water: bool = True
+    water_file: str | None = None
     max_evaluations: int = 100_000
     gateways: tuple[str, ...] | None = None
     min_population: float | None = None

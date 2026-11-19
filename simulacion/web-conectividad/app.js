@@ -252,6 +252,24 @@ function constraintRows(scenario) {
       });
     }
 
+    const waterApplied = Boolean(stats.waterAudit);
+    rows.push({
+      id: "water",
+      title: "Sin antenas sobre agua (OSM natural=water)",
+      badge: waterApplied ? "aplicada" : stats?.waterConfigured === false ? "desactivada" : "sin registro",
+      meta: waterApplied
+        ? `${number(stats.waterAudit.numFeatures)} polígonos de agua en la ventana`
+        : "corrida previa al ADR 0018",
+      counts: waterApplied
+        ? `${number(stats.waterAudit.excluded)} candidatos excluidos`
+        : "no filtra en esta simulación",
+      formula: "C_agua = { p ∈ C₁ : p ∉ W }",
+      note: waterApplied
+        ? stats.waterAudit.source
+        : "Los cuerpos de agua no filtraban candidatos antes del ADR 0018.",
+      mapKey: waterApplied ? "rejections" : null,
+    });
+
     const sensitiveApplied = Boolean(stats.sensitiveAudit);
     rows.push({
       id: "sensitive",
@@ -696,6 +714,16 @@ async function loadOutput(directory, name) {
             }
           : null,
         sensitiveConfigured: Boolean(manifestConfig?.sensitive_directory),
+        waterAudit: manifest?.water_constraints
+          ? {
+              generated: manifest.water_constraints.generated ?? null,
+              kept: manifest.water_constraints.kept ?? null,
+              excluded: manifest.water_constraints.excluded ?? null,
+              numFeatures: manifest.water_constraints.num_features ?? null,
+              source: manifest.water_constraints.source ?? null,
+            }
+          : null,
+        waterConfigured: manifestConfig ? manifestConfig.exclude_water !== false : null,
       },
       demands: demandPoints.features.map((feature) => ({ id: feature.properties.id, label: feature.properties.id, population: feature.properties.population, longitude: feature.geometry.coordinates[0], latitude: feature.geometry.coordinates[1] })),
       // Sólo candidatos vigentes: los excluidos por PRC/sensibles viven en
