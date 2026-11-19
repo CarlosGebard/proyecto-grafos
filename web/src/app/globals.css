@@ -1,0 +1,414 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+}
+
+/* ─── Red Austral: tokens del sistema ───────────────────────────── */
+:root {
+  --radius: 0rem;
+  /* hueso y tinta naval (landing editorial) */
+  --paper: oklch(0.965 0.008 95);
+  --paper-deep: oklch(0.935 0.01 95);
+  --ink: oklch(0.22 0.1 268);
+  --ink-soft: oklch(0.36 0.08 268);
+  /* cobalto eléctrico (marca) */
+  --cobalt: oklch(0.45 0.28 268);
+  --cobalt-deep: oklch(0.39 0.24 268);
+  /* noche blueprint (atlas / simulación) */
+  --night: oklch(0.17 0.06 267);
+  --night-2: oklch(0.225 0.085 267);
+  --land: oklch(0.3 0.11 267);
+  --land-edge: oklch(0.62 0.18 265);
+  --pine: oklch(0.26 0.09 267);
+  /* señal hueso (puntos brillantes) */
+  --signal: oklch(0.93 0.015 95);
+  --signal-hot: oklch(0.985 0.005 95);
+  --signal-deep: oklch(0.74 0.1 265);
+  /* apoyos */
+  --moss: oklch(0.74 0.1 265);
+  --line-dim: oklch(1 0 0 / 8%);
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-deep: var(--paper-deep);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-cobalt: var(--cobalt);
+  --color-cobalt-deep: var(--cobalt-deep);
+  --color-night: var(--night);
+  --color-night-2: var(--night-2);
+  --color-land: var(--land);
+  --color-land-edge: var(--land-edge);
+  --color-pine: var(--pine);
+  --color-signal: var(--signal);
+  --color-signal-hot: var(--signal-hot);
+  --color-signal-deep: var(--signal-deep);
+  --color-moss: var(--moss);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-carto: var(--font-carto);
+}
+
+/* halo pulsante de los puntos de interés */
+@keyframes signal-ping {
+  0% {
+    transform: scale(0.4);
+    opacity: 0.9;
+  }
+  75%,
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+.signal-ping {
+  animation: signal-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -28;
+  }
+}
+
+.dash-flow {
+  animation: dash-flow 1.6s linear infinite;
+}
+
+/* foco visible reutilizable en el mapa */
+.map-focus:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 3px;
+}
+
+/* scrollbar delgado para la carta lateral */
+.thin-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: oklch(0.7 0.06 265 / 45%);
+  border-radius: 0;
+}
+.thin-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ─── marcadores HTML de Leaflet en el atlas ─────────────────────── */
+
+/* teselas topográficas, ligeramente atenuadas para el tema noche */
+.atlas-tiles {
+  filter: saturate(0.92) brightness(0.94);
+}
+
+/* teselas topográficas dentro de la simulación */
+.sim-tiles image {
+  filter: saturate(0.8) brightness(0.92);
+}
+
+.atlas-marker-outer {
+  background: transparent;
+  border: none;
+}
+
+.atlas-marker {
+  position: absolute;
+  left: 11px;
+  top: 11px;
+}
+
+/* área de golpe compacta para no tapar puntos vecinos */
+.atlas-marker::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: -10px;
+  width: 20px;
+  height: 20px;
+}
+
+.atlas-marker-halo,
+.atlas-marker-core {
+  pointer-events: none;
+}
+
+.atlas-marker-halo {
+  position: absolute;
+  left: -14px;
+  top: -14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  border: 1.5px solid var(--signal);
+  animation: signal-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.atlas-marker-core {
+  position: absolute;
+  left: -6px;
+  top: -6px;
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  background: var(--signal-hot);
+  box-shadow: 0 0 10px 2px var(--signal-deep), 0 0 3px var(--signal);
+}
+
+.atlas-marker-core::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 9999px;
+  background: var(--night);
+  opacity: 0.55;
+}
+
+.atlas-marker-label {
+  position: absolute;
+  left: 15px;
+  top: -9px;
+  pointer-events: none;
+  font-size: 13px;
+  font-family: var(--font-carto);
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+}
+
+.atlas-marker.is-selected .atlas-marker-core {
+  transform: scale(1.45);
+}
+
+.atlas-marker.is-selected .atlas-marker-label {
+  color: var(--signal-hot);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* etiqueta bajo el punto (pilotos vecinos: Yumbel / Biobío) */
+.atlas-marker.side-abajo .atlas-marker-label {
+  top: 14px;
+}
+
+/* ─── capas de simulación sobre Leaflet ─────────────────────────── */
+
+/* tooltip de localidad (nativo de Leaflet, escala con el mapa real) */
+.sim-tip {
+  background: var(--night-2);
+  border: 1px solid oklch(0.74 0.1 265 / 50%);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  color: var(--signal-hot);
+  font-family: var(--font-carto);
+  font-size: 12px;
+  line-height: 1.3;
+  padding: 4px 9px;
+}
+
+.sim-tip::before {
+  display: none;
+}
+
+/* antenas candidatas (divIcon con SVG) */
+.sim-cand-outer {
+  background: transparent;
+  border: none;
+}
+
+.sim-cand {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.sim-cand svg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 26px;
+  height: 26px;
+  overflow: visible;
+}
+
+.sim-cand .tri {
+  fill: none;
+  stroke: var(--night);
+  stroke-width: 3.6;
+  stroke-linejoin: round;
+}
+
+.sim-cand .tri2 {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.85);
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+
+.sim-cand .beam,
+.sim-cand .lamp,
+.sim-cand .lamp-ping {
+  display: none;
+}
+
+.sim-cand.is-sel .tri {
+  stroke: var(--night);
+  stroke-width: 4.6;
+}
+
+.sim-cand.is-sel .tri2 {
+  stroke: var(--signal-hot);
+  stroke-width: 2.1;
+}
+
+.sim-cand.is-sel .beam {
+  display: block;
+  stroke: var(--signal);
+  stroke-width: 1.1;
+  opacity: 0.65;
+}
+
+.sim-cand.is-sel .lamp {
+  display: block;
+  fill: var(--signal-hot);
+}
+
+.sim-cand.is-sel .lamp-ping {
+  display: block;
+  fill: none;
+  stroke: var(--signal);
+  stroke-width: 1;
+  animation: signal-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .signal-ping,
+  .dash-flow,
+  .atlas-marker-halo,
+  .sim-cand .lamp-ping {
+    animation: none !important;
+  }
+}
+

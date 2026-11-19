@@ -27,3 +27,8 @@ propuesta-primera-entrega/tmp/pdfs/
 *.out
 *.toc
 informe/informe-final.pdf
+
+# App web Next.js (web/)
+web/node_modules/
+web/.next/
+web/tsconfig.tsbuildinfo
