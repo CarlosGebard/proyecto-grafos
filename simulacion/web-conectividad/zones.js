@@ -22,15 +22,15 @@ export const ZONES = [
       {
         title: "Historia y acceso a la conectividad",
         paragraphs: [
-          "Yumbel nació como fuerte fronterizo en 1585 (San Felipe de Segundo de Austria, renombrado Santa Lucía de Yumbel en 1603), en el borde del río Biobío durante la Guerra de Arauco. Fue siempre lugar de paso. La imagen de San Sebastián llegó enterrada en 1655 y desde 1663 estructura la vida religiosa de la zona: el santuario actual se levantó entre 1856 y 1859, y las peregrinaciones masivas despegaron en los años 1760 y sobre todo con el ferrocarril Chillán–Talcahuano de la década de 1870, que por primera vez acercó masivamente la zona al resto del país.",
-          "El pueblo de Guayacán y su iglesia —estación clave de la peregrinación— están declarados Zona Típica y Monumento Histórico por el Consejo de Monumentos Nacionales. La modernización histórica de Yumbel llegó por rieles; la conectividad digital actual sigue siendo precaria en sus sectores rurales, como en casi todo el Biobío interior.",
+          "Yumbel nació como fuerte fronterizo en 1585 (San Felipe de Segundo de Austria, renombrado Santa Lucía de Yumbel en 1603), en el borde del río Biobío durante la Guerra de Arauco. Fue siempre lugar de paso. La imagen de San Sebastián llegó enterrada en 1655 y desde 1663 estructura la vida religiosa de la zona: el santuario actual se levantó entre 1856 y 1859, y las peregrinaciones comenzaron en la década de 1760 y se masificaron desde 1878, con el ferrocarril Chillán–Talcahuano, que por primera vez acercó masivamente la zona al resto del país.",
+          "La modernización histórica de Yumbel llegó por rieles; la conectividad digital actual sigue siendo precaria en sus sectores rurales, como en casi todo el Biobío interior.",
         ],
       },
       {
         title: "Quién habita la zona",
         paragraphs: [
-          "21.198 habitantes según el Censo 2017 (INE); por distritos censales, cerca de la mitad vive fuera de la ciudad, en localidades rurales dispersas de secano (Choihue, Rere, Lucay, Tomeco, San Cristóbal). Es una comuna de pequeña agricultura y comercio asociado al santuario, con envejecimiento pronunciado: el 22,8 % tenía 60 años o más en 2017.",
-          "Ese perfil coincide con el retrato nacional del hogar aún desconectado que mide Fundación País Digital (Hogares Conectados 2026, con Casen 2024 y la encuesta de SUBTEL): segmento socioeconómico E, educación básica incompleta, jefes de hogar obreros no calificados — y 47,3 % de esos hogares es rural.",
+          "21.198 habitantes según el Censo 2017 (INE); una parte importante vive fuera de la ciudad, en localidades rurales dispersas de secano (Choihue, Rere, Lucay, Tomeco, San Cristóbal). Es una comuna de pequeña agricultura y comercio asociado al santuario, con una población envejecida y una parte importante viviendo en sectores rurales.",
+          "Ese perfil coincide con el retrato nacional del hogar aún desconectado que mide Fundación País Digital (Hogares Conectados 2026, con Casen 2024 y la encuesta de SUBTEL): segmento socioeconómico E y educación básica incompleta — el grupo más numeroso de hogares desconectados (59 %), del cual un 47,3 % es rural.",
         ],
       },
       {
@@ -44,15 +44,14 @@ export const ZONES = [
         title: "Impacto social si el proyecto se concretara",
         paragraphs: [
           "Coordinación de emergencia y turismo religioso: cerca de un millón de peregrinos en dos días saturan un territorio rural — comunicaciones disponibles cambian la gestión de salud, seguridad y tránsito de la fiesta más grande del sur de Chile.",
-          "Para la población permanente: telesalud en postas de secano, continuidad educativa (clases y contenidos para escuelas rurales pequeñas) y canales de venta digital para la pequeña agricultura y el comercio local. La agenda nacional ya desplega antenas en localidades obligatorias (WOM autorizó 366 en 2026): este estudio muestra dónde conviene que esas torres se paren para cubrir más población con menos sitios.",
+          "Para la población permanente: telesalud en postas de secano, continuidad educativa (clases y contenidos para escuelas rurales pequeñas) y canales de venta digital para la pequeña agricultura y el comercio local. La agenda nacional ya desplega antenas en localidades obligatorias (SUBTEL autorizó en 2026 las 366 localidades obligatorias del proyecto 5G de WOM): este estudio muestra dónde conviene que esas torres se paren para cubrir más población con menos sitios.",
         ],
       },
     ],
     sources: [
       { text: "Archivo Histórico de Concepción — La fiesta de San Sebastián de Yumbel (2024)", url: "https://www.archivohistoricoconcepcion.cl/la-fiesta-de-san-sebastian-de-yumbel/" },
-      { text: "Consejo de Monumentos Nacionales — Iglesia y Pueblo de Guayacán", url: "https://www.monumentos.gob.cl/monumentos/monumentos-historicos/iglesia-de-guayacan" },
       { text: "INE — Censo 2017, comuna de Yumbel (21.198 hab.)", url: "https://www.ine.gob.cl/estadisticas/sociales/demografia-y-vitales/censos-de-poblacion-y-vivienda" },
-      { text: "Fundación País Digital — Hogares Conectados 2026 (Casen 2024 + Subtel)", url: "https://www.fundacionpaisdigital.cl/" },
+      { text: "Fundación País Digital — Hogares Conectados 2026 (Casen 2024 + Subtel)", url: "https://paisdigital.org/portfolio-item/hogares-conectados-2026/" },
     ],
   },
   {
@@ -83,7 +82,7 @@ export const ZONES = [
       {
         title: "Situación actual",
         paragraphs: [
-          "Los Saltos del Laja son Zona de Interés Turístico (ZOIT) desde 2012, pero la temporada 2026 golpeó duro: los incendios forestales de febrero dejaron la ocupación de cabañas y restaurantes un 55 % abajo, y el sistema frontal de julio redujo las visitas hasta un 90 %. Un destino que vive del flujo de visitantes necesita comunicaciones para promocionarse, recibir reservas y coordinar emergencias.",
+          "Los Saltos del Laja —en el límite de Cabrero, Los Ángeles y Yumbel, a pocos kilómetros de la ventana simulada— son Zona de Interés Turístico (ZOIT) desde 2016, pero la temporada de verano 2026 cerró con la actividad de cabañas y restaurantes cerca de un 55 % abajo, en parte por el efecto indirecto de los incendios forestales. Un destino que vive del flujo de visitantes necesita comunicaciones para promocionarse, recibir reservas y coordinar emergencias.",
           "La simulación en esta ventana (82 localidades, 40 sitios candidatos del criterio territorial) selecciona k = 5 antenas y logra la cobertura conectada de la mayoría de la población de la ventana con la red en un solo componente.",
         ],
       },
@@ -107,7 +106,7 @@ export const ZONES = [
     directory: "metropolitana",
     localitiesKey: "metropolitana",
     name: "Piloto Metropolitana · Buin – Paine",
-    subtitle: "Región Metropolitana · ventana rural de 20 × 20 km",
+    subtitle: "Región Metropolitana · ventana rural de ~18 × 22 km",
     // Centro de la ventana (config metropolitana.toml).
     center: [-70.85, -33.75],
     kicker: "Cuenca de Angostura: periurbanización sobre suelo agrícola",
@@ -116,8 +115,8 @@ export const ZONES = [
       {
         title: "Historia y acceso a la conectividad",
         paragraphs: [
-          "Buin se fundó como villa en 1884 (Decreto Supremo del 14 de febrero, firmado por Manuel Bulnes) sobre un territorio de haciendas y viñedos coloniales. La cuenca de Angostura fue siempre el paso obligado entre Santiago y el sur; hoy la ruta 5 y la Autopista del Maipo cruzan la comuna, que PLADECO describe como conectada por carreteras pero fragmentada por ellas para quien vive al lado.",
-          "La modernización de esta zona fue vial e industrial, no digital: los sectores rurales de Buin y Paine norte (Alto Jahuel, Angostura, precordillera) quedaron cubiertos por señal celular básica pero lejos de la fibra que domina el acceso fijo nacional.",
+          "Buin se fundó como villa en 1844 (Decreto Supremo del 14 de febrero, firmado por el presidente Manuel Bulnes) sobre un territorio de haciendas y viñedos coloniales. La cuenca de Angostura fue siempre el paso obligado entre Santiago y el sur; hoy la ruta 5 y la Autopista del Maipo cruzan la comuna y la fragmentan para quien vive al lado de ellas.",
+          "La modernización de esta zona fue vial e industrial, no digital: los sectores rurales de Buin y Paine norte (Alto Jahuel, Angostura, precordillera — contexto comunal que rodea la ventana simulada) quedaron cubiertos por señal celular básica pero lejos de la fibra que domina el acceso fijo nacional.",
         ],
       },
       {
@@ -146,7 +145,7 @@ export const ZONES = [
       { text: "BCN / INE — Buin: Censos 2017-2024, empresas, CASEN (síntesis Sitrural, ago 2025)", url: "https://www.sitrural.cl/wp-content/uploads/2025/08/Buin_demografica-1.pdf" },
       { text: "Municipalidad de Buin — PLADECO 2021-2028 (conectividad vial y territorio)", url: "https://www.buin.cl/wp-content/uploads/2021/09/PLADECO-Buin-2021-2028-portada-final-30.08.2021-1.pdf" },
       { text: "SUBTEL — Informe del Sector, junio 2026 (internet fijo: 95,1 % urbano / 4,9 % rural)", url: "https://www.subtel.gob.cl/wp-content/uploads/2026/08/Informe-del-Sector-Telecomunicaciones-Jun26-VF.pdf" },
-      { text: "Fundación País Digital — Hogares Conectados 2026 (Casen 2024 + Subtel)", url: "https://www.fundacionpaisdigital.cl/" },
+      { text: "Fundación País Digital — Hogares Conectados 2026 (Casen 2024 + Subtel)", url: "https://paisdigital.org/portfolio-item/hogares-conectados-2026/" },
     ],
   },
 ];
@@ -154,12 +153,12 @@ export const ZONES = [
 // Contexto nacional para la página de inicio (verificado, noviembre 2026).
 export const NACIONAL = {
   desconectados: "196.156 hogares (3,4 % del país) siguen sin acceso propio a internet",
-  perfil: "El hogar desconectado típico es rural o urbano-rural, segmento E, con educación básica incompleta; 47,3 % de ese grupo vive en zonas rurales",
-  brecha: "La brecha urbano-rural cayó de ~30 puntos (2008) a 1,6 puntos (2025): rural 95,1 % vs urbano 96,8 % de hogares con acceso pagado",
+  perfil: "El hogar desconectado típico es rural o urbano-rural, segmento E, con educación básica incompleta; ese grupo es el más numeroso entre los hogares desconectados (59 %), y un 47,3 % de él es rural",
+  brecha: "La brecha urbano-rural cayó de ~30 puntos (2008) a cerca de 1,7 puntos (2025): rural 95,1 % vs urbano 96,8 % de hogares con acceso a internet",
   fijo: "El 95,1 % de las conexiones fijas está en zonas urbanas; sólo el 4,9 % en rurales — lo rural depende del celular",
   permiso: "Toda torre sobre 12 m exige recepción municipal (LGUC 116 bis F, Ley 20.599): dónde poner las antenas es una decisión de un solo intento",
   fuentes: [
-    { text: "Fundación País Digital — Hogares Conectados 2026 (Casen 2024 + Encuesta SUBTEL)", url: "https://www.fundacionpaisdigital.cl/" },
+    { text: "Fundación País Digital — Hogares Conectados 2026 (Casen 2024 + Encuesta SUBTEL)", url: "https://paisdigital.org/portfolio-item/hogares-conectados-2026/" },
     { text: "SUBTEL — Informe del Sector Telecomunicaciones, junio 2026", url: "https://www.subtel.gob.cl/wp-content/uploads/2026/08/Informe-del-Sector-Telecomunicaciones-Jun26-VF.pdf" },
     { text: "SUBTEL — Estadísticas 1.er semestre 2026 (5G alcanza al 4G)", url: "https://www.subtel.gob.cl/estadisticas-1o-semestre-subtel-el-5g-avanza-a-paso-firme-para-alcanzar-al-4g-y-brecha-se-reduce-a-solo-627-mil-conexiones" },
     { text: "WOM — 100 % de las 366 localidades obligatorias del proyecto 5G autorizadas (marzo 2026)", url: "https://sobrenosotros.wom.cl/en-el-marco-del-proyecto-5g-wom-cumple-con-el-100-de-las-localidades-obligatorias-autorizadas" },

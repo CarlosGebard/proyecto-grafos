@@ -1162,7 +1162,7 @@ function fillLanding() {
   factGrid.replaceChildren(
     ...[
       { value: "196.156", label: "hogares chilenos siguen sin acceso propio a internet (3,4 % del país)" },
-      { value: "95,1 % vs 96,8 %", label: "acceso pagado rural vs urbano en 2025; la brecha era de ~30 puntos en 2008" },
+      { value: "95,1 % vs 96,8 %", label: "de hogares rurales vs urbanos con acceso a internet en 2025; la brecha era de ~30 puntos en 2008" },
       { value: "4,9 %", label: "de las conexiones fijas de internet está en zonas rurales — el resto del acceso rural depende del celular" },
       { value: "> 12 m", label: "toda torre sobre esa altura exige recepción municipal (LGUC 116 bis F): dónde colocarla es una decisión de un solo intento" },
     ].map((fact) => {
