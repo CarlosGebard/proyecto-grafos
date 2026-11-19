@@ -83,15 +83,19 @@ type SimData = {
   cands: CandMeta[];
 };
 
-/** Re seguridad: fuerza la recomposición de las capas overlay tras cambios
- *  masivos de capas (Chromium mantiene texturas GPU obsoletas). */
+/** Re composición tras cambios masivos de capas: Chromium a veces presenta
+ *  marcos obsoletos del canvas/svg (texturas GPU viejas). Forzar el
+ *  re-composite promoviendo el CONTENEDOR del mapa (una única capa GPU):
+ *  teselas y datos quedan en la misma capa y no pueden desincronizarse
+ *  entre sí. Promover canvas/svg individuales con translateZ desincronizaba
+ *  los puntos respecto de las teselas durante el arrastre (los puntos
+ *  "se movían de lugar y luego se re acomodaban" al soltar). */
 function recompositeOverlay(map: Leaflet.Map) {
-  const overlay = map.getPanes().overlayPane;
-  for (const el of [overlay.querySelector("svg"), overlay.querySelector("canvas")]) {
-    if (el instanceof HTMLElement || el instanceof SVGElement) {
-      el.style.transform = `${el.style.transform} translateZ(0)`;
-    }
-  }
+  const container = map.getContainer();
+  container.style.transform = "translateZ(0)";
+  window.setTimeout(() => {
+    container.style.transform = "";
+  }, 250);
 }
 
 export function ChileMap({
@@ -139,7 +143,7 @@ export function ChileMap({
         zoomControl: false,
         attributionControl: false,
         minZoom: 4,
-        maxZoom: 13,
+        maxZoom: 17,
         maxBounds: OVERVIEW_BOUNDS,
         maxBoundsViscosity: 1,
         zoomSnap: 0.25,
