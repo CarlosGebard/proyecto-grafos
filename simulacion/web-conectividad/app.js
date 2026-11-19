@@ -1183,7 +1183,7 @@ function fillLanding() {
 
 mountRayBursts();
 fillLanding();
-document.querySelector("#map-attribution").textContent = "Mapa base © OpenStreetMap contributors";
+document.querySelector("#map-attribution").textContent = "© OpenStreetMap · SRTM · OpenTopoMap";
 map.load().then(() => {
   // Precarga silenciosa de los tres pilotos: al elegir una zona la
   // simulación ya está lista.

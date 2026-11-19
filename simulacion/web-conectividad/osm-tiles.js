@@ -1,6 +1,8 @@
-// Capa base de OpenStreetMap (tiles raster estándar): ensambla en un canvas
-// los tiles que cubren un rectángulo WGS84 y lo devuelve como imagen única
-// para drapearlo sobre el relieve 3D o colgarlo detrás del SVG de Chile.
+// Capa base topográfica de OpenTopoMap (tiles raster sobre datos de
+// OpenStreetMap + SRTM): ensambla en un canvas los tiles que cubren un
+// rectángulo WGS84 y lo devuelve como imagen única para drapearlo sobre el
+// relieve 3D o colgarlo detrás del SVG de Chile, recortado a la silueta
+// del país (el océano queda del tinte nocturno del tema).
 // Sin librerías: sólo Web Mercator aritmético. Si no hay red (o un tile
 // falla), assembleTiles devuelve null y cada visor conserva su fondo local
 // (paleta hipsométrica / silueta Natural Earth) — el visor funciona offline.
@@ -9,11 +11,11 @@
 // en paralelo acotado, atribución visible y zoom moderado (nunca > 13 en el
 // visor 3D ni > 10 en el mapa nacional).
 
-const TILE_URL = "https://tile.openstreetmap.org";
+const TILE_URL = "https://tile.opentopomap.org";
 const TILE_SIZE = 256;
 const MAX_PARALLEL = 6;
 
-export const ATTRIBUTION = "© OpenStreetMap contributors";
+export const ATTRIBUTION = "© OpenStreetMap · SRTM · OpenTopoMap";
 
 // Web Mercator: coordenada de píxel en el mundo completo a un zoom dado.
 export function worldSize(zoom) {
